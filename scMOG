@@ -15,3 +15,5 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_prop
 #datasets (from BABEL)
 #https://office365stanford-my.sharepoint.com/personal/wukevin_stanford_edu/_layouts/15/
 #download.aspx?SourceduUrl=%2Fpersonal%2Fwukevin%5Fstanford%5Fedu%2FDocuments%2Fmanuscripts%2Fsingle%5Fcell%5Fatac%5Frna%2Fpublic%5Fdata%2Fdata%2Etar%2Egz
+
+(scMOG) jiluzhang@Saturn:~/scMOG/dataset$ python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
