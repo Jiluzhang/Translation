@@ -1,0 +1,17 @@
+## install miniconda
+wget -c https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x Miniconda3-latest-Linux-x86_64.sh
+./Miniconda3-latest-Linux-x86_64.sh
+## enter...   yes...
+
+conda create -n scMOG python=3.7.10
+conda activate scMOG
+
+git clone https://github.com/GaoLabXDU/scMOG.git
+conda install pytorch
+pip install scanpy 
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_property mpl_scatter_density adjustText astropy
+
+#datasets (from BABEL)
+#https://office365stanford-my.sharepoint.com/personal/wukevin_stanford_edu/_layouts/15/
+#download.aspx?SourceduUrl=%2Fpersonal%2Fwukevin%5Fstanford%5Fedu%2FDocuments%2Fmanuscripts%2Fsingle%5Fcell%5Fatac%5Frna%2Fpublic%5Fdata%2Fdata%2Etar%2Egz
