@@ -10,10 +10,19 @@ conda activate scMOG
 git clone https://github.com/GaoLabXDU/scMOG.git
 conda install pytorch
 pip install scanpy 
-pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_property mpl_scatter_density adjustText astropy
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_property mpl_scatter_density adjustText astropy igraph louvain leidenalg tensorboard skorch
 
 #datasets (from BABEL)
 #https://office365stanford-my.sharepoint.com/personal/wukevin_stanford_edu/_layouts/15/
 #download.aspx?SourceduUrl=%2Fpersonal%2Fwukevin%5Fstanford%5Fedu%2FDocuments%2Fmanuscripts%2Fsingle%5Fcell%5Fatac%5Frna%2Fpublic%5Fdata%2Fdata%2Etar%2Egz
 
 (scMOG) jiluzhang@Saturn:~/scMOG/dataset$ python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
+
+## sc_data_loaders.py
+## assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
+## assert valid_idx, "Got empty validation split"  -> assert valid_idx.any(), "Got empty validation split"
+## assert test_idx, "Got empty test split"         -> assert test_idx.any(), "Got empty test split"
+## train.py & predict-rna.py
+## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
+
+dat = sc.read_10x_h5('DM_rep4.h5', gex_only=False)
