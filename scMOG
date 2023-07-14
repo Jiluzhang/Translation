@@ -26,3 +26,6 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_prop
 ## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
 
 dat = sc.read_10x_h5('DM_rep4.h5', gex_only=False)
+dat = sc.read_h5ad(filePath)
+
+WGAN: https://zhuanlan.zhihu.com/p/25071913
