@@ -1,1 +1,25 @@
 ## test transformer-based tool for modality translation
+
+conda create -n scMoFormer python=3.7.10
+
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pydance anndata dgl performer-pytorch
+conda install pytorch torchvision chardet
+
+## install kaggle
+# https://github.com/Kaggle/kaggle-api
+pip install kaggle
+
+
+./run.sh
+# Subask: cite or gex2adt
+cite
+# Download data and preprocess? y or n
+y
+
+nohup kaggle competitions download -c open-problems-multimodal > download_cite.log &
+unzip open-problems-multimodal.zip -d data
+
+## equal to "./run.sh"
+python ./utils/download_data.py --subtask cite
+python ./utils/data_to_h5ad.py
+python ./utils/svd.py --subtask cite
