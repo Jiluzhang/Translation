@@ -2,13 +2,23 @@
 # https://github.com/OmicsML/scMoFormer
 
 conda create -n scMoFormer python=3.7.10
+conda remove -n scMoFormer --all
+conda create -n scMoFormer python=3.10
 
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pydance anndata dgl performer-pytorch
 conda install pytorch torchvision chardet
 
+# conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 -c pytorch        # not work
+# cuda version: 12.1
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple torch torchvision torchaudio   # it works
+
+# import torch
+# torch.cuda.is_available()
+
 ## install kaggle
 # https://github.com/Kaggle/kaggle-api
 pip install kaggle
+
 
 
 ./run.sh
