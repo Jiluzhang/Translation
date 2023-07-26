@@ -9,6 +9,7 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pydance anndata dgl perf
 
 # conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 -c pytorch        # not work
 # cuda version: 12.1
+# updated cuda version: 12.2
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple torch torchvision torchaudio   # it works
 
 # import torch
