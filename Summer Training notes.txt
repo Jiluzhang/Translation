@@ -89,9 +89,16 @@ Xavier权重初始化
 ## ResNet论文精读
 short connections
 
-
-
-
+## Transformer论文精读（Attention is all you need）
+batch normalization将列（特征）转化为均值为1，方差为0
+layer normalization将行（样本）转化为均值为1，方差为0
+RNN是把上一个时刻的信息输出传入下一个时刻作为输入
+Transformer是通过attention层全局地获取整个序列的信息
+restricted self-attention的计算限制在某个固定的范围
+byte-pair encoding (BPE)是将词根提取，避免因时态等造成的词汇量太大
+TPU适合于做大矩阵的乘法
+label smoothing
+归纳偏置（学习算法中，当学习器去预测其未遇到过的输入结果时，所做的一些假设的集合）(Mitchell, 1980)
 
 
 
