@@ -172,8 +172,11 @@ GPU满负荷运行不要紧，关键是控制好温度不要太高
 双向 & 完形填空
 
 
+## Q4 ##
+A = torch.arange(-10, 10.1, 0.1).reshape(201, 1) ** torch.arange(1, 21).reshape(1, 20)
 
-
+## Q5 ##
+print(x.grad)
 
 
 
