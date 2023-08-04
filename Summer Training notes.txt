@@ -119,14 +119,57 @@ nn.Sequential()
 继承nn.Module（__init__需要哪些层 & 前向传播如何计算）
 
 ## 参数管理
+访问参数
+state_dict() -> 返回OrderedDict
+.bias    .bias.data    .weight.grad
+net.named_parameters()
+print(net)
+内置初始化
+nn.init.normal_()  # "_"表示直接替换，而不是返回
+nn.init.zero_()    nn.init.constant_()
+net.apply()
+m.weight.data *= m.weight.data.abs() >= 5  #
+参数绑定（权重共享）
+shared = nn.Linear(8, 8)
+net = nn.Sequential(nn.Linear(4, 8), nn.ReLU(), shared, nn.ReLU(),
+                                                shared, nn.ReLU(), nn.Linear(8, 1))
+## 自定义层
+继承nn.module
+nn.Parameter() 把初始化的值包起来
 
+## 读写文件
+加载和保存张量(列表 & 字典)  torch.save()  torch.load()
+加载和保存模型参数  
+torch.save(net.state_dict(), 'mlp.params')
+clone = MLP()
+clone.load_state_dict(torch.load('mlo.params'))
+clone.eval()
 
+## Q&A
+类别变量one-hot encoding维度过多，可用稀疏矩阵存储或者直接忽略
+kaiming初始化
+几乎不存在不可导的函数，可能存在某几个离散点不可导
 
+## 使用GPU
+nvidia-smi
+torch.cuda.device('cuda')
+torch.cuda.device('cuda:1')
+torch.cuda.device_count()
+X= torch.ones(2, 3, device=try_gpu())
+保持张量在同一个GPU上，以保证计算性能
+net.to(device=try_gpu())
 
+## 购买GPU
+内存似乎没那么重要（买最贵的，最新的-_-）
+compute power & Memory size & Memory bandwith
 
+## Q&A
+GPU显存比CPU内存贵
+GPU满负荷运行不要紧，关键是控制好温度不要太高
+每创建一个实例，就会有自己的参数，把实例放在不同地方，才会共享参数
 
-
-
+## BERT
+双向 & 完形填空
 
 
 
