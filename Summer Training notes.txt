@@ -172,27 +172,6 @@ GPU满负荷运行不要紧，关键是控制好温度不要太高
 双向 & 完形填空
 
 
-## Q4 ##
-A = torch.arange(-10, 10.1, 0.1).reshape(201, 1) ** torch.arange(1, 21).reshape(1, 20)
-
-## Q5 ##
-print(x.grad)
-y = 2 * torch.dot(x, x)
-y.backward()
-x.grad
-x.grad.zero_()
-
-## Q6 ##
-def log_exp(x, y):
-    return (-torch.log((torch.exp(x) / (torch.exp(x)+torch.exp(y)))))
-    pass
-def grad(forward_func, x, y):
-  x.requires_grad_(True)
-  y.requires_grad_(True)
-  z = forward_func(x, y)
-  z.backward()
-  print('x.grad =', x.grad)
-  print('y.grad =', y.grad)
 
 
 
