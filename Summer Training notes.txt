@@ -251,27 +251,17 @@ pytorch中的步幅与池化窗口的大小相同
 可通过列表操作得到行数或列数不确定的矩阵
 池化层用的越来越少的原因：通过设置stride减少计算量 & 数据增强
 
+## GPT论文精读
+Hacker News
+Github Copilot
+GPT(Generative Pre-Training)
+...
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## ViT论文精读
+vision transformer
+遮挡 & 数据分布偏移 & 对抗性patch & 随机打乱
+用特征图当做Transformer的输入
+...
 
 
 
