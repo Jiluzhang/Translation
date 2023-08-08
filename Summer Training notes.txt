@@ -264,6 +264,83 @@ vision transformer
 ...
 
 
+## Day 7 ##
+## LeNet
+手写的数字识别
+MNIST(50,000个训练数据 & 10,000个测试数据 & 图像大小28×28 & 10类)
+2个卷积层 & 2个池化层 & 2个全连接层
+nn.Conv2d() -> nn.AvgPool2d() -> nn.Conv2d() -> nn.AvgPool2d() -> nn.Linear() -> nn.Linear() -> nn.Linear()
+Fashion-MNIST数据集
+
+## LeNet代码实现
+...
+
+## Q&A
+每个输出通道匹配某些特征
+max池化比average值更大，会更好训练些
+Lua语言（LeNet最初实现用的语言）
+准确率在实践中很大程度上取决于用户体验和承受的阈值
+CNN Explainer
+
+## AlexNet
+Learning with Kernels 2001
+特征提取  选择核函数  凸优化问题  漂亮的定理
+Multiple View Geometry in computer vision
+抽取特征  描述几何  （非）凸优化  漂亮定理
+特征工程  特征描述子：SIFT，SURF
+数据增长 ~ 计算能力
+ImageNet 2010
+AlexNet本质上是更深更大的LeNet（主要改进：丢弃法 & ReLU & MaxPooling & 数据增强）
+图片 -> 人工特征提取 -> SVM
+图片 -> 通过CNN学习特征 -> Softmax回归
+
+## AlexNet代码实现
+AlexNet的学习率比LeNet低
+
+## Q&A
+AlexNet抽取的特征一般不符合人类的逻辑，很大原因是其最终目的是为了得到准确的分类
+local response normalization (LRN) 在后续被认为效果不好
+数据增强后模型变差是正常的-_-
+
+## VGG
+AlexNet网络形状不规则，无法详细解释设计思路
+VGG可视为更大更深的AlexNet
+将卷积层组合成块
+VGG块  3*3卷积（填充1）（n层，m通道） 2*2最大池化层（步幅2）
+VGG-16, VGG-19
+不同的卷积块个数和超参数可以得到不同复杂度的变种（低配版 & 高配版）
+
+## VGG代码实现
+num_convs, in_channels, out_channels
+
+## Q&A
+不要过度设计模型
+
+## 网络中的网络NiN
+全连接层过大，导致模型的参数主要集中在全连接层
+NiN块  一个卷积层后跟两个全连接层（步幅为1，无填充，输出形状和卷积层输出一样）
+无全连接层 & 交替使用NiN块和步幅为2的最大池化层 & 最后使用全局平均池化层得到输出
+模型设计基于AlexNet
+
+## NiN的代码实现
+in_channels, out_channels, kernel_size, strides, padding
+nn.AdaptiveAvgPool2d() 全局池化
+
+## Q&A
+宽的全连接层容易过拟合
+GPU显存-内存泄露
+全局池化层可以降低模型复杂度，但是模型收敛会变慢
+pytorch会自动初始化参数
+
+
+
+
+
+
+
+
+
+
 
 
 
