@@ -344,7 +344,15 @@ MAE对数据增强不是太敏感
 
 ## 如何判断研究工作的价值
 用有新意的方法有效的解决一个研究问题
+新意度*有效性*问题大小=价值
 
+## 论文novelty
+Michael J. Black
+beauty!!!
+简单有效！！！
+If you hear a good idea, there is a moment of surprise and then, the better it is, the more obivous it may seem.
+用简单模型替代复杂模型获得可解释性
+新意度！=复杂度、困难度、惊讶度、技术新意度、有效性
 
 
 
