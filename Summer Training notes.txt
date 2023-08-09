@@ -409,9 +409,12 @@ cos学习率
 ## 图片分类竞赛
 176个叶子种类
 
-
-
-
+## MoCo论文精读
+对比学习  将相似的图片在语义空间上尽可能邻近，不相似的尽可能远离
+自监督模型
+instance dismination  每个样本自成一类
+NCE: noise contrastive estimation
+end-to-end  memory bank  MoCo
 
 
 
