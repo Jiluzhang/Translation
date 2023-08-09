@@ -355,9 +355,59 @@ If you hear a good idea, there is a moment of surprise and then, the better it i
 新意度！=复杂度、困难度、惊讶度、技术新意度、有效性
 
 
+## Day 8 ##
+## 含并行连结的网络（GoogLeNet）
+GoogleNet使用了9个Inception块，是第一个达到上百层的网络（并行）
+Inception块  4个路径从不同层面抽取信息，然后再输出通道维合并
+高宽不变，通道数改变
+和单3*3或5*5卷积层相比，Inception块有更少的参数个数和计算复杂度
+Inception-BN (v2) 使用batch normalization
+Inception-V3 修改了Inception块 替换卷积层
+Inception-V4 使用残差连接
 
+## GoogLeNet代码实现
+...
 
+## Q&A
+DIVE INTO DEEP LEARNING (D2L)
+ResNeSt: Split-Attention Networks
 
+## 批量归一化
+损伤出现在最后，后面的层训练较快
+固定小批量的均值和方差
+可学习的参数为γ（拉伸参数）和β（偏移参数）
+对于全连接层，作用在特征维
+对于卷积层，作用在通道维
+批量归一化可能就是通过在每个小批量里加入噪音来控制模型复杂度，因此没必要和丢弃法一起用
+批量归一化可以加速收敛，但一般不改变模型精读
+
+## 批量归一化代码实现
+eps=1e-5  momentum=0.9
+批量归一化要加在激活函数前
+
+## Q&A
+马毅 深度学习第一性原理 白盒理论解释深度学习
+layer normalization
+
+## 残差网络（ResNet）
+残差块  f(x)=x+g(x)
+残差块使得很深的网络更加容易训练，甚至可以训练一千层的网络
+
+## ResNet代码实现
+...
+
+## Q&A
+cos学习率
+数据增强可能导致测试精度大于训练精度
+
+## ResNet为什么能训练出1000层的模型
+将梯度乘法转化为加法！
+
+## Q&A
+可以根据所在层数设置不同的学习率，但还是比较难确定学习率的值范围
+
+## 图片分类竞赛
+176个叶子种类
 
 
 
