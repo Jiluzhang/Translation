@@ -470,8 +470,15 @@ batch size过大会降低模型精度
 batch normalization ~ 模型精度？
 GPU显存优化
 
-
-
+## Swin Transformer论文精读
+paperswithcode网站  可查看模型在数据集中的表现
+swin transformer让vision transformer像卷积神经网络一样能分成几个block，能做层级式的特征提取，使提取的特征有多尺度的概念
+FPN
+UNet
+多尺度特征
+patch merging: 空间大小减半，通道数加倍
+test time augmentation
+密集型预测任务
 
 
 
