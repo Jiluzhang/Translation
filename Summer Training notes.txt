@@ -1,3 +1,5 @@
+document.querySelector('video').playbackRate=2.5
+
 #### Day 3 ####
 ## 感知机
 二分类模型
@@ -415,6 +417,74 @@ cos学习率
 instance dismination  每个样本自成一类
 NCE: noise contrastive estimation
 end-to-end  memory bank  MoCo
+
+
+## Day 9 ##
+## 深度学习硬件：CPU和GPU
+数值计算步骤：主内存 -> L3 -> L2 -> L1 -> 寄存器
+提升空间和时间的内存本地性
+时间：重用数据使得保持它们在缓存里
+空间：按序读写数据使得可以预读取
+如果一个矩阵是按列存储，访问一行会比访问一列要快
+超线程不一定能提升性能，因为它们共享寄存器
+GPU的核数和带宽多于CPU，但控制流较弱
+提升GPU利用率：并行（使用数千个线程） 内存本地性（缓存更小，架构更简单） 少用控制语句（支持有限，同步开销很大）
+不要频繁地在CPU和GPU之间传数据
+高性能计算编程
+CPU: C++或任何高性能语言
+GPU: Nvidia上用CUDA  其它用OpenCL
+
+## Q&A
+增加数据是提高泛化性最简单有效的方式
+
+## 深度学习硬件：TPU和其它
+DSP 数字信号处理  为数字信号处理算法设计：点积，卷积，FFT
+FPGA 可编程阵列  有大量可以编程逻辑单元和可配置的连接
+AI ASIC  Google TPU
+Systolic Array  计算单元（PE）阵列  特别适合做矩阵乘法
+
+## Q&A
+专用性越高的硬件计算性能越高
+开发生态  研究人员生态
+编译器
+
+## 单机多卡并行
+在训练和预测时，我们将一个小批量计算切分到多个GPU上来达到加速的目的
+常用的切分方案：数据并行  模型并行  通道并行
+数据并行：读一个数据块 -> 拿回参数 -> 计算梯度 -> 发出梯度 -> 更新梯度
+当模型很大时，会使用模型并行
+
+## Q&A
+模型并行的性能比数据并行一般会低
+
+## 多GPU训练实现（从零开始）
+allreduce函数将所有向量相加，并将结果广播给所有GPU
+nn.parallel.scatter() 均匀切分数据并分发给GPU
+当GPU数增加时，可以同时增加batch size以及learning rate！
+
+## 多GPU训练实现（简洁实现）
+nn.DataParallel(net, device_ids=devices)
+batch size过大会降低模型精度
+
+## Q&A
+batch normalization ~ 模型精度？
+GPU显存优化
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
