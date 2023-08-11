@@ -560,6 +560,50 @@ top1 & top5 accuracy
 ## Q&A
 某个方法不work，很多时候是没执行到位-_-
 
+## AlphaFold 2论文精读
+把结果换算成大家可以理解的概念，而不是纯粹数字的概念
+特征提取 & 编码器 & 解码器
+MSA：multi sequence alignment
+genetic database search & pairing & structure database search
+Evoformer是Transformer的变种
+recycling (three times)
+MSA row-wise gated self-attention with pair bias
+MSA column-wise gated self-attention
+氨基酸的相对位置
+IPA: Invariant point attention
+
+## 大模型时代下做科研的四个思路
+1. efficient (PEFT: paramater efficient fine tuning)
+2. pretrained model  new directions
+3. plug-and-play
+4. dataset, evaluation, survey
+...
+
+## 跟读者建立联系（研究的艺术一）
+知道你的读者是谁？
+we write to remember more accurately, understand better, and evaluate what we think more objectively.
+I've found some new and interesting information
+I've found a solution to an important practical problem
+I've found an answer to an important question
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
