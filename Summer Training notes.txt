@@ -1,4 +1,4 @@
-document.querySelector('video').playbackRate=2.5
+document.querySelector('video').playbackRate=2.25
 
 #### Day 3 ####
 ## 感知机
@@ -481,13 +481,84 @@ test time augmentation
 密集型预测任务
 
 
+## Day 8 ##
+## 分布式训练
+单机多卡
+数据放在分布式文件系统上 & 多个worker & 多个参数服务器
+尽量少在机器间做通讯
+每个服务器对梯度求和，并更新参数
+同步SGD：每个worker都是同步计算一个批量
+增加每个GPU的批量大小，会导致系统性能变好，但是训练有效性会降低
+使用一个大数据集 & 好的GPU-GPU和机器-机器带宽 & 高效的数据读取和预处理 & 模型需要有好的计算通讯比 & 
+使用足够大的批量大小得到好的系统性能 & 使用高效的优化算法对对应大批量大小
+更复杂的分布式有异步、模型并行
 
+## Q&A
+forward无法并行，backward可以一定程度做到并行
+batch size尽量不超过10*类别数
 
+## 数据增广
+增加一个已有数据集，使得有更多的多样性
+在语言里加入不同的背景噪音
+改变图片的颜色和形状
+在线生成 & 随机增强
+翻转 & 切割（随机高宽比，随机大小，随机位置） & 颜色（色调，饱和度，明亮度）
+https://github.com/aleju/imgaug
+根据测试集数据的多样性选择数据增强的方式
 
+## 代码实现
+torchvision.transforms.RandomHorizontalFlip()   水平翻转
+torchvision.transforms.RandomticalFlip()        上下翻转
+torchvision.transforms.RandomResizedCrop()      随机剪裁
+torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)     
+随机更改图像的亮度（brightness）、对比度（contrast）、饱和度（saturation）、色调（hue）
+结合多种图像增广方法
+数据增广的计算量不小，尽量将num_workers设置的大一些
+如果训练集的数据多样性远大于测试集，可能会出现训练集的精度小于测试集
 
+## Q&A
+原始样本需要多样性大，而不是仅仅是数量多
+有对图片进行拼接的操作，此时label也需要拼接
+多张图片叠加 mixup 加权平均
+数据增广可以理解为不改变均值，但是增大了方差
 
+## 微调
+迁移学习
+一个神经网络一般可以分为2块：特征提取 & 线性分类
+特征提取拷贝预训练模型的参数，线性分类层随机初始化
+使用更小的学习率 & 使用更少的数据迭代
+源数据集远复杂于目标数据，通常微调效果更好
+重用分类器权重 & 固定一些层（通常是底部层）
 
+## 代码实现
+热狗数据集
+pretrained_net = torchvision.models.resnet18(pretrained=True)
+pretrained_net.fc
 
+## Q&A
+数据不平衡对分类层比特征提取层影响更大
+做微调时，源数据集最好与目标数据集尽量相似
+微调对学习率不太敏感
+
+## 第二次竞赛 树叶分类结果
+0.98x~0.99x
+
+## 实战Kaggle比赛：图像分类（CIFAR-10）
+import shutil
+drop_last=True
+lr_period, lr_decay  每隔几个epoch将learning rate减少
+
+## Q&A
+weight decay是统计模型上的参数，lr decay是优化算法上的参数
+SGD这种优化算法效果较好，可理解为是一种正则化
+
+## 实战Kaggle比赛：狗的品种识别（ImageNet Dogs）
+torchvision.transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+预训练模型微调 固定模型参数
+top1 & top5 accuracy
+
+## Q&A
+某个方法不work，很多时候是没执行到位-_-
 
 
 
