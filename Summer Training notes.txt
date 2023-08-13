@@ -1,5 +1,7 @@
 document.querySelector('video').playbackRate=2.25
 
+可以访问内网的同学可以通过 http://10.11.41.108/ 提交作业，其他同学可以将作业发送到biotraining@163.com ，请将作业跑完所有结果并保存成html，并且按照 编号_姓名_homework1.html 的格式命名后上传。编号请查询：https://www.kdocs.cn/l/ctmbSlF1c71i
+
 #### Day 3 ####
 ## 感知机
 二分类模型
