@@ -635,6 +635,14 @@ nms()
 分类有置信度，而回归没有置信度
 
 ## CLIP论文精读
+zero-shot：没有在特定数据集中训练，直接进行预测
+prompt template
+prompt engineering & prompt ensemble
+摆脱了categorical label的限制
+大数据+大模型
+泛化性能好于有监督学习模型
+基于对比学习的训练很高效！
+“How to Train Really Large Models on Many GPUs” from a staff in OPENAI
 
 
 
