@@ -644,13 +644,58 @@ prompt engineering & prompt ensemble
 基于对比学习的训练很高效！
 “How to Train Really Large Models on Many GPUs” from a staff in OPENAI
 
+## Day 12 ##
+## 树叶分类竞赛技术总结
+数据增强，在测试时多次使用稍弱的增强，然后取平均
+单一模型训练多次，然后取平均
+训练算法和学习率
+清理数据
+跨图片增强  Mixup（随机叠加两张图片） CutMix（随机组合来自不同图片的块）
+模型多维ResNet变种 DenseNet, ResNeXt, ResNeSt, EfficientNet
+学习率一般是cosin或者训练不动时往下调
+AutoGluon更多关注在工业界的应用，而非比赛
+工业界通常固定模型超参数，将精力主要花在提升数据质量上
 
+## 物体检测算法
+R-CNN
+使用启发式搜索算法选择锚框
+使用预训练模型对每个锚框抽取特征
+训练一个SVM对类别分类
+训练一个线性回归模型预测边缘框的偏移
+RoI（兴趣区域）池化层  给定一个锚框，均匀分成为n*m块，输出每块里的最大值
+Fast R-CNN
+使用CNN对图片抽取特征
+使用RoI池化层对每个锚框生成固定长度的特征
+Faster R-CNN
+使用一个区域提议网络（Region proposal network）来替代启发式搜索获得更好的锚框
+two-stage
+精度相对较高，但是计算开销大
+Mask R-CNN
+如果有像素级别的标号，使用FCN（Fully convolutional network）来利用这些信息
+在无人车领域应用较多
+SSD 单发多框检测
+one-stage
+一个基础网络抽取特征，然后多个卷积层块来减半高宽
+在每段都生成锚框 底部段拟合小物体，顶部段拟合大物体
+对每个锚框预测类别和边缘框
+YOLO
+you only look once
+将图片均匀地分为S*S个锚框
+每个锚框预测B个边缘框
+针对边缘框的形状等进行统计加入先验知识
+工业界使用较多
+CenterNet
+对每个像素做预测  非锚框算法
 
+## Q&A
+基于锚框的算法对图片大小不敏感
+高精度图片的小物体识别
 
+## 多尺度目标检测代码实现
+在特征图上生成锚框，每个单位（像素）作为锚框的中心
+特征图较小时，可以选择较大尺度的锚框
 
-
-
-
+## SSD的代码实现
 
 
 
