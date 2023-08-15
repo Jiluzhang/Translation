@@ -695,7 +695,25 @@ CenterNet
 在特征图上生成锚框，每个单位（像素）作为锚框的中心
 特征图较小时，可以选择较大尺度的锚框
 
+## 双流网络论文精读
+Andrej Karpathy  特斯拉AI总监
+local minumum of 2D texture recognition
+the data source has to become diverse videos
+视频动作识别
+motion-information
+spatial stream ConvNet & Temporal stream ConvNet
+optical flow is the pattern of apparent motion of objects, surfaces and edges in a visual scene caused by the relative motion between an observer and a scene.
+光流可拆分为水平方向与竖直方向上的位移
+每个像素点都有对应的光流值
+L帧光流会得到L-1帧光流
+抽取光流比较耗时，存储光流值比较占空间
+如果模型难以学习某些信息，那就直接人工提供这些信息
+
+
+
 ## SSD的代码实现
+
+
 
 
 
