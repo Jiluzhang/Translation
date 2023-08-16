@@ -710,11 +710,29 @@ L帧光流会得到L-1帧光流
 如果模型难以学习某些信息，那就直接人工提供这些信息
 
 
-
+## Day 13 ##
 ## SSD的代码实现
+cls_predictor()
+bbox_predictor()
+5个stage
+cls_loss = nn.CrossEntropyLoss(reduction='none')
+bbox_loss = nn.L1Loss(reduction='none')
+mask用于不计算背景框的loss
 
+## Q&A
+如果图像尺寸很大，不太适合用SSD，可以考虑R-CNN或yolo
 
+## 语义分割和数据集
+语义分割是将图片中的每个像素分类到对应的类别
+应用：背景虚化  路面分割  实例分割（Dog1, Dog2, Cat1）
+                      语义分割（Dog, Dog, Cat）
+Pascal VOC2012数据集  VOC格式
+训练数据是图片，标号也是图片，两者尺寸相同
+RGB -> integer
 
+## Q&A
+关键点识别
+通过采集更多数据来弥补数据质量的不足
 
 
 
