@@ -787,7 +787,11 @@ content_loss（数值一致）, style_loss（分布一致）, tv_loss
 pycocotools
 评测使用mAP
 
-
+## ViLT论文精读
+将目标检测从多模态模型中移除
+one string & two string
+image -> linear embedding
+text  -> linear embedding
 
 
 
