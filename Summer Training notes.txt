@@ -739,7 +739,53 @@ Classification & Entailment & Similarity & Multiple Choice
 计算量指数增加，模型损伤线性下降
 
 
+## Day 14 ##
+## 转置卷积
+转置卷积可用来增大输入高宽
 
+## 转置卷积代码实现
+trans_conv()
+nn.ConvTranspose2d()
+填充在输出上，会减小大小
+
+## Q&A
+转置卷积不是还原卷积得到的值
+nvidia nx平台
+
+## 转置卷积是一种卷积
+转置卷积和卷积在形状上是个逆变换
+通常用作上采样
+反卷积是指卷积的逆运算
+反卷积神经网络指用了转置卷积的神经网络
+
+## 全连接卷积神经网络FCN
+FCN是深度神经网络做语义分割的奠基性工作
+预测类别存于通道数
+
+## FCN代码实现
+net = nn.Sequential(*list(pretrained_net.children()))[:-2]
+双线性插值初始化转置卷积层
+85%的精度一般表示物体边缘的像素预测不准
+
+## Q&A
+可用多个小kernel的转置卷积层替代一个大kernel的转置卷积层（如UNet）
+
+## 样式迁移
+将样式图片中的样式迁移到内容图片上，得到合成图片
+
+## 样式迁移代码实现
+content_img & style_img
+style_layers, content_layers = [0, 5, 10, 19, 28], [25]
+content_loss（数值一致）, style_loss（分布一致）, tv_loss
+
+## Q&A
+格莱姆矩阵与协方差矩阵包含二阶信息
+卷积层的权重不更新，因为只是用于抽取特征
+
+## 课程竞赛：牛仔行头检测
+检测牛仔夹克、墨镜、靴子、牛仔帽、腰带
+pycocotools
+评测使用mAP
 
 
 
