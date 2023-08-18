@@ -849,6 +849,22 @@ many to many
 字根可视为基于字符的n-gram
 tracking 下一帧检测框基本在上一帧的检测框附近
 
+## GPT-4论文精读
+Toolformer: Language Models Can Teach Themselves to Use Tools
+Introducing LLaMA: A foundational 65-billion-paramter large language model
+Visual ChatGPT: Talking, Drawing and Editing with Visual Foundation Models
+GPT-4 is coming next week- and it wiil be multimodal, says Microsoft Germany-hise online
+GigaGAN: Large-scale GAN for Text-to-Image Synthesis
+Alpaca: A Strong, Replicable Instruction-Following Model
+Introducing Claude
+Midjourney V5
+Copilot
+GPT-4的输入是文本或图片，输出是文本
+小规模模型训练可预测大模型的训练(预测loss)
+reinforcement learning with human feedback
+hindsight neglect (由于运气导致了好的结果，但是是非理性的选择)
+Steerability
+
 
 
 
