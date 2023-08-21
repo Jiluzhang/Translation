@@ -866,12 +866,63 @@ hindsight neglect (由于运气导致了好的结果，但是是非理性的选�
 Steerability
 
 
+## Day 16 ##
+## RNN从零实现
+F.one_hot(torch.tensor([0, 2]), len(vocab))
+W_hh = normal((num_hiddens, num_hiddens))
 
+## RNN的简洁实现
+rnn_layer
 
+## Q&A
+预测时不要更新模型
+高频字符做低采样
+将计算机集成在车辆上
 
+## 门控循环单元(GRU)
+不是每个观察值都是同等重要
+想只记住相关的观察需要：
+能关注的机制（更新门）Zt
+能遗忘的机制（重置门）Rt
 
+## GRU代码实现
+nn.GRU()
 
+## Q&A
+GRU模型的grad clipping的阈值通常为1、5或10
 
+## 长短期记忆网络（LSTM）
+忘记门 & 输入门 & 输出门
+记忆单元
+
+## LSTM代码实现
+nn.LSTM()
+
+## Q&A
+估计内存最好的方法是实际运行下-_-
+
+## 深度循环神经网络
+使用多个隐藏层获得更多的非线性
+
+## 深度循环神经网络代码实现
+一般使用2层隐藏层
+
+## Q&A
+BPTT: backpropagation through time
+
+## 双向循环神经网络
+完形填空
+一个前向RNN隐层
+一个反向RNN隐层
+合并两个隐状态得到输出
+双向RNN不适合做推理，常用于特征提取
+
+## 双向RNN代码实现
+bidirectional=True
+
+## Q&A
+双向RNN的正向和反向直接拼接
+深度双向（2层隐藏层作为一个单元）
 
 
 
