@@ -985,6 +985,70 @@ key query value
 通过相似度作为注意力的分数
 
 
+## Day 18 ##
+## 使用注意力机制的seq2seq
+机器翻译中，每个生成的词可能相关于源句子中不同的词
+编码器对每次词的输出作为key和value
+解码器RNN对上一个词的输出是query
+注意力的输出和下一个词的嵌入合并
+
+## Bahdanau注意力代码实现
+AdditiveAttention()
+context = self.attention(query, enc_outputs, enc_outputs, enc_valid_lens)
+可视化注意力权重
+
+## Q&A
+encoder也可以加入attention
+
+## 自注意力和位置编码
+自注意力池化层将给定序列的某个元素当做key、value、query来对序列抽取特征
+自注意力适合处理长序列句子，但计算复杂度高
+位置编码将位置信息注入到输入里  位置编码矩阵（sin & cos） 【-1，1】
+相对位置信息
+
+## 自注意力和位置编码代码实现
+class PositionEncoding(nn.Module)
+
+## Q&A
+序列的基准位置是从0开始
+自注意力是一个layer
+位置编码可以做成可学习的参数
+
+## Transformer
+基于编码器-解码器架构处理序列对
+纯自注意力机制
+多头注意力  
+对同一key、value、query，希望抽取不同的信息，例如短距离关系和长距离关系
+使用多个独立的注意力池化，合并各个头输出得到最终输出
+有掩码的多头注意力
+解码器对蓄力中一个元素输出时，不应该考虑该元素之后的元素
+基于位置的前馈网络
+Layer Norm
+
+## 多头注意力代码实现
+DotProductAttention()
+多头注意力机制一次计算生成
+
+## Transformer代码实现
+Transformer编码器中的任何层都不会改变其输入的形状
+关键参数：num_hiddens, num_heads
+
+## Q&A
+concat相对于取平均更能保留信息
+number of head可以理解多卷积的多通道
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
