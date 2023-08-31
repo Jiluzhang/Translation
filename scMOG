@@ -19,7 +19,7 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_prop
 #https://office365stanford-my.sharepoint.com/personal/wukevin_stanford_edu/_layouts/15/
 #download.aspx?SourceduUrl=%2Fpersonal%2Fwukevin%5Fstanford%5Fedu%2FDocuments%2Fmanuscripts%2Fsingle%5Fcell%5Fatac%5Frna%2Fpublic%5Fdata%2Fdata%2Etar%2Egz
 
-(scMOG) jiluzhang@Saturn:~/scMOG/dataset$ python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
+python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
 
 ## sc_data_loaders.py
 ## assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
@@ -105,7 +105,8 @@ g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_i
 g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))  # genes for scRNA-seq????
 g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
 
-# https://blog.csdn.net/m0_64204369/article/details/123035598
+## https://blog.csdn.net/m0_64204369/article/details/123035598
+## https://blog.csdn.net/HHTNAN/article/details/79790370
 ## matrix: cell*feature  shape: [feature, cell]  # confused!!!
 rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['index'].shape[0], rna['var']['_index'].shape[0]]),
                            csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['index'].shape[0], atac['var']['_index'].shape[0]])))
@@ -123,6 +124,7 @@ out.close()
 ##################################################
 
 
+python ../scMOG_code/bin/Preprocessing.py --data test_rna_atac.h5 --outdir test_rna_atac_preprocessed_datasets
 
 
 
