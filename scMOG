@@ -77,7 +77,6 @@ g_2.create_dataset('name', data=np.array(f['var']['_index'][:]))      # it is sa
 g.create_dataset('indices', data=f['X']['indices'][:])
 g.create_dataset('indptr', data=f['X']['indptr'][:])
 g.create_dataset('shape', data=np.array([f['var']['idx'].shape[0], f['obs']['index'].shape[0]]))
-
 out.close()
 
 #test = sc.read_10x_h5('test.h5', gex_only=False)
@@ -86,6 +85,9 @@ out.close()
 
 ##################### h5ad to h5 (for both scRNA-seq and scATAC-seq)#############################
 import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+
 ref = h5py.File('DM_rep4.h5', 'r')
 rna  = h5py.File('GSE200046_bm_multiome_rna.h5ad', 'r')
 atac = h5py.File('GSE200046_bm_multiome_atac.h5ad', 'r')
@@ -104,14 +106,34 @@ g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var
 g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
 
 # https://blog.csdn.net/m0_64204369/article/details/123035598
-g.create_dataset('indices', data=np.append(rna['X']['indices'][:], atac['X']['indices'][:]))
-g.create_dataset('indptr', data=np.append(rna['X']['indptr'][:], rna['X']['indptr'][1:]+atac['X']['indptr'][-1]))  
-g.create_dataset('shape', data=np.array([rna['var']['_index'].shape[0]+atac['var']['idx'].shape[0], rna['obs']['index'].shape[0]]))
+## matrix: cell*feature  shape: [feature, cell]  # confused!!!
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['index'].shape[0], atac['var']['_index'].shape[0]])))
+
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
 
 out.close()
 
-#test = sc.read_10x_h5('test.h5', gex_only=False)
+#test = sc.read_10x_h5('test_rna_atac.h5', gex_only=False)
 ##################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
