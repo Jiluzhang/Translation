@@ -1,3 +1,6 @@
+scMOG: https://github.com/GaoLabXDU/scMOG
+BABEL: https://github.com/wukevin/babel
+
 ## install miniconda
 wget -c https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 chmod +x Miniconda3-latest-Linux-x86_64.sh
@@ -50,7 +53,10 @@ dat = sc.read_10x_h5('DM_rep4.h5', gex_only=False)
 #dat_2.write("test.h5ad")
 
 
-##################### h5ad to h5 #############################
+#wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE200nnn/GSE200046/suppl/GSE200046_bm_multiome_atac.h5ad.gz
+#wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE200nnn/GSE200046/suppl/GSE200046_bm_multiome_rna.h5ad.gz
+
+##################### h5ad to h5 (for scATAC-seq)#############################
 import h5py
 ref = h5py.File('DM_rep4.h5', 'r')
 f = h5py.File('GSE200046_bm_multiome_atac.h5ad', 'r')
@@ -78,7 +84,34 @@ out.close()
 ##################################################
 
 
+##################### h5ad to h5 (for both scRNA-seq and scATAC-seq)#############################
+import h5py
+ref = h5py.File('DM_rep4.h5', 'r')
+rna  = h5py.File('GSE200046_bm_multiome_rna.h5ad', 'r')
+atac = h5py.File('GSE200046_bm_multiome_atac.h5ad', 'r')
+out  = h5py.File('test_rna_atac.h5', 'w')
 
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['index'][:])
+g.create_dataset('data', data=np.append(rna['X']['data'][:], atac['X']['data'][:]))
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['_index'].shape[0], [b'Peaks']*atac['var']['idx'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['idx'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))        # gene names for ENSMBLE ID????
+g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))  # genes for scRNA-seq????
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+# https://blog.csdn.net/m0_64204369/article/details/123035598
+g.create_dataset('indices', data=np.append(rna['X']['indices'][:], atac['X']['indices'][:]))
+g.create_dataset('indptr', data=np.append(rna['X']['indptr'][:], rna['X']['indptr'][1:]+atac['X']['indptr'][-1]))  
+g.create_dataset('shape', data=np.array([rna['var']['_index'].shape[0]+atac['var']['idx'].shape[0], rna['obs']['index'].shape[0]]))
+
+out.close()
+
+#test = sc.read_10x_h5('test.h5', gex_only=False)
+##################################################
 
 
 
