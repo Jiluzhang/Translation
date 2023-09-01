@@ -28,70 +28,24 @@ python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
 ## train.py & predict-rna.py
 ## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
 
-dat = sc.read_10x_h5('DM_rep4.h5', gex_only=False)
-dat = sc.read_h5ad(filePath)
 
-WGAN: https://zhuanlan.zhihu.com/p/25071913
+## WGAN: https://zhuanlan.zhihu.com/p/25071913
 
 
-#import anndata
-#dat_2 = anndata.read_h5ad('GSE200046_bm_multiome_atac.h5ad')
 
-dat = sc.read_10x_h5('DM_rep4.h5', gex_only=False)
-
-#import scanpy as sc
-#import pandas as pd
-#dat_2 = sc.read_h5ad('GSE200046_bm_multiome_atac.h5ad')
-#del dat_2.obs
-#del dat_2.uns
-#del dat_2.obsm
-#del dat_2.obsp
-#dat_2.var = pd.DataFrame({'gene_ids': dat_2.var.index, 'feature_types': 'Peaks', 'genome': 'GRCh38'})
-#dat_2.var.index = dat_2.var.gene_ids
-#dat_2.var.feature_types = dat_2.var.feature_types.astype('object') 
-#dat_2.var.genome = dat_2.var.genome.astype('object') 
-#dat_2.write("test.h5ad")
-
-
-#wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE200nnn/GSE200046/suppl/GSE200046_bm_multiome_atac.h5ad.gz
 #wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE200nnn/GSE200046/suppl/GSE200046_bm_multiome_rna.h5ad.gz
-
-##################### h5ad to h5 (for scATAC-seq)#############################
-import h5py
-ref = h5py.File('DM_rep4.h5', 'r')
-f = h5py.File('GSE200046_bm_multiome_atac.h5ad', 'r')
-out = h5py.File('test.h5', 'w')
-
-g = out.create_group('matrix')
-g.create_dataset('barcodes', data=f['obs']['index'][:])
-g.create_dataset('data', data=f['X']['data'][:])
-
-g_2 = g.create_group('features')
-g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
-g_2.create_dataset('feature_type', data=np.array([b'Peaks']*f['var']['idx'].shape[0]))
-g_2.create_dataset('genome', data=np.array([b'GRCh38']*f['var']['idx'].shape[0]))
-g_2.create_dataset('id', data=np.array(f['var']['_index'][:]))
-g_2.create_dataset('interval', data=np.array(f['var']['_index'][:]))  # it is same for scATAC-seq but not for scRNA-seq
-g_2.create_dataset('name', data=np.array(f['var']['_index'][:]))      # it is same for scATAC-seq but not for scRNA-seq
-
-g.create_dataset('indices', data=f['X']['indices'][:])
-g.create_dataset('indptr', data=f['X']['indptr'][:])
-g.create_dataset('shape', data=np.array([f['var']['idx'].shape[0], f['obs']['index'].shape[0]]))
-out.close()
-
-#test = sc.read_10x_h5('test.h5', gex_only=False)
-##################################################
-
+#wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE200nnn/GSE200046/suppl/GSE200046_bm_multiome_atac.h5ad.gz
 
 ##################### h5ad to h5 (for both scRNA-seq and scATAC-seq)#############################
+## h5ad_to_h5.py
 import h5py
 import numpy as np
 from scipy.sparse import csr_matrix, hstack
 
-ref = h5py.File('DM_rep4.h5', 'r')
+#ref = h5py.File('DM_rep4.h5', 'r')
 rna  = h5py.File('GSE200046_bm_multiome_rna.h5ad', 'r')
 atac = h5py.File('GSE200046_bm_multiome_atac.h5ad', 'r')
-out  = h5py.File('test_rna_atac.h5', 'w')
+out  = h5py.File('GSE200046_bm_rna_atac.h5', 'w')
 
 g = out.create_group('matrix')
 g.create_dataset('barcodes', data=rna['obs']['index'][:])
@@ -120,11 +74,11 @@ g.create_dataset('shape', data=l)
 
 out.close()
 
-#test = sc.read_10x_h5('test_rna_atac.h5', gex_only=False)
+#test = sc.read_10x_h5('GSE200046_bm_rna_atac.h5', gex_only=False)
 ##################################################
 
-
-python ../scMOG_code/bin/Preprocessing.py --data test_rna_atac.h5 --outdir test_rna_atac_preprocessed_datasets
+python h5ad_to_h5.py
+python bin/Preprocessing.py --data test_rna_atac.h5 --outdir test_rna_atac_preprocessed_datasets
 
 
 
