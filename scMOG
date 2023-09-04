@@ -21,14 +21,6 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree cached_prop
 
 python ../scMOG_code/bin/Preprocessing.py --data DM_rep4.h5  --outdir test_out
 
-## sc_data_loaders.py
-## assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
-## assert valid_idx, "Got empty validation split"  -> assert valid_idx.any(), "Got empty validation split"
-## assert test_idx, "Got empty test split"         -> assert test_idx.any(), "Got empty test split"
-## train.py & predict-rna.py
-## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
-
-
 ## WGAN: https://zhuanlan.zhihu.com/p/25071913
 
 
@@ -77,17 +69,26 @@ out.close()
 #test = sc.read_10x_h5('GSE200046_bm_rna_atac.h5', gex_only=False)
 ##################################################
 
-python h5ad_to_h5.py
-python ~/scMOG/scMOG_code/bin/Preprocessing.py --data GSES20046_bm_rna_atac.h5 --outdir GSES20046_bm_preprocessed_datasets
-
 
 # mkdir data  # copy gtf files and snareseq fold 
+
 ## sc_data_loaders.py
 ## line 554: assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
 ## line 555: assert valid_idx, "Got empty validation split"  -> assert valid_idx.any(), "Got empty validation split"
 ## line 556: assert test_idx, "Got empty test split"         -> assert test_idx.any(), "Got empty test split"
-## train.py & predict-rna.py
+
+## train.py & predict-rna.py & predict-atac.py
 ## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
+## add "os.environ["CUDA_VISIBLE_DEVICES"] = "5""
+
+python h5ad_to_h5.py
+python ~/scMOG/scMOG_code/bin/Preprocessing.py --data GSE20046_bm_rna_atac.h5 --outdir GSE20046_bm_preprocessed_datasets
+python ~/scMOG/scMOG_code/bin/train.py  --outdir training_out
+python ~/scMOG/scMOG_code/bin/predict-rna.py --outdir predict_out
+
+
+nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > training_20230904.log &
+
 
 wanglab_jlz_57888282
 
