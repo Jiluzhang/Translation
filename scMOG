@@ -78,9 +78,18 @@ out.close()
 ##################################################
 
 python h5ad_to_h5.py
-python bin/Preprocessing.py --data test_rna_atac.h5 --outdir test_rna_atac_preprocessed_datasets
+python ~/scMOG/scMOG_code/bin/Preprocessing.py --data GSES20046_bm_rna_atac.h5 --outdir GSES20046_bm_preprocessed_datasets
 
 
+# mkdir data  # copy gtf files and snareseq fold 
+## sc_data_loaders.py
+## line 554: assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
+## line 555: assert valid_idx, "Got empty validation split"  -> assert valid_idx.any(), "Got empty validation split"
+## line 556: assert test_idx, "Got empty test split"         -> assert test_idx.any(), "Got empty test split"
+## train.py & predict-rna.py
+## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
+
+wanglab_jlz_57888282
 
 
 
