@@ -81,13 +81,25 @@ out.close()
 ## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
 ## add "os.environ["CUDA_VISIBLE_DEVICES"] = "5""
 
+## predict-rna.py
+## "sc_rna_test_dataset = ad.read_h5ad('truth_rna_GM.h5ad')"    ->  "sc_rna_test_dataset = ad.read_h5ad('truth_rna.h5ad')"
+## "sc_atac_test_dataset = ad.read_h5ad('truth_atac_GM.h5ad')"  ->  "sc_atac_test_dataset = ad.read_h5ad('truth_atac.h5ad')"
+## "sc_atac_rna_test_preds =pridect(test_iter)"  ->  "sc_atac_rna_test_preds =pridect(test_iter).cpu()"
+
+## predict-atac.py
+## "sc_rna_test_dataset = ad.read_h5ad('truth_rna_GM.h5ad')"    ->  "sc_rna_test_dataset = ad.read_h5ad('truth_rna.h5ad')"
+## "sc_atac_test_dataset = ad.read_h5ad('truth_atac_GM.h5ad')"  ->  "sc_atac_test_dataset = ad.read_h5ad('truth_atac.h5ad')"
+
+
 python h5ad_to_h5.py
 python ~/scMOG/scMOG_code/bin/Preprocessing.py --data GSE20046_bm_rna_atac.h5 --outdir GSE20046_bm_preprocessed_datasets
 python ~/scMOG/scMOG_code/bin/train.py  --outdir training_out
-python ~/scMOG/scMOG_code/bin/predict-rna.py --outdir predict_out
-
+python ~/scMOG/scMOG_code/bin/predict-rna.py --outdir predict_rna_out
+python ~/scMOG/scMOG_code/bin/predict-atac.py --outdir predict_atac_out
 
 nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > training_20230904.log &
+
+
 
 
 wanglab_jlz_57888282
