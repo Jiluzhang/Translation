@@ -92,11 +92,15 @@ nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > traini
 
 wanglab_jlz_57888282
 
+## BABEL ##
+wget -c https://raw.githubusercontent.com/wukevin/babel/main/environment_minimal.yml
 
+conda create -n BABEL python=3.7.10
+pip install anndata astropy cached_property torch captum intervaltree gdown leidenalg louvain numba seaborn scanpy skorch tensorboard mpl-scatter-density adjustText
 
+# Gitzip for github (download the individual files)
 
-
-
+nohup time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5 --outdir BABEL_model > BABEL_training.log &
 
 
 
