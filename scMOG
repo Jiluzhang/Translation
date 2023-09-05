@@ -105,10 +105,24 @@ nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > traini
 wanglab_jlz_57888282
 
 ## BABEL ##
+conda remove -n scMoFormer --all
+
 wget -c https://raw.githubusercontent.com/wukevin/babel/main/environment_minimal.yml
 
+## refer to "environment_minimal.yml" & "environment.yml"
 conda create -n BABEL python=3.7.10
-pip install anndata astropy cached_property torch captum intervaltree gdown leidenalg louvain numba seaborn scanpy skorch tensorboard mpl-scatter-density adjustText
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple anndata==0.6.22 astropy==4.0 cached_property torch==1.3 captum==0.2 
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple intervaltree gdown==4.0 leidenalg==0.8.0 louvain==0.6.2 numba==0.51.2   # leidenalg 0.7.0  louvain 0.6.1 cannot be installed
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy==1.17 pandas==0.25 seaborn scanpy==1.4.4 scikit-learn==0.21.3
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple skorch==0.7 sortedcontainers statsmodels==0.10 tensorboard==1.15 tqdm
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple umap-learn==0.3.10 mpl-scatter-density adjustText
+
+pip install protobuf==3.20.0
+
+## /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_louvain.py
+line 130: "louvain.set_rng_seed(random_state)"  ->  "partition_kwargs["seed"] = random_state"
+
+
 
 # Gitzip for github (download the individual files)
 
