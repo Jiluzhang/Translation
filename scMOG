@@ -129,7 +129,79 @@ line 130: "louvain.set_rng_seed(random_state)"  ->  "partition_kwargs["seed"] = 
 nohup time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5 --outdir BABEL_model > BABEL_training.log &
 
 
+INFO:root:PyTorch CUDA version: 10.1.243
+INFO:root:Parameter data: ['DM_rep4.h5']
+INFO:root:Parameter snareseq: False
+INFO:root:Parameter shareseq: None
+INFO:root:Parameter nofilter: False
+INFO:root:Parameter linear: False
+INFO:root:Parameter clustermethod: leiden
+INFO:root:Parameter validcluster: 0
+INFO:root:Parameter testcluster: 1
+INFO:root:Parameter outdir: /fs/home/jiluzhang/GSES20046_bm/BABEL_test/BABEL_model
+INFO:root:Parameter naive: False
+INFO:root:Parameter hidden: [16]
+INFO:root:Parameter pretrain: 
+INFO:root:Parameter lossweight: [1.33]
+INFO:root:Parameter optim: adam
+INFO:root:Parameter lr: [0.01]
+INFO:root:Parameter batchsize: [512]
+INFO:root:Parameter earlystop: 25
+INFO:root:Parameter seed: [182822]
+INFO:root:Parameter device: 0
+INFO:root:Parameter ext: pdf
+INFO:root:Reading RNA data
+Variable names are not unique. To make them unique, call `.var_names_make_unique`.
+INFO:root:Read in DM_rep4.h5 for (5517, 36601) (obs x var)
+Trying to set attribute `.obs` of view, making a copy.
+WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
+INFO:root:36144 genes with known positions
+Trying to set attribute `.var` of view, making a copy.
+Trying to set attribute `.obs` of view, making a copy.
+INFO:root:Filtering 5517 cells
+INFO:root:Remaining cells after min genes: 5511
+INFO:root:Remaining cells after max genes: 4751
+INFO:root:Computing size factors
+INFO:root:Found median counts of 15002.0
+INFO:root:Found maximum counts of 35093.0
+INFO:root:Log transforming data
+INFO:root:Normalizing data to zero mean unit variance
+INFO:root:Clipping to 0.5 percentile
+INFO:root:Constructing leiden log clustered data split with valid test cluster {'0'} {'1'}
+INFO:root:Setting size normalized counts
+WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+Traceback (most recent call last):
+  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 537, in <module>
+    main()
+  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 241, in main
+    **rna_data_kwargs,
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 441, in __init__
+    test_cluster={str(self.test_cluster_id)},
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 582, in __split_train_valid_test_cluster
+    if self.data_split_by_cluster_log
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 774, in size_norm_log_counts
+    self._size_norm_log_counts = self._set_size_norm_log_counts()
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 779, in _set_size_norm_log_counts
+    retval = self.size_norm_counts.copy()  # Generates a new copy
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 750, in size_norm_counts
+    self._size_norm_counts = self._set_size_norm_counts()
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 766, in _set_size_norm_counts
+    leiden_resolution=self.cluster_res,
+  File "/fs/home/jiluzhang/BABEL/babel/plot_utils.py", line 109, in preprocess_anndata
+    a, resolution=louvain_resolution, random_state=seed
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_louvain.py", line 133, in louvain
+    **partition_kwargs,
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/louvain/functions.py", line 76, in find_partition
+    **kwargs)
+TypeError: __init__() got an unexpected keyword argument 'seed'
 
+real	2m12.909s
+user	3m1.993s
+sys	1m48.900s
 
 
 
