@@ -144,6 +144,129 @@ import scanpy as sc
 dat_1 = sc.read_10x_h5('GSE20046_bm_rna_atac.h5', gex_only=False)
 
 
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/utils/deprecation.py:144: FutureWarning: The sklearn.metrics.scorer module is  deprecated in version 0.22 and will be removed in version 0.24. The corresponding classes / functions should instead be imported from sklearn.metrics. Anything that cannot be imported from sklearn.metrics is now part of the private API.
+  warnings.warn(message, FutureWarning)
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/statsmodels/tools/_testing.py:19: FutureWarning: pandas.util.testing is deprecated. Use the functions in the public API at pandas.testing instead.
+  import pandas.util.testing as tm
+INFO:root:PyTorch CUDA version: 11.7
+INFO:root:Parameter data: ['GSE20046_bm_rna_atac.h5']
+INFO:root:Parameter snareseq: False
+INFO:root:Parameter shareseq: None
+INFO:root:Parameter nofilter: False
+INFO:root:Parameter linear: False
+INFO:root:Parameter clustermethod: leiden
+INFO:root:Parameter validcluster: 0
+INFO:root:Parameter testcluster: 1
+INFO:root:Parameter outdir: /fs/home/jiluzhang/GSES20046_bm/BABEL_model
+INFO:root:Parameter naive: False
+INFO:root:Parameter hidden: [16]
+INFO:root:Parameter pretrain: 
+INFO:root:Parameter lossweight: [1.33]
+INFO:root:Parameter optim: adam
+INFO:root:Parameter lr: [0.01]
+INFO:root:Parameter batchsize: [512]
+INFO:root:Parameter earlystop: 25
+INFO:root:Parameter seed: [182822]
+INFO:root:Parameter device: 0
+INFO:root:Parameter ext: pdf
+INFO:root:Reading RNA data
+INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 17226) (obs x var)
+WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
+INFO:root:17027 genes with known positions
+/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py:489: ImplicitModificationWarning: Trying to modify attribute `.var` of view, initializing view as actual.
+  self.data_raw.var["chrom"] = feature_chroms
+/fs/home/jiluzhang/BABEL/babel/adata_utils.py:69: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  adata.obs["n_counts"] = np.squeeze(np.asarray((adata.X.sum(1))))
+INFO:root:Filtering 7439 cells
+INFO:root:Remaining cells after min genes: 7439
+INFO:root:Remaining cells after max genes: 7439
+INFO:root:Computing size factors
+INFO:root:Found median counts of 5459.0
+INFO:root:Found maximum counts of 22721.056640625
+INFO:root:Log transforming data
+INFO:root:Normalizing data to zero mean unit variance
+INFO:root:Clipping to 0.5 percentile
+INFO:root:Constructing leiden log clustered data split with valid test cluster {'0'} {'1'}
+INFO:root:Setting size normalized counts
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_tsne.py:115: UserWarning: In previous versions of scanpy, calling tsne with n_jobs > 1 would use MulticoreTSNE. Now this uses the scikit-learn version of TSNE by default. If you'd like the old behaviour (which is deprecated), pass 'use_fast_tsne=True'. Note, MulticoreTSNE is not actually faster anymore.
+  "In previous versions of scanpy, calling tsne with n_jobs > 1 would use "
+INFO:root:Setting log-normalized size-normalized counts
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_tsne.py:115: UserWarning: In previous versions of scanpy, calling tsne with n_jobs > 1 would use MulticoreTSNE. Now this uses the scikit-learn version of TSNE by default. If you'd like the old behaviour (which is deprecated), pass 'use_fast_tsne=True'. Note, MulticoreTSNE is not actually faster anymore.
+  "In previous versions of scanpy, calling tsne with n_jobs > 1 would use "
+INFO:root:Created train data split with 5521 examples
+INFO:root:Created valid data split with 1005 examples
+INFO:root:Created test data split with 913 examples
+INFO:root:Aggregating ATAC clusters
+INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 219242) (obs x var)
+/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py:372: ImplicitModificationWarning: Trying to modify attribute `.X` of view, initializing view as actual.
+  self.data_raw.X[self.data_raw.X.nonzero()] = 1  # .X here is a csr matrix
+INFO:root:Filtering 213950 vars
+INFO:root:Remaining vars after min count: 213754
+INFO:root:Remaining vars after min cells: 213754
+INFO:root:Remaining vars after max cells: 189332
+INFO:root:Got predefined split, ignoring mode
+INFO:root:Created train data split with 5521 examples
+INFO:root:Created valid data split with 1005 examples
+INFO:root:Created test data split with 913 examples
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py:1235: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  df[key] = c
+... storing 'source_file' as categorical
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py:1235: ImplicitModificationWarning: Trying to modify attribute `.var` of view, initializing view as actual.
+  df[key] = c
+... storing 'chrom' as categorical
+INFO:root:ChromDecoder with 1 output activations
+Traceback (most recent call last):
+  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 537, in <module>
+    main()
+  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 447, in main
+    spliced_net.fit(sc_dual_train_dataset, y=None)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 848, in fit
+    self.partial_fit(X, y, **fit_params)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 807, in partial_fit
+    self.fit_loop(X, y, **fit_params)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 735, in fit_loop
+    for data in self.get_iterator(dataset_train, training=True):
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
+    data = self._next_data()
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 1333, in _next_data
+    return self._process_data(data)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 1359, in _process_data
+    data.reraise()
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/_utils.py", line 543, in reraise
+    raise exception
+KeyError: Caught KeyError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/worker.py", line 302, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 1023, in __getitem__
+    x1 = self.dataset_x[i]
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 842, in __getitem__
+    return self.dset.get_item_data_split(index, self.split)
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 671, in get_item_data_split
+    return self.__getitem__(self.data_split_to_idx[split][idx])
+  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 699, in __getitem__
+    target = torch.from_numpy(self.size_norm_counts.var_vector(y_idx)).type(
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py", line 1429, in var_vector
+    return get_vector(self, k, "var", "obs", layer=layer)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/index.py", line 180, in get_vector
+    f"Could not find key {k} in .{idxdim}_names or .{coldim}.columns."
+KeyError: 'Could not find key 1386 in .obs_names or .var.columns.'
+
+
+real	5m15.132s
+user	121m33.302s
+sys	37m30.974s
+
+
+
 
 INFO:root:PyTorch CUDA version: 11.7
 INFO:root:Parameter data: ['DM_rep4.h5']
