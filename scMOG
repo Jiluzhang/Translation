@@ -7,7 +7,7 @@ chmod +x Miniconda3-latest-Linux-x86_64.sh
 ./Miniconda3-latest-Linux-x86_64.sh
 ## enter...   yes...
 
-conda create -n scMOG python=3.7.10
+conda create -n scMOG python=3.7.10  # change to 3.10.12 later
 conda activate scMOG
 
 git clone https://github.com/GaoLabXDU/scMOG.git
@@ -104,10 +104,67 @@ nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > traini
 
 wanglab_jlz_57888282
 
-## BABEL ##
+########################################################### BABEL ###########################################################
 conda remove -n scMoFormer --all
 
-wget -c https://raw.githubusercontent.com/wukevin/babel/main/environment_minimal.yml
+conda create -n BABEL python==3.7.9
+pip install numpy==1.17.5 pandas==0.25.3 scipy==1.3.2 scanpy==1.4.4 skorch==0.7.0 intervaltree==3.0.2 adjusttext==0.7.3 astropy==4.0.1 tensorboard==2.0.0 
+            gdown==4.0.2 captum==0.2.0 python-igraph==0.8.0 louvain==0.6.2 leidenalg==0.8.0 scikit-learn==0.21.3 umap-learn==0.3.10 
+            cached_property mpl_scatter_density protobuf==3.20.0 anndata==0.6.22
+
+## debug "AttributeError: module 'louvain._c_louvain' has no attribute '_set_rng_seed'"
+## /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_louvain.py
+line 130: "louvain.set_rng_seed(random_state)"  ->  "#louvain.set_rng_seed(random_state)"  ## mask and pass it
+
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model --device 4                 # run sucessfully!!!
+time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5   # cannot run successfully !!!  bug: "Exception: File is missing one or more required datasets."
+
+## bug: "Exception: File is missing one or more required datasets."
+## ~/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/readwrite.py
+## add following code:
+#import h5py
+#def _collect_datasets(dsets: dict, group: h5py.Group):
+#    for k, v in group.items():
+#        if isinstance(v, h5py.Dataset):
+#            dsets[k] = v[()]
+#        else:
+#            _collect_datasets(dsets, v)
+## "with tables.open_file(str(filename), 'r') as f:" -> "with h5py.File(str(filename), 'r') as f:"
+## pass following code:
+#for node in f.walk_nodes('/matrix', 'Array'):
+#    dsets[node.name] = node.read()
+## add following code:
+# _collect_datasets(dsets, f["matrix"])
+###############################################################################################################################################
+
+
+
+
+conda create -n BABEL_new python==3.10.12
+
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy pandas scipy scanpy skorch torch intervaltree cached_property mpl_scatter_density adjustText astropy tensorboard gdown captum igraph louvain leidenalg
+                                                        anndata==0.7.7
+
+anndata
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.7.4     ImportError: cannot import name 'is_categorical' from 'pandas.api.types'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.7.5     TypeError: Categorical.remove_unused_categories() got an unexpected keyword argument 'inplace'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.7.7     TypeError: Categorical.reorder_categories() got an unexpected keyword argument 'inplace'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.7.8     TypeError: Categorical.reorder_categories() got an unexpected keyword argument 'inplace'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.8.0rc1  KeyError: 'Could not find key 1494 in .obs_names or .var.columns.'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_0.8.0     KeyError: 'Could not find key 1494 in .obs_names or .var.columns.'
+
+anndata==0.7.7  pandas version
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_1.2.5      KeyError: 'Could not find key 1494 in .obs_names or .var.columns.'
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_1.2.0      KeyError: 'Could not find key 1494 in .obs_names or .var.columns.'
+
+anndata==0.7.4  pandas==1.2.5
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_anndata_0.7.4_pandas_1.2.5   KeyError: 'Could not find key 1494 in .obs_names or .var.columns.'
+
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_anndata_0.9.2_pandas_2.0.3_scanpy_1.9.4
+time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_anndata_0.9.0_pandas_2.0.3_scanpy_1.9.4
+
+
+
 
 ## refer to "environment_minimal.yml" & "environment.yml"
 conda create -n BABEL python=3.7.10
@@ -129,7 +186,7 @@ line 130: "louvain.set_rng_seed(random_state)"  ->  "#louvain.set_rng_seed(rando
 # pip install scanpy==1.9.0          # to debug sc.read_10x_h5()
 # pip install scikit-learn==0.22.0   # TypeError: __init__() got an unexpected keyword argument 'n_jobs'
 # pip install dask                   # to debug "TypeError: isinstance() arg 2 must be a type or tuple of types"
-
+# pip install anndata==0.7.4         # to debug "KeyError: 'Could not find key 1386 in .obs_names or .var.columns.'"
 
 # Gitzip for github (download the individual files)
 
@@ -144,12 +201,44 @@ import scanpy as sc
 dat_1 = sc.read_10x_h5('GSE20046_bm_rna_atac.h5', gex_only=False)
 
 
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/utils/deprecation.py:144: FutureWarning: The sklearn.metrics.scorer module is  deprecated in version 0.22 and will be removed in version 0.24. The corresponding classes / functions should instead be imported from sklearn.metrics. Anything that cannot be imported from sklearn.metrics is now part of the private API.
-  warnings.warn(message, FutureWarning)
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/statsmodels/tools/_testing.py:19: FutureWarning: pandas.util.testing is deprecated. Use the functions in the public API at pandas.testing instead.
-  import pandas.util.testing as tm
+
+
+
+########################time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model --device 4 
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:17: FutureWarning: pandas.core.index is deprecated and will be removed in a future version.  The public classes are available in the top-level namespace.
+  from pandas.core.index import RangeIndex
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:30: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:167: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:284: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_Gram=True, verbose=0,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:862: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1101: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1127: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, positive=False):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1362: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1602: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1738: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, positive=False):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/decomposition/online_lda.py:29: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  EPS = np.finfo(np.float).eps
 INFO:root:PyTorch CUDA version: 11.7
-INFO:root:Parameter data: ['GSE20046_bm_rna_atac.h5']
+INFO:root:Parameter data: ['DM_rep4.h5']
 INFO:root:Parameter snareseq: False
 INFO:root:Parameter shareseq: None
 INFO:root:Parameter nofilter: False
@@ -167,133 +256,15 @@ INFO:root:Parameter lr: [0.01]
 INFO:root:Parameter batchsize: [512]
 INFO:root:Parameter earlystop: 25
 INFO:root:Parameter seed: [182822]
-INFO:root:Parameter device: 0
-INFO:root:Parameter ext: pdf
-INFO:root:Reading RNA data
-INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 17226) (obs x var)
-WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
-INFO:root:17027 genes with known positions
-/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py:489: ImplicitModificationWarning: Trying to modify attribute `.var` of view, initializing view as actual.
-  self.data_raw.var["chrom"] = feature_chroms
-/fs/home/jiluzhang/BABEL/babel/adata_utils.py:69: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
-  adata.obs["n_counts"] = np.squeeze(np.asarray((adata.X.sum(1))))
-INFO:root:Filtering 7439 cells
-INFO:root:Remaining cells after min genes: 7439
-INFO:root:Remaining cells after max genes: 7439
-INFO:root:Computing size factors
-INFO:root:Found median counts of 5459.0
-INFO:root:Found maximum counts of 22721.056640625
-INFO:root:Log transforming data
-INFO:root:Normalizing data to zero mean unit variance
-INFO:root:Clipping to 0.5 percentile
-INFO:root:Constructing leiden log clustered data split with valid test cluster {'0'} {'1'}
-INFO:root:Setting size normalized counts
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_tsne.py:115: UserWarning: In previous versions of scanpy, calling tsne with n_jobs > 1 would use MulticoreTSNE. Now this uses the scikit-learn version of TSNE by default. If you'd like the old behaviour (which is deprecated), pass 'use_fast_tsne=True'. Note, MulticoreTSNE is not actually faster anymore.
-  "In previous versions of scanpy, calling tsne with n_jobs > 1 would use "
-INFO:root:Setting log-normalized size-normalized counts
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/tools/_tsne.py:115: UserWarning: In previous versions of scanpy, calling tsne with n_jobs > 1 would use MulticoreTSNE. Now this uses the scikit-learn version of TSNE by default. If you'd like the old behaviour (which is deprecated), pass 'use_fast_tsne=True'. Note, MulticoreTSNE is not actually faster anymore.
-  "In previous versions of scanpy, calling tsne with n_jobs > 1 would use "
-INFO:root:Created train data split with 5521 examples
-INFO:root:Created valid data split with 1005 examples
-INFO:root:Created test data split with 913 examples
-INFO:root:Aggregating ATAC clusters
-INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 219242) (obs x var)
-/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py:372: ImplicitModificationWarning: Trying to modify attribute `.X` of view, initializing view as actual.
-  self.data_raw.X[self.data_raw.X.nonzero()] = 1  # .X here is a csr matrix
-INFO:root:Filtering 213950 vars
-INFO:root:Remaining vars after min count: 213754
-INFO:root:Remaining vars after min cells: 213754
-INFO:root:Remaining vars after max cells: 189332
-INFO:root:Got predefined split, ignoring mode
-INFO:root:Created train data split with 5521 examples
-INFO:root:Created valid data split with 1005 examples
-INFO:root:Created test data split with 913 examples
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py:1235: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
-  df[key] = c
-... storing 'source_file' as categorical
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py:1235: ImplicitModificationWarning: Trying to modify attribute `.var` of view, initializing view as actual.
-  df[key] = c
-... storing 'chrom' as categorical
-INFO:root:ChromDecoder with 1 output activations
-Traceback (most recent call last):
-  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 537, in <module>
-    main()
-  File "/fs/home/jiluzhang/BABEL/bin/train_model.py", line 447, in main
-    spliced_net.fit(sc_dual_train_dataset, y=None)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 848, in fit
-    self.partial_fit(X, y, **fit_params)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 807, in partial_fit
-    self.fit_loop(X, y, **fit_params)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/skorch/net.py", line 735, in fit_loop
-    for data in self.get_iterator(dataset_train, training=True):
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
-    data = self._next_data()
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 1333, in _next_data
-    return self._process_data(data)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 1359, in _process_data
-    data.reraise()
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/_utils.py", line 543, in reraise
-    raise exception
-KeyError: Caught KeyError in DataLoader worker process 0.
-Original Traceback (most recent call last):
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/worker.py", line 302, in _worker_loop
-    data = fetcher.fetch(index)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
-    data = [self.dataset[idx] for idx in possibly_batched_index]
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
-    data = [self.dataset[idx] for idx in possibly_batched_index]
-  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 1023, in __getitem__
-    x1 = self.dataset_x[i]
-  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 842, in __getitem__
-    return self.dset.get_item_data_split(index, self.split)
-  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 671, in get_item_data_split
-    return self.__getitem__(self.data_split_to_idx[split][idx])
-  File "/fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py", line 699, in __getitem__
-    target = torch.from_numpy(self.size_norm_counts.var_vector(y_idx)).type(
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/anndata.py", line 1429, in var_vector
-    return get_vector(self, k, "var", "obs", layer=layer)
-  File "/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/_core/index.py", line 180, in get_vector
-    f"Could not find key {k} in .{idxdim}_names or .{coldim}.columns."
-KeyError: 'Could not find key 1386 in .obs_names or .var.columns.'
-
-
-real	5m15.132s
-user	121m33.302s
-sys	37m30.974s
-
-
-
-
-INFO:root:PyTorch CUDA version: 11.7
-INFO:root:Parameter data: ['DM_rep4.h5']
-INFO:root:Parameter snareseq: False
-INFO:root:Parameter shareseq: None
-INFO:root:Parameter nofilter: False
-INFO:root:Parameter linear: False
-INFO:root:Parameter clustermethod: leiden
-INFO:root:Parameter validcluster: 0
-INFO:root:Parameter testcluster: 1
-INFO:root:Parameter outdir: /fs/home/jiluzhang/GSES20046_bm/BABEL_test/BABEL_model
-INFO:root:Parameter naive: False
-INFO:root:Parameter hidden: [16]
-INFO:root:Parameter pretrain: 
-INFO:root:Parameter lossweight: [1.33]
-INFO:root:Parameter optim: adam
-INFO:root:Parameter lr: [0.01]
-INFO:root:Parameter batchsize: [512]
-INFO:root:Parameter earlystop: 25
-INFO:root:Parameter seed: [182822]
-INFO:root:Parameter device: 3
+INFO:root:Parameter device: 4
 INFO:root:Parameter ext: pdf
 INFO:root:Reading RNA data
 Variable names are not unique. To make them unique, call `.var_names_make_unique`.
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_categorical(df_full[k]):
 INFO:root:Read in DM_rep4.h5 for (5517, 36601) (obs x var)
 Trying to set attribute `.obs` of view, making a copy.
-WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'4', '7'}, skipping
+WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
 INFO:root:36144 genes with known positions
 Trying to set attribute `.var` of view, making a copy.
 Trying to set attribute `.obs` of view, making a copy.
@@ -313,17 +284,43 @@ WARNING: Consider installing the package MulticoreTSNE (https://github.com/Dmitr
   old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
 /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
   old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
 INFO:root:Setting log-normalized size-normalized counts
 WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
 /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
   old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
 /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
   old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
 INFO:root:Created train data split with 3906 examples
 INFO:root:Created valid data split with 440 examples
 INFO:root:Created test data split with 405 examples
 INFO:root:Aggregating ATAC clusters
 Variable names are not unique. To make them unique, call `.var_names_make_unique`.
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_categorical(df_full[k]):
 Variable names are not unique. To make them unique, call `.var_names_make_unique`.
 WARNING:root:Got noncanonical chromsome in KI270728.1:232398-233036
 WARNING:root:Got noncanonical chromsome in KI270728.1:1453055-1453195
@@ -441,85 +438,95 @@ INFO:root:Checking obs names for two input datasets
 INFO:root:Checking obs names for two input datasets
 INFO:root:Checking obs names for two input datasets
 INFO:root:Checking obs names for two input datasets
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:108: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  elif is_categorical(df[k]):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1326: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  and not is_categorical(df[key])
 Trying to set attribute `.obs` of view, making a copy.
 ... storing 'source_file' as categorical
 Trying to set attribute `.var` of view, making a copy.
 ... storing 'chrom' as categorical
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/pandas/core/arrays/categorical.py:2631: FutureWarning: The `inplace` parameter in pandas.Categorical.remove_unused_categories is deprecated and will be removed in a future version.
+  res = method(*args, **kwargs)
+1#######################
 INFO:root:ChromDecoder with 1 output activations
 /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/optim/lr_scheduler.py:1006: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
   warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
   epoch    train_loss    valid_loss    cp     dur
 -------  ------------  ------------  ----  ------
-      1        2.7684        2.1126     +  5.9604
-      2        1.4837        1.4073     +  5.5240
-      3        1.1491        1.2878     +  5.4529
-      4        1.1138        1.2680     +  5.5621
-      5        1.0988        1.2536     +  5.5527
-      6        1.0824        1.2330     +  5.5489
-      7        1.0709        1.2270     +  5.5339
-      8        1.0619        1.2236     +  5.5284
-      9        1.0553        1.2209     +  5.5517
-     10        1.0505        1.2206     +  5.5219
-     11        1.0472        1.2223        5.7059
-     12        1.0439        1.2205     +  5.5052
-     13        1.0412        1.2212        5.7705
-     14        1.0389        1.2220        5.4873
-     15        1.0372        1.2216        5.5777
-     16        1.0352        1.2210        5.5265
-     17        1.0337        1.2205     +  5.6183
-     18        1.0320        1.2209        5.6401
-     19        1.0305        1.2216        5.5186
-     20        1.0291        1.2225        5.7020
-     21        1.0279        1.2227        5.6797
-     22        1.0267        1.2217        5.5946
-     23        1.0253        1.2223        5.5481
-     24        1.0241        1.2218        5.6638
-     25        1.0233        1.2211        5.7206
-     26        1.0219        1.2226        5.8739
-     27        1.0208        1.2191     +  5.5319
-     28        1.0198        1.2191     +  5.6413
-     29        1.0188        1.2200        5.5410
-     30        1.0182        1.2207        5.6938
-     31        1.0172        1.2200        5.8141
-     32        1.0167        1.2219        5.5852
-     33        1.0162        1.2231        5.5410
-     34        1.0154        1.2232        5.5950
-     35        1.0150        1.2179     +  5.6546
-     36        1.0141        1.2213        6.0155
-     37        1.0138        1.2196        5.5244
-     38        1.0133        1.2225        5.5069
-     39        1.0127        1.2162     +  5.4355
-     40        1.0123        1.2214        5.4057
-     41        1.0118        1.2217        5.5729
-     42        1.0113        1.2189        5.6594
-     43        1.0106        1.2207        5.4857
-     44        1.0099        1.2207        5.4010
-     45        1.0092        1.2210        5.5830
-     46        1.0086        1.2215        5.5823
-     47        1.0080        1.2213        5.4241
-     48        1.0078        1.2199        5.4356
-     49        1.0075        1.2229        5.5498
-     50        1.0074        1.2214        5.5859
-     51        1.0070        1.2225        5.3932
-     52        1.0064        1.2212        5.3935
-     53        1.0060        1.2208        5.5070
-     54        1.0055        1.2224        5.4995
-     55        1.0052        1.2198        5.5116
-     56        1.0050        1.2220        5.3949
-     57        1.0045        1.2220        5.6449
-     58        1.0042        1.2224        5.4139
-     59        1.0039        1.2218        5.4734
-     60        1.0033        1.2223        5.3717
-     61        1.0031        1.2224        5.5334
-     62        1.0030        1.2227        5.3438
-     63        1.0027        1.2220        5.4694
+      1        2.7684        2.1126     +  5.4038
+      2        1.4837        1.4073     +  4.7564
+      3        1.1491        1.2878     +  4.7415
+      4        1.1138        1.2680     +  4.8555
+      5        1.0988        1.2536     +  4.9121
+      6        1.0824        1.2330     +  4.8002
+      7        1.0709        1.2270     +  4.8440
+      8        1.0619        1.2236     +  4.8550
+      9        1.0553        1.2209     +  4.9269
+     10        1.0505        1.2206     +  4.8228
+     11        1.0472        1.2223        4.8759
+     12        1.0439        1.2205     +  4.8758
+     13        1.0412        1.2212        5.0718
+     14        1.0389        1.2220        4.9089
+     15        1.0372        1.2216        5.1156
+     16        1.0352        1.2210        4.8611
+     17        1.0337        1.2205     +  5.1081
+     18        1.0320        1.2209        5.1965
+     19        1.0305        1.2216        4.9796
+     20        1.0291        1.2225        4.9475
+     21        1.0279        1.2227        4.9731
+     22        1.0267        1.2217        5.0227
+     23        1.0253        1.2223        4.9218
+     24        1.0241        1.2218        4.8633
+     25        1.0233        1.2211        4.9354
+     26        1.0219        1.2226        5.1070
+     27        1.0208        1.2191     +  4.8157
+     28        1.0198        1.2191     +  4.8787
+     29        1.0188        1.2200        4.8653
+     30        1.0182        1.2207        5.2476
+     31        1.0172        1.2200        4.8768
+     32        1.0167        1.2219        4.8969
+     33        1.0162        1.2231        4.8652
+     34        1.0154        1.2232        4.8626
+     35        1.0150        1.2179     +  4.9560
+     36        1.0141        1.2213        4.8532
+     37        1.0138        1.2196        4.8758
+     38        1.0133        1.2225        4.8722
+     39        1.0127        1.2162     +  5.0666
+     40        1.0123        1.2214        4.8792
+     41        1.0118        1.2217        4.8480
+     42        1.0113        1.2189        4.8982
+     43        1.0106        1.2207        4.8581
+     44        1.0099        1.2207        5.0061
+     45        1.0092        1.2210        5.0965
+     46        1.0086        1.2215        5.0406
+     47        1.0080        1.2213        4.9472
+     48        1.0078        1.2199        4.9960
+     49        1.0075        1.2229        4.9251
+     50        1.0074        1.2214        4.9545
+     51        1.0070        1.2225        4.8700
+     52        1.0064        1.2212        4.9473
+     53        1.0060        1.2208        4.8552
+     54        1.0055        1.2224        4.9436
+     55        1.0052        1.2198        4.8634
+     56        1.0050        1.2220        4.8529
+     57        1.0045        1.2220        5.1030
+     58        1.0042        1.2224        4.9206
+     59        1.0039        1.2218        4.8698
+     60        1.0033        1.2223        4.8226
+     61        1.0031        1.2224        4.9054
+     62        1.0030        1.2227        4.8659
+     63        1.0027        1.2220        4.9545
 Stopping since valid_loss has not improved in the last 25 epochs.
+2#######################
 INFO:root:Evaluating on test set
 INFO:root:Evaluating RNA > RNA
 ... storing 'source_file' as categorical
 ... storing 'feature_types' as categorical
 ... storing 'genome' as categorical
 ... storing 'chrom' as categorical
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:101: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_string_dtype(df[k]) and not is_categorical(df[k]):
 INFO:root:Found pearson's correlation/p of 0.8369/0
 INFO:root:Found spearman's collelation/p of 0.5895/0
 /fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/mpl_scatter_density/generic_density_artist.py:77: RuntimeWarning: All-NaN slice encountered
@@ -538,3 +545,245 @@ INFO:root:Found spearman's collelation/p of 0.5866/0
 INFO:root:Evaluating RNA > ATAC
 INFO:root:Found AUROC of 0.7038
 
+real	9m49.065s
+user	31m33.251s
+sys	9m20.095s
+
+
+#################### time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5 
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:17: FutureWarning: pandas.core.index is deprecated and will be removed in a future version.  The public classes are available in the top-level namespace.
+  from pandas.core.index import RangeIndex
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:30: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:167: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:284: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_Gram=True, verbose=0,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:862: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1101: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1127: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, positive=False):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1362: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1602: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1738: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  eps=np.finfo(np.float).eps, copy_X=True, positive=False):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/decomposition/online_lda.py:29: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  EPS = np.finfo(np.float).eps
+INFO:root:PyTorch CUDA version: 11.7
+INFO:root:Parameter data: ['GSE20046_bm_rna_atac.h5']
+INFO:root:Parameter snareseq: False
+INFO:root:Parameter shareseq: None
+INFO:root:Parameter nofilter: False
+INFO:root:Parameter linear: False
+INFO:root:Parameter clustermethod: leiden
+INFO:root:Parameter validcluster: 0
+INFO:root:Parameter testcluster: 1
+INFO:root:Parameter outdir: /fs/home/jiluzhang/GSES20046_bm/BABEL_model_GSE20046_bm
+INFO:root:Parameter naive: False
+INFO:root:Parameter hidden: [16]
+INFO:root:Parameter pretrain: 
+INFO:root:Parameter lossweight: [1.33]
+INFO:root:Parameter optim: adam
+INFO:root:Parameter lr: [0.01]
+INFO:root:Parameter batchsize: [512]
+INFO:root:Parameter earlystop: 25
+INFO:root:Parameter seed: [182822]
+INFO:root:Parameter device: 5
+INFO:root:Parameter ext: pdf
+INFO:root:Reading RNA data
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_categorical(df_full[k]):
+INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 17226) (obs x var)
+Trying to set attribute `.obs` of view, making a copy.
+WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
+INFO:root:17027 genes with known positions
+Trying to set attribute `.var` of view, making a copy.
+Trying to set attribute `.obs` of view, making a copy.
+INFO:root:Filtering 7439 cells
+INFO:root:Remaining cells after min genes: 7439
+INFO:root:Remaining cells after max genes: 7439
+INFO:root:Computing size factors
+INFO:root:Found median counts of 5459.0
+INFO:root:Found maximum counts of 22721.056640625
+INFO:root:Log transforming data
+INFO:root:Normalizing data to zero mean unit variance
+INFO:root:Clipping to 0.5 percentile
+INFO:root:Constructing leiden log clustered data split with valid test cluster {'0'} {'1'}
+INFO:root:Setting size normalized counts
+WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+INFO:root:Setting log-normalized size-normalized counts
+WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  error = np.finfo(np.float).max
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
+  best_error = np.finfo(np.float).max
+INFO:root:Created train data split with 5564 examples
+INFO:root:Created valid data split with 1116 examples
+INFO:root:Created test data split with 759 examples
+INFO:root:Aggregating ATAC clusters
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_categorical(df_full[k]):
+INFO:root:Read in GSE20046_bm_rna_atac.h5 for (7439, 219242) (obs x var)
+Trying to set attribute `.X` of view, making a copy.
+INFO:root:Filtering 213950 vars
+INFO:root:Remaining vars after min count: 213754
+INFO:root:Remaining vars after min cells: 213754
+INFO:root:Remaining vars after max cells: 189332
+INFO:root:Got predefined split, ignoring mode
+INFO:root:Created train data split with 5564 examples
+INFO:root:Created valid data split with 1116 examples
+INFO:root:Created test data split with 759 examples
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+INFO:root:Checking obs names for two input datasets
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:108: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  elif is_categorical(df[k]):
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1326: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  and not is_categorical(df[key])
+Trying to set attribute `.obs` of view, making a copy.
+... storing 'source_file' as categorical
+Trying to set attribute `.var` of view, making a copy.
+... storing 'chrom' as categorical
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/pandas/core/arrays/categorical.py:2631: FutureWarning: The `inplace` parameter in pandas.Categorical.remove_unused_categories is deprecated and will be removed in a future version.
+  res = method(*args, **kwargs)
+INFO:root:ChromDecoder with 1 output activations
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/optim/lr_scheduler.py:1006: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
+  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
+  epoch    train_loss    valid_loss    cp     dur
+-------  ------------  ------------  ----  ------
+      1        2.4694        1.5918     +  8.5210
+      2        1.3230        1.2394     +  8.1342
+      3        1.1886        1.1810     +  7.9616
+      4        1.1680        1.1568     +  8.1450
+      5        1.1541        1.1483     +  8.0682
+      6        1.1460        1.1426     +  8.2146
+      7        1.1413        1.1399     +  8.2176
+      8        1.1386        1.1388     +  8.0362
+      9        1.1356        1.1378     +  8.0020
+     10        1.1332        1.1374     +  8.0299
+     11        1.1311        1.1373     +  8.0803
+     12        1.1295        1.1366     +  8.2610
+     13        1.1279        1.1367        8.1249
+     14        1.1266        1.1369        8.2044
+     15        1.1258        1.1366        8.0615
+     16        1.1247        1.1366        8.0677
+     17        1.1235        1.1366     +  8.1225
+     18        1.1223        1.1356     +  8.1339
+     19        1.1210        1.1358        8.1993
+     20        1.1203        1.1357        8.0238
+     21        1.1194        1.1355     +  8.1325
+     22        1.1187        1.1351     +  8.3199
+     23        1.1179        1.1344     +  8.1097
+     24        1.1168        1.1345        8.2095
+     25        1.1165        1.1344     +  7.9961
+     26        1.1156        1.1350        8.1192
+     27        1.1151        1.1340     +  8.1298
+     28        1.1143        1.1343        8.1052
+     29        1.1137        1.1341        8.1559
+     30        1.1133        1.1337     +  8.2527
+     31        1.1128        1.1336     +  8.1883
+     32        1.1122        1.1344        8.1030
+     33        1.1119        1.1336     +  8.3059
+     34        1.1112        1.1346        8.0738
+     35        1.1105        1.1337        8.1089
+     36        1.1106        1.1341        8.1278
+     37        1.1100        1.1333     +  8.1312
+     38        1.1094        1.1333        8.5645
+     39        1.1087        1.1332     +  8.0476
+     40        1.1087        1.1343        8.0683
+     41        1.1081        1.1335        7.9495
+     42        1.1076        1.1334        7.9388
+     43        1.1071        1.1337        8.0314
+     44        1.1066        1.1334        7.9379
+     45        1.1062        1.1333        7.9198
+     46        1.1055        1.1337        8.0091
+     47        1.1051        1.1336        7.9697
+     48        1.1051        1.1335        8.1097
+     49        1.1047        1.1338        8.0409
+     50        1.1044        1.1341        7.9701
+     51        1.1044        1.1343        7.9819
+     52        1.1037        1.1338        7.9340
+     53        1.1033        1.1342        8.0214
+     54        1.1032        1.1345        8.0948
+     55        1.1028        1.1339        7.9370
+     56        1.1023        1.1339        8.0216
+     57        1.1023        1.1340        8.0255
+     58        1.1023        1.1343        7.8482
+     59        1.1018        1.1347        8.1957
+     60        1.1013        1.1346        8.0128
+     61        1.1006        1.1349        8.0177
+     62        1.1006        1.1342        8.0671
+     63        1.1002        1.1348        7.8888
+Stopping since valid_loss has not improved in the last 25 epochs.
+INFO:root:Evaluating on test set
+INFO:root:Evaluating RNA > RNA
+... storing 'source_file' as categorical
+... storing 'feature_types' as categorical
+... storing 'genome' as categorical
+... storing 'chrom' as categorical
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:101: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
+  if is_string_dtype(df[k]) and not is_categorical(df[k]):
+INFO:root:Found pearson's correlation/p of 0.5653/0
+INFO:root:Found spearman's collelation/p of 0.4558/0
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/mpl_scatter_density/generic_density_artist.py:77: RuntimeWarning: All-NaN slice encountered
+  vmin = self._density_vmin(array)
+/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/mpl_scatter_density/generic_density_artist.py:82: RuntimeWarning: All-NaN slice encountered
+  vmax = self._density_vmax(array)
+INFO:root:Evaluating ATAC > ATAC
+INFO:root:Found AUROC of 0.8462
+INFO:root:Evaluating ATAC > RNA
+... storing 'source_file' as categorical
+... storing 'feature_types' as categorical
+... storing 'genome' as categorical
+... storing 'chrom' as categorical
+INFO:root:Found pearson's correlation/p of 0.5581/0
+INFO:root:Found spearman's collelation/p of 0.4533/0
+INFO:root:Evaluating RNA > ATAC
+INFO:root:Found AUROC of 0.8086
+
+real	15m22.621s
+user	41m58.659s
+sys	16m8.144s
