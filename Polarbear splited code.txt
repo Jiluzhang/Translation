@@ -1,0 +1,138 @@
+import os, sys, argparse, random;\
+import tensorflow as tf;\
+from tensorflow.python.keras import backend as K;\
+import numpy as np;\
+import pandas as pd;\
+from sklearn import preprocessing, metrics;\
+from sklearn.linear_model import RidgeCV;\
+import scipy;\
+from scipy.io import mmread;\
+sys.path.append('/fs/home/jiluzhang/Polarbear/bin/');\
+from train_model import TranslateAE;\
+from evaluation_functions import *
+
+learning_rate_x = 0.001;\
+learning_rate_y = 0.0001;\
+learning_rate_xy = 0.001;\
+learning_rate_yx = 0.001;\
+embed_dim_x = 25;\
+embed_dim_y = 25;\
+dropout_rate = 0.1;\
+nlayer = 2;\
+batch_size = 16;\
+trans_ver = 'linear';\
+patience = 45;\
+nepoch_warmup_x = 400;\
+nepoch_warmup_y = 80;\
+nepoch_klstart_x = 0;\
+nepoch_klstart_y = 0;\
+dispersion = 'genebatch';\
+hidden_frac = 2;\
+kl_weight = 1;\
+train_test_split = 'babel'
+
+##train_polarbear_model()
+sim_url = outdir + 'polarbear_'+ train_test_split +'_'+ dispersion + '_'+ str(nlayer)+ 'l_lr'+ str(learning_rate_y)+'_'+ str(learning_rate_x)+'_'+ str(learning_rate_xy)+'_'+ str(learning_rate_yx)+'_dropout'+ str(dropout_rate)+'_ndim'+str(embed_dim_x)+'_'+str(embed_dim_y)+'_batch'+ str(batch_size)+ '_'+ trans_ver + '_improvement'+str(patience)+'_nwarmup_'+str(nepoch_warmup_x)+'_'+str(nepoch_warmup_y)+'_klstart'+str(nepoch_klstart_x)+'_'+ str(nepoch_klstart_y)+'_klweight'+str(kl_weight)+'_hiddenfrac'+str(hidden_frac);\
+outdir='output_semi_gpu';\
+path_x='adultbrainfull50_rna_outer_snareseq.mtx';\
+path_y='adultbrainfull50_atac_outer_snareseq.mtx';\
+path_x_single='adultbrainfull50_rna_outer_single.mtx';\
+path_y_single='adultbrainfull50_atac_outer_single.mtx';\
+
+
+os.system('mkdir -p '+ outdir);\
+chr_annot = pd.read_csv(path_y.split('snareseq')[0]+ 'peaks.txt', sep=':', header=None);\
+chr_annot.columns = ['chr','pos'];\
+
+chr_list = {}
+for chri in chr_annot['chr'].unique():
+    if chri not in ['chrX','chrY']:
+        chr_list[int(chri[3:])] = [i for i, x in enumerate(chr_annot['chr']) if x == chri];
+
+chr_list_range = []
+for chri in chr_list.keys():
+    chr_list_range += chr_list[chri]
+
+chr_annot.iloc[chr_list_range].to_csv(sim_url+'_peaks.txt', index=False, sep=':', header=None);\
+
+data_rna, data_rna_batch = load_rna_file_sparse(path_x);\
+data_atac, data_atac_batch = load_atac_file_sparse(path_y, chr_list_range);\
+
+data_rna_barcode = pd.read_csv(path_x.split('.mtx')[0]+ '_barcodes.tsv', delimiter='\t');\
+barcode_list = data_rna_barcode['index'].to_list();\
+
+
+with open('./data/babel_test_barcodes.txt') as fp:
+    test_barcode = fp.read().splitlines()
+
+with open('./data/babel_valid_barcodes.txt') as fp:
+    valid_barcode = fp.read().splitlines()
+
+with open('./data/babel_train_barcodes.txt') as fp:
+    train_barcode = fp.read().splitlines()
+
+
+train_index = [barcode_list.index(x) for x in train_barcode];\
+val_index = [barcode_list.index(x) for x in valid_barcode];\
+test_index = [barcode_list.index(x) for x in test_barcode];\
+data_rna_train = data_rna[train_index,];\
+batch_rna_train = data_rna_batch[train_index,];\
+data_rna_train_co = data_rna[train_index,];\
+batch_rna_train_co = data_rna_batch[train_index,];\
+data_rna_test = data_rna[test_index,];\
+batch_rna_test = data_rna_batch[test_index,];\
+data_rna_val = data_rna[val_index,];\
+batch_rna_val = data_rna_batch[val_index,];\
+data_atac_train = data_atac[train_index,];\
+batch_atac_train = data_atac_batch[train_index,];\
+data_atac_train_co = data_atac[train_index,];\
+batch_atac_train_co = data_atac_batch[train_index,];\
+data_atac_test = data_atac[test_index,];\
+batch_atac_test = data_atac_batch[test_index,];\
+data_atac_val = data_atac[val_index,];\
+batch_atac_val = data_atac_batch[val_index,];\
+
+
+
+train_barcode = np.array(barcode_list)[train_index];\
+valid_barcode = np.array(barcode_list)[val_index];\
+test_barcode = np.array(barcode_list)[test_index];\
+np.savetxt(sim_url+'_train_barcodes.txt', train_barcode, delimiter='\n', fmt='%s');\
+np.savetxt(sim_url+'_valid_barcodes.txt', valid_barcode, delimiter='\n', fmt='%s');\
+np.savetxt(sim_url+'_test_barcodes.txt', test_barcode, delimiter='\n', fmt='%s');\
+
+
+data_rna_single, data_rna_single_batch = load_rna_file_sparse(path_x_single);\
+data_rna_train = scipy.sparse.vstack((data_rna_train, data_rna_single));\
+batch_rna_train = scipy.sparse.vstack((batch_rna_train, data_rna_single_batch));\
+
+
+
+
+
+def load_rna_file_sparse(url1):
+    data_rna = mmread(url1).tocsr();\
+    data_rna = data_rna.astype(int);\
+    data_rna_batch = mmread(url1.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
+    return data_rna, data_rna_batch
+
+def load_atac_file_sparse(url2, index_range):
+    data_atac = mmread(url2).tocsr()[:,index_range];\
+    data_atac[data_atac != 0] = 1;\
+    data_atac = data_atac.astype(int);\
+    data_atac_batch = mmread(url2.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
+    return data_atac, data_atac_batch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
