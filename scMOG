@@ -1,5 +1,9 @@
-scMOG: https://github.com/GaoLabXDU/scMOG
-BABEL: https://github.com/wukevin/babel
+#password: wanglab_jlz_57888282
+#scMOG: https://github.com/GaoLabXDU/scMOG
+#BABEL: https://github.com/wukevin/babel
+#Polarbear: https://github.com/Noble-Lab/Polarbear
+
+#Gitzip for github (download the individual files)
 
 ## install miniconda
 wget -c https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -102,7 +106,6 @@ nohup time python ~/scMOG/scMOG_code/bin/train.py --outdir training_out > traini
 
 
 
-wanglab_jlz_57888282
 
 ########################################################### BABEL ###########################################################
 conda remove -n scMoFormer --all
@@ -117,7 +120,7 @@ pip install numpy==1.17.5 pandas==0.25.3 scipy==1.3.2 scanpy==1.4.4 skorch==0.7.
 line 130: "louvain.set_rng_seed(random_state)"  ->  "#louvain.set_rng_seed(random_state)"  ## mask and pass it
 
 time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model --device 4                 # run sucessfully!!!
-time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5   # cannot run successfully !!!  bug: "Exception: File is missing one or more required datasets."
+time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5   # cannot run successfully !!!  
 
 ## bug: "Exception: File is missing one or more required datasets."
 ## ~/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/scanpy/readwrite.py
@@ -139,7 +142,7 @@ time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir 
 
 
 
-
+############################ BABEL installation try 1 (failed) ##########################
 conda create -n BABEL_new python==3.10.12
 
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy pandas scipy scanpy skorch torch intervaltree cached_property mpl_scatter_density adjustText astropy tensorboard gdown captum igraph louvain leidenalg
@@ -162,10 +165,10 @@ time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_an
 
 time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_anndata_0.9.2_pandas_2.0.3_scanpy_1.9.4
 time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model_anndata_0.9.0_pandas_2.0.3_scanpy_1.9.4
+####################################################################################
 
 
-
-
+############################ BABEL installation try 2 (failed) ##########################
 ## refer to "environment_minimal.yml" & "environment.yml"
 conda create -n BABEL python=3.7.10
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple anndata==0.6.22 astropy==4.0 cached_property torch==1.3 captum==0.2 
@@ -188,366 +191,13 @@ line 130: "louvain.set_rng_seed(random_state)"  ->  "#louvain.set_rng_seed(rando
 # pip install dask                   # to debug "TypeError: isinstance() arg 2 must be a type or tuple of types"
 # pip install anndata==0.7.4         # to debug "KeyError: 'Could not find key 1386 in .obs_names or .var.columns.'"
 
-# Gitzip for github (download the individual files)
 
 nohup time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5 --outdir BABEL_model > BABEL_training.log &
 
 time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model
 time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5 --outdir BABEL_model
+####################################################################################
 
-
-import scanpy as sc
-
-dat_1 = sc.read_10x_h5('GSE20046_bm_rna_atac.h5', gex_only=False)
-
-
-
-
-
-########################time python ~/BABEL/bin/train_model.py --data DM_rep4.h5 --outdir BABEL_model --device 4 
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:17: FutureWarning: pandas.core.index is deprecated and will be removed in a future version.  The public classes are available in the top-level namespace.
-  from pandas.core.index import RangeIndex
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:30: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:167: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  method='lar', copy_X=True, eps=np.finfo(np.float).eps,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:284: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  eps=np.finfo(np.float).eps, copy_Gram=True, verbose=0,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:862: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1101: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  eps=np.finfo(np.float).eps, copy_X=True, fit_path=True,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1127: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  eps=np.finfo(np.float).eps, positive=False):
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1362: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1602: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  max_n_alphas=1000, n_jobs=None, eps=np.finfo(np.float).eps,
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/linear_model/least_angle.py:1738: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  eps=np.finfo(np.float).eps, copy_X=True, positive=False):
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/decomposition/online_lda.py:29: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  EPS = np.finfo(np.float).eps
-INFO:root:PyTorch CUDA version: 11.7
-INFO:root:Parameter data: ['DM_rep4.h5']
-INFO:root:Parameter snareseq: False
-INFO:root:Parameter shareseq: None
-INFO:root:Parameter nofilter: False
-INFO:root:Parameter linear: False
-INFO:root:Parameter clustermethod: leiden
-INFO:root:Parameter validcluster: 0
-INFO:root:Parameter testcluster: 1
-INFO:root:Parameter outdir: /fs/home/jiluzhang/GSES20046_bm/BABEL_model
-INFO:root:Parameter naive: False
-INFO:root:Parameter hidden: [16]
-INFO:root:Parameter pretrain: 
-INFO:root:Parameter lossweight: [1.33]
-INFO:root:Parameter optim: adam
-INFO:root:Parameter lr: [0.01]
-INFO:root:Parameter batchsize: [512]
-INFO:root:Parameter earlystop: 25
-INFO:root:Parameter seed: [182822]
-INFO:root:Parameter device: 4
-INFO:root:Parameter ext: pdf
-INFO:root:Reading RNA data
-Variable names are not unique. To make them unique, call `.var_names_make_unique`.
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
-  if is_categorical(df_full[k]):
-INFO:root:Read in DM_rep4.h5 for (5517, 36601) (obs x var)
-Trying to set attribute `.obs` of view, making a copy.
-WARNING:root:Got multiple chromosomes for gene DUS4L-BCAP29: {'7', '4'}, skipping
-INFO:root:36144 genes with known positions
-Trying to set attribute `.var` of view, making a copy.
-Trying to set attribute `.obs` of view, making a copy.
-INFO:root:Filtering 5517 cells
-INFO:root:Remaining cells after min genes: 5511
-INFO:root:Remaining cells after max genes: 4751
-INFO:root:Computing size factors
-INFO:root:Found median counts of 15002.0
-INFO:root:Found maximum counts of 35093.0
-INFO:root:Log transforming data
-INFO:root:Normalizing data to zero mean unit variance
-INFO:root:Clipping to 0.5 percentile
-INFO:root:Constructing leiden log clustered data split with valid test cluster {'0'} {'1'}
-INFO:root:Setting size normalized counts
-WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  best_error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  best_error = np.finfo(np.float).max
-INFO:root:Setting log-normalized size-normalized counts
-WARNING: Consider installing the package MulticoreTSNE (https://github.com/DmitryUlyanov/Multicore-TSNE). Even for n_jobs=1 this speeds up the computation considerably and might yield better converged results.
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/neighbors/base.py:441: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-  old_joblib = LooseVersion(joblib_version) < LooseVersion('0.12')
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  best_error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:344: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  error = np.finfo(np.float).max
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/sklearn/manifold/t_sne.py:345: DeprecationWarning: `np.float` is a deprecated alias for the builtin `float`. To silence this warning, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
-Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
-  best_error = np.finfo(np.float).max
-INFO:root:Created train data split with 3906 examples
-INFO:root:Created valid data split with 440 examples
-INFO:root:Created test data split with 405 examples
-INFO:root:Aggregating ATAC clusters
-Variable names are not unique. To make them unique, call `.var_names_make_unique`.
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1237: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
-  if is_categorical(df_full[k]):
-Variable names are not unique. To make them unique, call `.var_names_make_unique`.
-WARNING:root:Got noncanonical chromsome in KI270728.1:232398-233036
-WARNING:root:Got noncanonical chromsome in KI270728.1:1453055-1453195
-WARNING:root:Got noncanonical chromsome in KI270728.1:1457822-1468143
-WARNING:root:Got noncanonical chromsome in KI270728.1:1468714-1472257
-WARNING:root:Got noncanonical chromsome in KI270728.1:1472949-1473574
-WARNING:root:Got noncanonical chromsome in KI270728.1:1704537-1705098
-WARNING:root:Got noncanonical chromsome in KI270728.1:1709206-1709349
-WARNING:root:Got noncanonical chromsome in KI270728.1:1714120-1714263
-WARNING:root:Got noncanonical chromsome in KI270728.1:1791204-1792542
-WARNING:root:Got noncanonical chromsome in KI270728.1:1803969-1804310
-WARNING:root:Got noncanonical chromsome in KI270728.1:1806112-1806314
-WARNING:root:Got noncanonical chromsome in KI270728.1:1806879-1811895
-WARNING:root:Got noncanonical chromsome in KI270728.1:1812870-1818077
-WARNING:root:Got noncanonical chromsome in KI270727.1:52326-52761
-WARNING:root:Got noncanonical chromsome in GL000009.2:124354-125227
-WARNING:root:Got noncanonical chromsome in GL000194.1:24691-25343
-WARNING:root:Got noncanonical chromsome in GL000194.1:28123-28631
-WARNING:root:Got noncanonical chromsome in GL000194.1:55809-56846
-WARNING:root:Got noncanonical chromsome in GL000194.1:58539-58790
-WARNING:root:Got noncanonical chromsome in GL000194.1:59905-59911
-WARNING:root:Got noncanonical chromsome in GL000194.1:114747-115219
-WARNING:root:Got noncanonical chromsome in GL000205.2:38513-39632
-WARNING:root:Got noncanonical chromsome in GL000205.2:56020-57357
-WARNING:root:Got noncanonical chromsome in GL000205.2:59095-59103
-WARNING:root:Got noncanonical chromsome in GL000205.2:59688-60516
-WARNING:root:Got noncanonical chromsome in GL000205.2:62622-64539
-WARNING:root:Got noncanonical chromsome in GL000205.2:70700-70808
-WARNING:root:Got noncanonical chromsome in GL000205.2:74366-75267
-WARNING:root:Got noncanonical chromsome in GL000205.2:78141-78837
-WARNING:root:Got noncanonical chromsome in GL000205.2:87896-89256
-WARNING:root:Got noncanonical chromsome in GL000205.2:140210-141084
-WARNING:root:Got noncanonical chromsome in GL000205.2:157365-157405
-WARNING:root:Got noncanonical chromsome in GL000205.2:175130-175720
-WARNING:root:Got noncanonical chromsome in GL000195.1:30219-31575
-WARNING:root:Got noncanonical chromsome in GL000195.1:32235-33443
-WARNING:root:Got noncanonical chromsome in GL000195.1:67911-68997
-WARNING:root:Got noncanonical chromsome in GL000195.1:86484-86682
-WARNING:root:Got noncanonical chromsome in GL000195.1:120931-121384
-WARNING:root:Got noncanonical chromsome in GL000195.1:137387-138432
-WARNING:root:Got noncanonical chromsome in GL000219.1:40140-40568
-WARNING:root:Got noncanonical chromsome in GL000219.1:41744-43002
-WARNING:root:Got noncanonical chromsome in GL000219.1:50818-51207
-WARNING:root:Got noncanonical chromsome in GL000219.1:98981-100394
-WARNING:root:Got noncanonical chromsome in GL000219.1:125372-125525
-WARNING:root:Got noncanonical chromsome in GL000219.1:133081-133485
-WARNING:root:Got noncanonical chromsome in GL000218.1:16034-16325
-WARNING:root:Got noncanonical chromsome in GL000218.1:26527-26918
-WARNING:root:Got noncanonical chromsome in GL000218.1:29725-29935
-WARNING:root:Got noncanonical chromsome in GL000218.1:97179-97523
-WARNING:root:Got noncanonical chromsome in KI270721.1:2370-2705
-WARNING:root:Got noncanonical chromsome in KI270713.1:20908-22398
-WARNING:root:Got noncanonical chromsome in KI270728.1:232398-233036
-WARNING:root:Got noncanonical chromsome in KI270728.1:1453055-1453195
-WARNING:root:Got noncanonical chromsome in KI270728.1:1457822-1468143
-WARNING:root:Got noncanonical chromsome in KI270728.1:1468714-1472257
-WARNING:root:Got noncanonical chromsome in KI270728.1:1472949-1473574
-WARNING:root:Got noncanonical chromsome in KI270728.1:1704537-1705098
-WARNING:root:Got noncanonical chromsome in KI270728.1:1709206-1709349
-WARNING:root:Got noncanonical chromsome in KI270728.1:1714120-1714263
-WARNING:root:Got noncanonical chromsome in KI270728.1:1791204-1792542
-WARNING:root:Got noncanonical chromsome in KI270728.1:1803969-1804310
-WARNING:root:Got noncanonical chromsome in KI270728.1:1806112-1806314
-WARNING:root:Got noncanonical chromsome in KI270728.1:1806879-1811895
-WARNING:root:Got noncanonical chromsome in KI270728.1:1812870-1818077
-WARNING:root:Got noncanonical chromsome in KI270727.1:52326-52761
-WARNING:root:Got noncanonical chromsome in GL000009.2:124354-125227
-WARNING:root:Got noncanonical chromsome in GL000194.1:24691-25343
-WARNING:root:Got noncanonical chromsome in GL000194.1:28123-28631
-WARNING:root:Got noncanonical chromsome in GL000194.1:55809-56846
-WARNING:root:Got noncanonical chromsome in GL000194.1:58539-58790
-WARNING:root:Got noncanonical chromsome in GL000194.1:59905-59911
-WARNING:root:Got noncanonical chromsome in GL000194.1:114747-115219
-WARNING:root:Got noncanonical chromsome in GL000205.2:38513-39632
-WARNING:root:Got noncanonical chromsome in GL000205.2:56020-57357
-WARNING:root:Got noncanonical chromsome in GL000205.2:59095-59103
-WARNING:root:Got noncanonical chromsome in GL000205.2:59688-60516
-WARNING:root:Got noncanonical chromsome in GL000205.2:62622-64539
-WARNING:root:Got noncanonical chromsome in GL000205.2:70700-70808
-WARNING:root:Got noncanonical chromsome in GL000205.2:74366-75267
-WARNING:root:Got noncanonical chromsome in GL000205.2:78141-78837
-WARNING:root:Got noncanonical chromsome in GL000205.2:87896-89256
-WARNING:root:Got noncanonical chromsome in GL000205.2:140210-141084
-WARNING:root:Got noncanonical chromsome in GL000205.2:157365-157405
-WARNING:root:Got noncanonical chromsome in GL000205.2:175130-175720
-WARNING:root:Got noncanonical chromsome in GL000195.1:30219-31575
-WARNING:root:Got noncanonical chromsome in GL000195.1:32235-33443
-WARNING:root:Got noncanonical chromsome in GL000195.1:67911-68997
-WARNING:root:Got noncanonical chromsome in GL000195.1:86484-86682
-WARNING:root:Got noncanonical chromsome in GL000195.1:120931-121384
-WARNING:root:Got noncanonical chromsome in GL000195.1:137387-138432
-WARNING:root:Got noncanonical chromsome in GL000219.1:40140-40568
-WARNING:root:Got noncanonical chromsome in GL000219.1:41744-43002
-WARNING:root:Got noncanonical chromsome in GL000219.1:50818-51207
-WARNING:root:Got noncanonical chromsome in GL000219.1:98981-100394
-WARNING:root:Got noncanonical chromsome in GL000219.1:125372-125525
-WARNING:root:Got noncanonical chromsome in GL000219.1:133081-133485
-WARNING:root:Got noncanonical chromsome in GL000218.1:16034-16325
-WARNING:root:Got noncanonical chromsome in GL000218.1:26527-26918
-WARNING:root:Got noncanonical chromsome in GL000218.1:29725-29935
-WARNING:root:Got noncanonical chromsome in GL000218.1:97179-97523
-WARNING:root:Got noncanonical chromsome in KI270721.1:2370-2705
-WARNING:root:Got noncanonical chromsome in KI270713.1:20908-22398
-INFO:root:Read in DM_rep4.h5 for (5517, 110484) (obs x var)
-Trying to set attribute `.X` of view, making a copy.
-INFO:root:Filtering 106816 vars
-INFO:root:Remaining vars after min count: 105427
-INFO:root:Remaining vars after min cells: 105427
-INFO:root:Remaining vars after max cells: 85596
-INFO:root:Got predefined split, ignoring mode
-INFO:root:Created train data split with 3906 examples
-INFO:root:Created valid data split with 440 examples
-INFO:root:Created test data split with 405 examples
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-INFO:root:Checking obs names for two input datasets
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:108: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
-  elif is_categorical(df[k]):
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:1326: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
-  and not is_categorical(df[key])
-Trying to set attribute `.obs` of view, making a copy.
-... storing 'source_file' as categorical
-Trying to set attribute `.var` of view, making a copy.
-... storing 'chrom' as categorical
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/pandas/core/arrays/categorical.py:2631: FutureWarning: The `inplace` parameter in pandas.Categorical.remove_unused_categories is deprecated and will be removed in a future version.
-  res = method(*args, **kwargs)
-1#######################
-INFO:root:ChromDecoder with 1 output activations
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/torch/optim/lr_scheduler.py:1006: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
-  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
-  epoch    train_loss    valid_loss    cp     dur
--------  ------------  ------------  ----  ------
-      1        2.7684        2.1126     +  5.4038
-      2        1.4837        1.4073     +  4.7564
-      3        1.1491        1.2878     +  4.7415
-      4        1.1138        1.2680     +  4.8555
-      5        1.0988        1.2536     +  4.9121
-      6        1.0824        1.2330     +  4.8002
-      7        1.0709        1.2270     +  4.8440
-      8        1.0619        1.2236     +  4.8550
-      9        1.0553        1.2209     +  4.9269
-     10        1.0505        1.2206     +  4.8228
-     11        1.0472        1.2223        4.8759
-     12        1.0439        1.2205     +  4.8758
-     13        1.0412        1.2212        5.0718
-     14        1.0389        1.2220        4.9089
-     15        1.0372        1.2216        5.1156
-     16        1.0352        1.2210        4.8611
-     17        1.0337        1.2205     +  5.1081
-     18        1.0320        1.2209        5.1965
-     19        1.0305        1.2216        4.9796
-     20        1.0291        1.2225        4.9475
-     21        1.0279        1.2227        4.9731
-     22        1.0267        1.2217        5.0227
-     23        1.0253        1.2223        4.9218
-     24        1.0241        1.2218        4.8633
-     25        1.0233        1.2211        4.9354
-     26        1.0219        1.2226        5.1070
-     27        1.0208        1.2191     +  4.8157
-     28        1.0198        1.2191     +  4.8787
-     29        1.0188        1.2200        4.8653
-     30        1.0182        1.2207        5.2476
-     31        1.0172        1.2200        4.8768
-     32        1.0167        1.2219        4.8969
-     33        1.0162        1.2231        4.8652
-     34        1.0154        1.2232        4.8626
-     35        1.0150        1.2179     +  4.9560
-     36        1.0141        1.2213        4.8532
-     37        1.0138        1.2196        4.8758
-     38        1.0133        1.2225        4.8722
-     39        1.0127        1.2162     +  5.0666
-     40        1.0123        1.2214        4.8792
-     41        1.0118        1.2217        4.8480
-     42        1.0113        1.2189        4.8982
-     43        1.0106        1.2207        4.8581
-     44        1.0099        1.2207        5.0061
-     45        1.0092        1.2210        5.0965
-     46        1.0086        1.2215        5.0406
-     47        1.0080        1.2213        4.9472
-     48        1.0078        1.2199        4.9960
-     49        1.0075        1.2229        4.9251
-     50        1.0074        1.2214        4.9545
-     51        1.0070        1.2225        4.8700
-     52        1.0064        1.2212        4.9473
-     53        1.0060        1.2208        4.8552
-     54        1.0055        1.2224        4.9436
-     55        1.0052        1.2198        4.8634
-     56        1.0050        1.2220        4.8529
-     57        1.0045        1.2220        5.1030
-     58        1.0042        1.2224        4.9206
-     59        1.0039        1.2218        4.8698
-     60        1.0033        1.2223        4.8226
-     61        1.0031        1.2224        4.9054
-     62        1.0030        1.2227        4.8659
-     63        1.0027        1.2220        4.9545
-Stopping since valid_loss has not improved in the last 25 epochs.
-2#######################
-INFO:root:Evaluating on test set
-INFO:root:Evaluating RNA > RNA
-... storing 'source_file' as categorical
-... storing 'feature_types' as categorical
-... storing 'genome' as categorical
-... storing 'chrom' as categorical
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/anndata/core/anndata.py:101: FutureWarning: is_categorical is deprecated and will be removed in a future version.  Use is_categorical_dtype instead
-  if is_string_dtype(df[k]) and not is_categorical(df[k]):
-INFO:root:Found pearson's correlation/p of 0.8369/0
-INFO:root:Found spearman's collelation/p of 0.5895/0
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/mpl_scatter_density/generic_density_artist.py:77: RuntimeWarning: All-NaN slice encountered
-  vmin = self._density_vmin(array)
-/fs/home/jiluzhang/softwares/miniconda3/envs/BABEL/lib/python3.7/site-packages/mpl_scatter_density/generic_density_artist.py:82: RuntimeWarning: All-NaN slice encountered
-  vmax = self._density_vmax(array)
-INFO:root:Evaluating ATAC > ATAC
-INFO:root:Found AUROC of 0.7610
-INFO:root:Evaluating ATAC > RNA
-... storing 'source_file' as categorical
-... storing 'feature_types' as categorical
-... storing 'genome' as categorical
-... storing 'chrom' as categorical
-INFO:root:Found pearson's correlation/p of 0.8183/0
-INFO:root:Found spearman's collelation/p of 0.5866/0
-INFO:root:Evaluating RNA > ATAC
-INFO:root:Found AUROC of 0.7038
-
-real	9m49.065s
-user	31m33.251s
-sys	9m20.095s
 
 
 #################### time python ~/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5 
