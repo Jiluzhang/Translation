@@ -465,17 +465,25 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
 #train: "train": train the model from the beginning; "predict": load existing model for downstream prediction (default: predict)
 
 #data dir: https://noble.gs.washington.edu/~ranz0/Polarbear/data/
-#adultbrainfull50_atac_outer_peaks.txt
-#adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
-#adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
-#adultbrainfull50_rna_outer_snareseq_barcodes.tsv
-#babel_test_barcodes.txt   (set to /data/)
-#babel_train_barcodes.txt  (set to /data/)
-#babel_valid_barcodes.txt  (set to /data/)
-
-
-
-
+adultbrainfull50_atac_outer_peaks.txt	                       2021-12-09 23:34	5.1M	 
+adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt	         2021-12-09 23:34	7.9M	 
+adultbrainfull50_atac_outer_single.mtx	                     2021-12-09 23:35	3.7G	 
+adultbrainfull50_atac_outer_single_barcodes.tsv	             2021-12-09 23:33	17M	 
+adultbrainfull50_atac_outer_single_barcodes_dataset.mtx	     2021-12-09 23:34	1.7M	 
+adultbrainfull50_atac_outer_snareseq.mtx	                   2021-12-09 23:34	267M	 
+adultbrainfull50_atac_outer_snareseq_barcodes.tsv	           2021-12-09 23:33	703K	 
+adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx	   2021-12-09 23:34	90K	 
+adultbrainfull50_rna_outer_genes.txt	                       2021-12-09 23:35	112K	 
+adultbrainfull50_rna_outer_single.mtx	                       2021-12-09 23:34	2.9G	 
+adultbrainfull50_rna_outer_single_barcodes.tsv	             2021-12-09 23:34	15M	 
+adultbrainfull50_rna_outer_single_barcodes_dataset.mtx	     2021-12-09 23:35	1.6M	 
+adultbrainfull50_rna_outer_snareseq.mtx	                     2021-12-09 23:34	102M	 
+adultbrainfull50_rna_outer_snareseq_barcodes.tsv	           2021-12-09 23:34	698K	 
+adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx	   2021-12-09 23:34	90K	 
+babel_genes.txt	                                             2021-12-09 23:34	219K	 
+babel_test_barcodes.txt	                                     2021-12-09 23:34	20K	 
+babel_train_barcodes.txt	                                   2021-12-09 23:34	128K	 
+babel_valid_barcodes.txt                                     2021-12-09 23:34	23K	 
 
 
 
