@@ -447,6 +447,8 @@ pip install scikit-learn==0.23.2 pandas==1.3.4 tensorflow-gpu==1.13.1
 # bug: "ImportError: libcublas.so.10.0: cannot open shared object file: No such file or directory"
 # pip install -i https://pypi.tuna.tsinghua.edu.cn/simple tensorflow-gpu==1.15.5
 
+pip install scanpy==1.7.0 h5py==2.10.0 numpy==1.17.0
+sc.read_mtx() seems not quicker than mmread()
 
 run_polarbear.py
 add "print()"
