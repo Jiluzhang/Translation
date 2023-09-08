@@ -124,7 +124,8 @@ batch_atac_train = batch_atac_train[rand_index_atac,]
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
-head -n 10003 adultbrainfull50_rna_outer_single.mtx > test.mtx
+head -n 10000003 adultbrainfull50_atac_outer_single_raw.mtx > adultbrainfull50_atac_outer_single.mtx
+head -n 10000003 adultbrainfull50_rna_outer_single_raw.mtx > adultbrainfull50_rna_outer_single.mtx
 
 import importlib
 importlib.reload(train_model)
@@ -196,6 +197,39 @@ def load_atac_file_sparse(url2, index_range):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+2023-09-08 14:19:43.309368: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1639] Found device 0 with properties: 
+name: NVIDIA A800 80GB PCIe major: 8 minor: 0 memoryClockRate(GHz): 1.41
+pciBusID: 0000:9d:00.0
+2023-09-08 14:19:43.309466: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcudart.so.10.0'; dlerror: libcudart.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309513: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcublas.so.10.0'; dlerror: libcublas.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309554: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcufft.so.10.0'; dlerror: libcufft.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309597: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcurand.so.10.0'; dlerror: libcurand.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309639: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcusolver.so.10.0'; dlerror: libcusolver.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309679: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcusparse.so.10.0'; dlerror: libcusparse.so.10.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309723: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcudnn.so.7'; dlerror: libcudnn.so.7: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /usr/local/cuda/lib64:
+2023-09-08 14:19:43.309731: W tensorflow/core/common_runtime/gpu/gpu_device.cc:1662] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+2023-09-08 14:19:43.309902: I tensorflow/core/platform/cpu_feature_guard.cc:142] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 AVX512F FMA
+2023-09-08 14:19:43.317635: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 2900000000 Hz
+2023-09-08 14:19:43.319828: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x5604942170f0 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+2023-09-08 14:19:43.319847: I tensorflow/compiler/xla/service/service.cc:176]   StreamExecutor device (0): Host, Default Version
+2023-09-08 14:19:43.454775: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x560496281990 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+2023-09-08 14:19:43.454830: I tensorflow/compiler/xla/service/service.cc:176]   StreamExecutor device (0): NVIDIA A800 80GB PCIe, Compute Capability 8.0
+2023-09-08 14:19:43.455037: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1180] Device interconnect StreamExecutor with strength 1 edge matrix:
+2023-09-08 14:19:43.455057: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1186]      
+WARNING:tensorflow:From /fs/home/jiluzhang/Polarbear/bin/train_model.py:338: The name tf.global_variables_initializer is deprecated. Please use tf.compat.v1.global_variables_initializer instead.
 
 
 
