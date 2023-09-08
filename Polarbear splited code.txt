@@ -32,8 +32,8 @@ kl_weight = 1;\
 train_test_split = 'babel'
 
 ##train_polarbear_model()
-sim_url = outdir + 'polarbear_'+ train_test_split +'_'+ dispersion + '_'+ str(nlayer)+ 'l_lr'+ str(learning_rate_y)+'_'+ str(learning_rate_x)+'_'+ str(learning_rate_xy)+'_'+ str(learning_rate_yx)+'_dropout'+ str(dropout_rate)+'_ndim'+str(embed_dim_x)+'_'+str(embed_dim_y)+'_batch'+ str(batch_size)+ '_'+ trans_ver + '_improvement'+str(patience)+'_nwarmup_'+str(nepoch_warmup_x)+'_'+str(nepoch_warmup_y)+'_klstart'+str(nepoch_klstart_x)+'_'+ str(nepoch_klstart_y)+'_klweight'+str(kl_weight)+'_hiddenfrac'+str(hidden_frac);\
 outdir='output_semi_gpu';\
+sim_url = outdir + 'polarbear_'+ train_test_split +'_'+ dispersion + '_'+ str(nlayer)+ 'l_lr'+ str(learning_rate_y)+'_'+ str(learning_rate_x)+'_'+ str(learning_rate_xy)+'_'+ str(learning_rate_yx)+'_dropout'+ str(dropout_rate)+'_ndim'+str(embed_dim_x)+'_'+str(embed_dim_y)+'_batch'+ str(batch_size)+ '_'+ trans_ver + '_improvement'+str(patience)+'_nwarmup_'+str(nepoch_warmup_x)+'_'+str(nepoch_warmup_y)+'_klstart'+str(nepoch_klstart_x)+'_'+ str(nepoch_klstart_y)+'_klweight'+str(kl_weight)+'_hiddenfrac'+str(hidden_frac);\
 path_x='adultbrainfull50_rna_outer_snareseq.mtx';\
 path_y='adultbrainfull50_atac_outer_snareseq.mtx';\
 path_x_single='adultbrainfull50_rna_outer_single.mtx';\
@@ -102,12 +102,81 @@ np.savetxt(sim_url+'_valid_barcodes.txt', valid_barcode, delimiter='\n', fmt='%s
 np.savetxt(sim_url+'_test_barcodes.txt', test_barcode, delimiter='\n', fmt='%s');\
 
 
-data_rna_single, data_rna_single_batch = load_rna_file_sparse(path_x_single);\
+data_rna_single, data_rna_single_batch = load_rna_file_sparse(path_x_single);\   # ~4 min
 data_rna_train = scipy.sparse.vstack((data_rna_train, data_rna_single));\
 batch_rna_train = scipy.sparse.vstack((batch_rna_train, data_rna_single_batch));\
 
+data_atac_single, data_atac_single_batch = load_atac_file_sparse(path_y_single, chr_list_range);\  # 5 min
+data_atac_train = scipy.sparse.vstack((data_atac_train, data_atac_single));\
+batch_atac_train = scipy.sparse.vstack((batch_atac_train, data_atac_single_batch));\
+
+rand_index_rna = list(range(data_rna_train.shape[0]));\
+random.seed(101);\
+random.shuffle(rand_index_rna);\
+data_rna_train = data_rna_train[rand_index_rna,];\
+batch_rna_train = batch_rna_train[rand_index_rna,]
+
+rand_index_atac = list(range(data_atac_train.shape[0]));\
+random.seed(101);\
+random.shuffle(rand_index_atac);\
+data_atac_train = data_atac_train[rand_index_atac,];\
+batch_atac_train = batch_atac_train[rand_index_atac,]
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+head -n 10003 adultbrainfull50_rna_outer_single.mtx > test.mtx
+
+import importlib
+importlib.reload(train_model)
+
+tf.reset_default_graph();\
+
+autoencoder = train_model.TranslateAE(input_dim_x=data_rna_val.shape[1], input_dim_y=data_atac_val.shape[1], batch_dim_x=batch_rna_val.shape[1], batch_dim_y=batch_atac_val.shape[1], \
+                          embed_dim_x=embed_dim_x, embed_dim_y=embed_dim_y, dispersion=dispersion, chr_list=chr_list, nlayer=nlayer, dropout_rate=dropout_rate, \
+                          output_model=sim_url, learning_rate_x=learning_rate_x, learning_rate_y=learning_rate_y, learning_rate_xy=learning_rate_xy, learning_rate_yx=learning_rate_yx, \
+                          trans_ver=trans_ver, hidden_frac=hidden_frac, kl_weight=kl_weight);\
+
+iter_list1, iter_list2, iter_list3, iter_list4, val_reconstr_atac_loss_list, val_kl_atac_loss_list, val_reconstr_rna_loss_list, val_kl_rna_loss_list, val_translat_atac_loss_list, val_translat_rna_loss_list = autoencoder.train(data_rna_train, batch_rna_train, data_atac_train, batch_atac_train, data_rna_val, batch_rna_val, data_atac_val, batch_atac_val, \
+                                               data_rna_train_co, batch_rna_train_co, data_atac_train_co, batch_atac_train_co, \
+                                               nepoch_warmup_x, nepoch_warmup_y, patience, nepoch_klstart_x, nepoch_klstart_y, \
+                                               output_model=sim_url, batch_size=32, nlayer=nlayer, save_model=True);\
+
+data_x, batch_x, data_y, batch_y, data_x_val, batch_x_val, data_y_val, batch_y_val, \
+data_x_co, batch_x_co, data_y_co, batch_y_co, \
+nepoch_warmup_x, nepoch_warmup_y, patience, nepoch_klstart_x, nepoch_klstart_y, \
+output_model,  batch_size, nlayer, save_model = \
+data_rna_train, batch_rna_train, data_atac_train, batch_atac_train, data_rna_val, batch_rna_val, data_atac_val, batch_atac_val, \
+data_rna_train_co, batch_rna_train_co, data_atac_train_co, batch_atac_train_co, \
+nepoch_warmup_x, nepoch_warmup_y, patience, nepoch_klstart_x, nepoch_klstart_y, \
+sim_url, batch_size, nlayer, True
+
+val_reconstr_y_loss_list = [];\
+val_kl_y_loss_list = [];\
+val_reconstr_x_loss_list = [];\
+val_kl_x_loss_list = [];\
+val_translat_y_loss_list = [];\
+val_translat_x_loss_list = [];\
+last_improvement=0;\
+n_iter_step1 = 0;\
+n_iter_step2 = 0
+
+iter_list1 = [];\
+iter_list2 = [];\
+iter_list3 = [];\
+iter_list4 = [];\
+loss_val_check_list = [];\
+my_epochs_max = {};\
+my_epochs_max[1] = 500;\
+my_epochs_max[2] = 500;\
+my_epochs_max[3] = 100;\
+my_epochs_max[4] = 100;\
+saver = tf.train.Saver();\
+sep_train_index = 1
 
 
+
+from datetime import datetime
+print(datetime.now())
 
 
 def load_rna_file_sparse(url1):
