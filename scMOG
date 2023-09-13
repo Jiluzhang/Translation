@@ -441,14 +441,26 @@ sys	16m8.144s
 
 
 ######################## Polarbear ########################
+# alternative solution: https://github.com/qqwweee/keras-yolo3/issues/332
+#                       https://forsworns.github.io/zh/blogs/20190824/
+
+
+conda create -n Polarbear python=3.6.8
+conda install -c anaconda tensorflow-gpu
+
+
+
+
 conda create -n Polarbear -c conda-forge python==3.7.12
-pip install scikit-learn==0.23.2 pandas==1.3.4 tensorflow-gpu==1.13.1
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple scikit-learn==0.23.2 pandas==1.3.4 tensorflow-gpu==1.13.1
 conda install cudatoolkit=10.0
-conda install cudnn=7.6.5
+conda install cudnn=7.3.1
 pip install protobuf==3.20.0
 
-pip install tensorflow-gpu==1.15.0
-
+#cudnn_raw
+cp cuda/lib64/libcudnn* /fs/home/jiluzhang/softwares/miniconda3/envs/Polarbear_new/lib
+cp cuda/lib64/libcudnn* /fs/home/jiluzhang/softwares/miniconda3/pkgs/cudnn-7.3.1-cuda10.0_0/lib
+cp cuda/include/cudnn.h /fs/home/jiluzhang/softwares/miniconda3/pkgs/cudnn-7.3.1-cuda10.0_0/include
 
 conda create -n Polarbear -c conda-forge python==3.7.12
 pip install scikit-learn==0.23.2 pandas==1.3.4 tensorflow-gpu==1.13.1
