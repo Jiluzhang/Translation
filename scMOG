@@ -497,7 +497,7 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
                                         --path_x_single adultbrainfull50_rna_outer_single.mtx   \
                                         --path_y_single adultbrainfull50_atac_outer_single.mtx  \
                                         --train_test_split babel                                \
-                                        --train train --batch_size 512                                          
+                                        --train train --batch_size 1                                          
 
 #path_x: scRNA co-assay (SNARE-seq) file path   (https://noble.gs.washington.edu/~ranz0/Polarbear/data/adultbrainfull50_rna_outer_snareseq.mtx)
 #path_y: scATAC co-assay (SNARE-seq) file path  (https://noble.gs.washington.edu/~ranz0/Polarbear/data/adultbrainfull50_atac_outer_snareseq.mtx)
