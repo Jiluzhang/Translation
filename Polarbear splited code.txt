@@ -55,6 +55,20 @@ for chri in chr_list.keys():
 
 chr_annot.iloc[chr_list_range].to_csv(sim_url+'_peaks.txt', index=False, sep=':', header=None);\
 
+def load_rna_file_sparse(url1):
+    data_rna = mmread(url1).tocsr();\
+    data_rna = data_rna.astype(int);\
+    data_rna_batch = mmread(url1.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
+    return data_rna, data_rna_batch
+
+def load_atac_file_sparse(url2, index_range):
+    data_atac = mmread(url2).tocsr()[:,index_range];\
+    data_atac[data_atac != 0] = 1;\
+    data_atac = data_atac.astype(int);\
+    data_atac_batch = mmread(url2.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
+    return data_atac, data_atac_batch
+
+
 data_rna, data_rna_batch = load_rna_file_sparse(path_x);\
 data_atac, data_atac_batch = load_atac_file_sparse(path_y, chr_list_range);\
 
@@ -180,18 +194,7 @@ from datetime import datetime
 print(datetime.now())
 
 
-def load_rna_file_sparse(url1):
-    data_rna = mmread(url1).tocsr();\
-    data_rna = data_rna.astype(int);\
-    data_rna_batch = mmread(url1.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
-    return data_rna, data_rna_batch
 
-def load_atac_file_sparse(url2, index_range):
-    data_atac = mmread(url2).tocsr()[:,index_range];\
-    data_atac[data_atac != 0] = 1;\
-    data_atac = data_atac.astype(int);\
-    data_atac_batch = mmread(url2.split('.mtx')[0]+'_barcodes_dataset.mtx').tocsr();\
-    return data_atac, data_atac_batch
 
 
 
