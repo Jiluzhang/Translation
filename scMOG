@@ -496,6 +496,15 @@ copy and paste the first line, and paste the rest code.
 
 
 
+###################################################################
+conda create -n Polarbear -c conda-forge python==3.7.5
+conda install tensorflow-gpu=1.14.0
+conda install pandas scikit-learn
+# python=3.7.5
+# scikit-learn=1.0.2
+# pandas=1.3.5
+# tensorflow-gpu=1.14.0
+###################################################################
 
 ## downsample to 10k peaks
 
@@ -613,11 +622,23 @@ sed '1,3d' mtx_raw/adultbrainfull50_rna_outer_snareseq.mtx | awk '{if($1<101) pr
 
 
 
-
+from datetime import datetime
+print(datetime.now())
 
 snare-seq rna: cell_num (10309)  gene_num (17271)
 
 babel -> random???
+
+
+time python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                             --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                             --outdir output_semi_gpu                                \
+                                             --patience 45                                           \
+                                             --path_x_single nornasingle   \
+                                             --path_y_single noatacsingle  \
+                                             --train_test_split random                                \
+                                             --train train --batch_size 1
+
 
 time python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
                                              --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
@@ -636,7 +657,11 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
                                         --path_x_single adultbrainfull50_rna_outer_single.mtx   \
                                         --path_y_single adultbrainfull50_atac_outer_single.mtx  \
                                         --train_test_split babel                                \
-                                        --train train --batch_size 1                                          
+                                        --train train --batch_size 256                                          
+
+# show start and running time 
+ps -eo pid,lstart,etime | grep 162153
+
 
 #path_x: scRNA co-assay (SNARE-seq) file path   (https://noble.gs.washington.edu/~ranz0/Polarbear/data/adultbrainfull50_rna_outer_snareseq.mtx)
 #path_y: scATAC co-assay (SNARE-seq) file path  (https://noble.gs.washington.edu/~ranz0/Polarbear/data/adultbrainfull50_atac_outer_snareseq.mtx)
