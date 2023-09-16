@@ -496,6 +496,79 @@ copy and paste the first line, and paste the rest code.
 
 
 
+
+## downsample to 10k peaks
+
+# adultbrainfull50_atac_outer_peaks.txt  225333
+head -n 10000 dat_raw/adultbrainfull50_atac_outer_peaks.txt > adultbrainfull50_atac_outer_peaks.txt
+
+# adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt  78286
+head -n 1 dat_raw/adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt > adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt
+sed '1d' dat_raw/adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt | awk '{if($8<=10000) print$0}' >> adultbrainfull50_atac_outer_peaks_noXY_diffexp.txt
+
+# adultbrainfull50_atac_outer_single.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 170442 225333 265340610
+head -n 3 dat_raw/adultbrainfull50_atac_outer_single.mtx > adultbrainfull50_atac_outer_single.mtx
+sed '1,3d' dat_raw/adultbrainfull50_atac_outer_single.mtx | awk '{if($2<=10000) print$0}' >> adultbrainfull50_atac_outer_single.mtx  # ~45s
+# 225333     -> 10000
+# 265340610  -> 13203920
+
+# adultbrainfull50_atac_outer_single_barcodes.tsv  170443
+#index	tissue	dev_stage	dataset	dataset_id	batch	celltype	region	n_genes
+#AACGAGAGCTAAAGGAACAGAC-0-0-0-0-0-0	brain	adult	snATAC	snATAC_brain_adult	0		CEMBA190305_11F	3607
+cp dat_raw/adultbrainfull50_atac_outer_single_barcodes.tsv .
+
+# adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 170442 11 170442
+# 85607 4 1
+cp dat_raw/adultbrainfull50_atac_outer_single_barcodes_dataset.mtx .
+
+# adultbrainfull50_atac_outer_snareseq.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 10309 225333 20877991
+head -n 3 dat_raw/adultbrainfull50_atac_outer_snareseq.mtx > adultbrainfull50_atac_outer_snareseq.mtx
+sed '1,3d' dat_raw/adultbrainfull50_atac_outer_snareseq.mtx | awk '{if($2<=10000) print$0}' >> adultbrainfull50_atac_outer_snareseq.mtx
+# 225333     -> 10000
+# 20877991   -> 901671
+
+# adultbrainfull50_atac_outer_snareseq_barcodes.tsv  10310
+# index	tissue	dev_stage	dataset	dataset_id	batch	celltype	region	n_genes
+# 09K_ACCCTCCGAAGC	brain	adult	SNARE-seq	SNARE-seq_brain_adult	0			3398
+# cp dat_raw/adultbrainfull50_atac_outer_snareseq_barcodes.tsv .
+
+# adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 10309 11 10309
+# 1 3 1
+cp dat_raw/adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx .
+
+# adultbrainfull50_rna_outer_genes.txt  17271
+# Fbxl18
+# Tmem158
+# Csf3r
+# cp dat_raw/adultbrainfull50_rna_outer_genes.txt .
+
+# adultbrainfull50_rna_outer_single.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 160796 17271 227527723
+cp dat_raw/adultbrainfull50_rna_outer_single.mtx .
+
+# adultbrainfull50_rna_outer_single_barcodes.tsv  160797
+# index	tissue	dev_stage	celltype	dataset	dataset_id	batch	Age	n_genes
+# 10X82_2_TCTCTCACCAGTTA-brainp21, p23Neurons	brain	adult	Neurons	zeisel	zeisel_brain_adult	1	p21, p23	4446
+cp dat_raw/adultbrainfull50_rna_outer_single_barcodes.tsv .
+
+
+
+
+
 #mtx format: first column (cell count) & second column (gene count)
 
 ## downsample unpaired atacseq data
@@ -564,16 +637,6 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
 #babel_valid_barcodes.txt                                      2021-12-09 23:34	23K	 
 
 
-Luz###### adultbrainfull50_atac_outer_peaks.txt
-Luz###### adultbrainfull50_rna_outer_snareseq.mtx
-Luz###### adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
-Luz###### adultbrainfull50_atac_outer_snareseq.mtx
-Luz###### adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
-Luz############ adultbrainfull50_rna_outer_snareseq_barcodes.tsv
-Luz###### adultbrainfull50_rna_outer_single.mtx
-Luz###### adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
-Luz###### adultbrainfull50_atac_outer_single.mtx
-Luz###### adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
 
 
 
