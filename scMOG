@@ -552,18 +552,49 @@ cp dat_raw/adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx .
 # Fbxl18
 # Tmem158
 # Csf3r
-# cp dat_raw/adultbrainfull50_rna_outer_genes.txt .
+head -n 10000 dat_raw/adultbrainfull50_rna_outer_genes.txt > adultbrainfull50_rna_outer_genes
 
 # adultbrainfull50_rna_outer_single.mtx
 # %%MatrixMarket matrix coordinate integer general
 # %
 # 160796 17271 227527723
-cp dat_raw/adultbrainfull50_rna_outer_single.mtx .
+head -n 3 dat_raw/adultbrainfull50_rna_outer_single.mtx > adultbrainfull50_rna_outer_single.mtx
+sed '1,3d' dat_raw/adultbrainfull50_rna_outer_single.mtx | awk '{if($2<=10000) print$0}' >> adultbrainfull50_rna_outer_single.mtx  # ~45s
+# 17271      -> 10000
+# 227527723  -> 132641415
 
 # adultbrainfull50_rna_outer_single_barcodes.tsv  160797
 # index	tissue	dev_stage	celltype	dataset	dataset_id	batch	Age	n_genes
 # 10X82_2_TCTCTCACCAGTTA-brainp21, p23Neurons	brain	adult	Neurons	zeisel	zeisel_brain_adult	1	p21, p23	4446
 cp dat_raw/adultbrainfull50_rna_outer_single_barcodes.tsv .
+
+# adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 160796 11 160796
+cp dat_raw/adultbrainfull50_rna_outer_single_barcodes_dataset.mtx .
+
+# adultbrainfull50_rna_outer_snareseq.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 10309 17271 8737719
+head -n 3 dat_raw/adultbrainfull50_rna_outer_snareseq.mtx > adultbrainfull50_rna_outer_snareseq.mtx
+sed '1,3d' dat_raw/adultbrainfull50_rna_outer_snareseq.mtx | awk '{if($2<=10000) print$0}' >> adultbrainfull50_rna_outer_snareseq.mtx
+# 17271    -> 10000
+# 8737719  -> 4970472
+
+
+# adultbrainfull50_rna_outer_snareseq_barcodes.tsv  10310
+# index	tissue	dev_stage	celltype	dataset	dataset_id	batch	Age	n_genes
+# 09K_ACCCTCCGAAGC	brain	adult		SNARE-seq	SNARE-seq_brain_adult	0		325
+cp dat_raw/adultbrainfull50_rna_outer_snareseq_barcodes.tsv .
+
+# adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+# %%MatrixMarket matrix coordinate integer general
+# %
+# 10309 11 10309
+cp dat_raw/adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx .
+
 
 
 
