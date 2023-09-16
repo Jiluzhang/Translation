@@ -649,7 +649,7 @@ time python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer
                                              --train_test_split random                                \
                                              --train train --batch_size 1
 
-
+## time: 5 min/iter (batch_size: 256, gpu_num: 1)
 python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
                                         --outdir output_semi_gpu                                \
@@ -659,8 +659,18 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
                                         --train_test_split babel                                \
                                         --train train --batch_size 256                                          
 
+## time:  min/iter (batch_size: 512, gpu_num: 3)
+python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                        --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                        --outdir output_semi_gpu                                \
+                                        --patience 45                                           \
+                                        --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                        --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                        --train_test_split babel                                \
+                                        --train train --batch_size 512 
+
 # show start and running time 
-ps -eo pid,lstart,etime | grep 162153
+ps -eo pid,lstart,etime | grep 178688
 
 
 #path_x: scRNA co-assay (SNARE-seq) file path   (https://noble.gs.washington.edu/~ranz0/Polarbear/data/adultbrainfull50_rna_outer_snareseq.mtx)
