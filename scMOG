@@ -669,6 +669,75 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
                                         --train_test_split babel                                \
                                         --train train --batch_size 512 
 
+
+
+## evaluation  ~8.5 min
+python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                        --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                        --outdir output_semi_gpu                                \
+                                        --patience 45                                           \
+                                        --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                        --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                        --train_test_split babel                                \
+                                        --train predict --evaluate evaluate --batch_size 512
+
+## output files
+# *_stats_atac_auroc_auprnorm.txt (only focus on peaks in the Cell paper!!!)
+# val_auc_peak
+# val_auc_peak_flatten
+# val_auprc_peak
+# val_auprc_peak_flatten
+# test_auc_peak
+# test_auc_peak_flatten (!!!)
+# test_auprc_peak
+# test_auprc_peak_flatten
+
+# *_stats_foscttm.txt (FOSCTTM score)
+# val_av_fraction_rna
+# val_av_fraction_atac
+# test_av_fraction_rna
+# test_av_fraction_atac
+
+# *_stats_rna_cor.txt
+# val_cor_gene
+# val_cor_gene_flatten
+# test_cor_gene
+# test_cor_gene_flatten (!!!)
+
+# *_test_atac_auc.txt
+# *_test_atac_auprc.txt
+# *_test_atac_npos.txt
+# *_test_rna_cor.txt
+
+
+## prediction  ~2 min
+python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                        --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                        --outdir output_semi_gpu                                \
+                                        --patience 45                                           \
+                                        --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                        --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                        --train_test_split babel                                \
+                                        --train predict --predict predict --batch_size 512
+
+# *_test_rnanorm_pred.txt & *_train_rnanorm_pred.txt
+# ncell * ngenes
+
+# should be information of test dataset (not train)
+# *_train_atac_embedding_on_atacVAE.txt             (scATAC projection on scATAC bottleneck layer)
+# *_train_rna_translatedembedding_on_atacVAE.txt    (scRNA projection on scATAC AE bottleneck layer)
+# *_train_sorted_fraction_1to2_atacVAE.txt          (FOSCTTM score for each domain 1 cell query when mapping to domain 2)
+# *_train_sorted_fraction_2to1_atacVAE.txt          (FOSCTTM score for each domain 2 cell query when mapping to domain 1)
+
+
+## plot ROC curve for RNA > ATAC
+# conda install matplotlib
+# "evaluation_functions.py"  add "plot_auroc_perpeak" function
+# mask "eval_atac_AUROC_AUPR" and "eval_rna_correlation" function in "run_polarbear.py"
+
+
+
+
 # show start and running time 
 ps -eo pid,lstart,etime | grep 193551
 
@@ -701,6 +770,26 @@ ps -eo pid,lstart,etime | grep 193551
 #babel_test_barcodes.txt	                                     2021-12-09 23:34	20K	 
 #babel_train_barcodes.txt	                                     2021-12-09 23:34	128K	 
 #babel_valid_barcodes.txt                                      2021-12-09 23:34	23K	 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
