@@ -732,9 +732,13 @@ python ~/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snar
 
 ## plot ROC curve for RNA > ATAC
 # conda install matplotlib
-# "evaluation_functions.py"  add "plot_auroc_perpeak" function
+# "evaluation_functions.py"  add "plot_auroc_perpeak_2" function
 # mask "eval_atac_AUROC_AUPR" and "eval_rna_correlation" function in "run_polarbear.py"
 
+## plot scatter for ATAC > RNA
+# pip install mpl_scatter_density astropy
+# "evaluation_functions.py"  add "plot_cor_pergene_2" function
+# mask "eval_atac_AUROC_AUPR" and "eval_rna_correlation" function in "run_polarbear.py"
 
 
 
