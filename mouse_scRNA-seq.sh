@@ -33,6 +33,49 @@ for GSM in `ls`;do
 done
 
 
+############################ GSE132364 ############################
+zcat GSE132364_rawData_subset.txt.gz | wc -l  # 19697 (cell_num=19697-1=19696)
+
+## not have correspondence ##
+# E12.5 live
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP18.live | wc -l  # 71
+# E13.5 live
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP12.live | wc -l   # 174
+# E13.5 GFP
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP12.GFP | wc -l   # 252
+# E14.5 live
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP14.live | wc -l   # 114
+# E14.5 GFP
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP14.GFP | wc -l   # 209
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP16.GFP | wc -l   # 275
+# E15.5 live
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP11.live | wc -l  # 51
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP10.live | wc -l  # 51
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP17.live | wc -l  # 67
+# E15.5 GFP
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP11.GFP | wc -l   # 278
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP10.GFP | wc -l   # 325
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP18.GFP | wc -l   # 61
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP17.GFP | wc -l   # 125
+# E18.5 live
+zcat GSE132364_rawData_subset.txt.gz | head -n 1 | xargs -n1 | grep EP16.live | wc -l  # 44
+###############################
+
+load('GSE132364_seurat_full.Rdata')
+ls()
+str(full.seurat)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
