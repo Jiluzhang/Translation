@@ -777,8 +777,17 @@ ps -eo pid,lstart,etime | grep 193551
 
 
 
+######################## CMOT #############################
+# https://github.com/daifengwanglab/CMOT/tree/51719ac5396889551027ce5436606e5fc06e30ec
+conda create -n CMOT python=3.6.8
+conda activate CMOT
+conda install  pandas numpy scikit-learn
+pip install pot
 
+git clone https://github.com/daifengwanglab/CMOT
 
+python3 run_cmot.py --sourceX ./data/Pan-Cancer/PanCancerX.csv --sourceY ./data/Pan-Cancer/PanCancerY.csv --targetY ./data/Pan-Cancer/PanCancerY_hat.csv \
+                    --K 5 --d 10 --W ./data/Pan-Cancer/W.npy --hc 3 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
 
 
 
