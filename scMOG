@@ -786,8 +786,19 @@ pip install pot
 
 git clone https://github.com/daifengwanglab/CMOT
 
+## modify run_cmot.py
+# add "param_search = args.param_search"
+
+## modify cmot_evaluations.py
+# add "from sklearn.ensemble import IsolationForest"
+# "poor_mapped_cell_percent = (len(np.argwhere(preds==-1).reshape(-1))/len(snpXTest))*100" -> "poor_mapped_cell_percent = (len(np.argwhere(preds==-1).reshape(-1))/len(preds))*100"
+
 python3 run_cmot.py --sourceX ./data/Pan-Cancer/PanCancerX.csv --sourceY ./data/Pan-Cancer/PanCancerY.csv --targetY ./data/Pan-Cancer/PanCancerY_hat.csv \
-                    --K 5 --d 10 --W ./data/Pan-Cancer/W.npy --hc 3 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
+                    --K 5 --d 10 --W ./data/Pan-Cancer/W.npy --hc 3 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40          # ~7s
+
+python3 cmot_evaluations.py --targetX_hat ./data/Pan-Cancer/PanCancerX_hat.csv --predX_hat ./results/Norm_ModalityXhat.csv   # ~2s
+
+keep training datasets same!
 
 
 
