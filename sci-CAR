@@ -1,3 +1,5 @@
+## gene location ~ peak location
+
 ## https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117089
 
 # links.txt
@@ -23,17 +25,31 @@ https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_
 https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_ATAC_only_A549_peak.txt.gz
 https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_ATAC_only_A549_peak_count.txt.gz
 
+pip install scanpy
 
+## CMOT ##
+# X: gene expression            (row: cell, column: gene)
+# Y: chromatin accessibility
+# gene_num: 113153
+# cell_num: 6093
 
+gunzip GSM3271040_RNA_sciCAR_A549_gene_count.txt.gz
+mv GSM3271040_RNA_sciCAR_A549_gene_count.txt GSM3271040_RNA_sciCAR_A549_gene_count.mtx
 
+import scanpy as sc
+import pandas as pd
 
+gene_cnt = sc.read('GSM3271040_RNA_sciCAR_A549_gene_count.mtx')
+cell = pd.read_csv('GSM3271040_RNA_sciCAR_A549_cell.txt.gz')
+cell.shape   # (6093, 4)
+set(cell['cell_name'])   # {'293T', 'A549', 'mixed', '3T3'}
+out = pd.DataFrame(gene_cnt.X[:, (cell['cell_name'].isin(['293T', 'A549'])) & (pd.isna(cell['treatment_time']) | cell['treatment_time']==0.0)].todense()).T
 
+gene = pd.read_csv('GSM3271040_RNA_sciCAR_A549_gene.txt.gz')
+gene['ensembl_id'] = [x.split('.')[0] for x in gene['gene_id']]
+out.columns = gene['ensembl_id']
+out = out[[gene['ensembl_id'][idx] for idx in gene.index if gene['gene_short_name'][idx][:3]!='mt-']]  # delete 37 mt genes
 
-
-
-
-
-
-
-
-
+gene_exp_sum = (out!=0).sum(axis=1)
+out = out[(gene_exp_sum>200) & (gene_exp_sum<7000)]  # gene_cnt>200 & <7000
+out.to_csv('RNA.tsv', index=False)  # 2.5 min
