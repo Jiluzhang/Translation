@@ -1,0 +1,39 @@
+## https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117089
+
+# links.txt
+for link in `cat links.txt`;do wget -c $link;done
+
+#GSM3271040	HEK293T, NIH/3T3, A549 cells, sci-CAR RNA-seq
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271040/suppl/GSM3271040_RNA_sciCAR_A549_cell.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271040/suppl/GSM3271040_RNA_sciCAR_A549_gene.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271040/suppl/GSM3271040_RNA_sciCAR_A549_gene_count.txt.gz
+
+#GSM3271041	HEK293T, NIH/3T3, A549 cells, sci-CAR ATAC-seq
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271041/suppl/GSM3271041_ATAC_sciCAR_A549_cell.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271041/suppl/GSM3271041_ATAC_sciCAR_A549_peak.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271041/suppl/GSM3271041_ATAC_sciCAR_A549_peak_count.txt.gz
+
+#GSM3271042	HEK293T, NIH/3T3, A549 cells, sci-RNA-seq
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271042/suppl/GSM3271042_RNA_only_A549_cell.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271042/suppl/GSM3271042_RNA_only_A549_gene.txt.gz
+# https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271042/suppl/GSM3271042_RNA_only_A549_gene_count.txt.gz
+
+#GSM3271043	HEK293T, NIH/3T3, A549 cells, sci-ATAC-seq
+https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_ATAC_only_A549_cell.txt.gz
+https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_ATAC_only_A549_peak.txt.gz
+https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_ATAC_only_A549_peak_count.txt.gz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
