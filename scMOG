@@ -446,15 +446,13 @@ sys	16m8.144s
 
 
 
-######################## Polarbear ########################
+################################################ Polarbear ################################################
 # alternative solution: https://github.com/qqwweee/keras-yolo3/issues/332
 #                       https://forsworns.github.io/zh/blogs/20190824/
 
 
 conda create -n Polarbear python=3.6.8
 conda install -c anaconda tensorflow-gpu
-
-
 
 
 conda create -n Polarbear -c conda-forge python==3.7.12
