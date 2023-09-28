@@ -99,3 +99,55 @@ out = pd.DataFrame(data=adata.X.todense(), index=adata.obs_names, columns=adata.
 out.to_csv('RNA.csv', index=False)  # ~4 min
 
 adata.write('human_RNA.h5ad')
+
+
+
+mkdir processed && cd processed
+
+cp ../GSM3271041_ATAC_sciCAR_A549_peak_count.txt.gz matrix.mtx.gz
+
+zcat ../GSM3271041_ATAC_sciCAR_A549_peak.txt.gz | sed '1d' | awk -F "," '{print $2}' | awk -F "-" '{print "chr" $1 ":" $2 "-" $3 "\t" "Peaks"}' \
+                                                | awk '{print $1 "\t" $1 "\t" $2}' > features.tsv
+gzip features.tsv
+
+zcat ../GSM3271041_ATAC_sciCAR_A549_cell.txt.gz | sed '1d' | sed 's/,/_/g' > barcodes.tsv
+gzip barcodes.tsv
+
+
+import scanpy as sc
+import numpy as np
+import pandas as pd
+
+adata = sc.read_10x_mtx('processed', cache=True, gex_only=False) 
+# 6093 × 113153
+
+adata.obs['cell_type'] = [x.split('_')[1] for x in adata.obs_names]
+adata.obs['treatment'] = [x.split('_')[-1] for x in adata.obs_names]
+adata = adata[(adata.obs['cell_type'].isin(['293T', 'A549'])) & (adata.obs['treatment'].isin(['NA', '0'])), :]
+# 1989 × 113153
+
+sc.pp.filter_cells(adata, min_genes=200)
+sc.pp.filter_cells(adata, max_genes=7000)
+# 1989 × 113153 (no cell filtered)
+
+adata.var['mt'] = adata.var_names.str.startswith('mt-')
+adata = adata[:, adata.var['mt']==0]
+# 1989 × 113116
+
+out = pd.DataFrame(data=adata.X.todense(), index=adata.obs_names, columns=adata.var_names)
+out.to_csv('RNA.csv', index=False)  # ~4 min
+
+adata.write('human_RNA.h5ad')
+
+
+
+
+
+
+
+
+
+
+
+
+
