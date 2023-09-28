@@ -33,29 +33,9 @@ pip install scanpy
 # gene_num: 113153
 # cell_num: 6093
 
-gunzip GSM3271040_RNA_sciCAR_A549_gene_count.txt.gz
-mv GSM3271040_RNA_sciCAR_A549_gene_count.txt GSM3271040_RNA_sciCAR_A549_gene_count.mtx
 
-import scanpy as sc
-import pandas as pd
-import numpy as np
-
-gene_cnt = sc.read('GSM3271040_RNA_sciCAR_A549_gene_count.mtx')
-cell = pd.read_csv('GSM3271040_RNA_sciCAR_A549_cell.txt.gz')
-cell.shape   # (6093, 4)
-set(cell['cell_name'])   # {'293T', 'A549', 'mixed', '3T3'}
-out = pd.DataFrame(gene_cnt.X[:, (cell['cell_name'].isin(['293T', 'A549'])) & (pd.isna(cell['treatment_time']) | cell['treatment_time']==0.0)].todense()).T
-
-gene = pd.read_csv('GSM3271040_RNA_sciCAR_A549_gene.txt.gz')
-gene['ensembl_id'] = [x.split('.')[0] for x in gene['gene_id']]
-out.columns = gene['ensembl_id']
-out = out[[gene['ensembl_id'][idx] for idx in gene.index if gene['gene_short_name'][idx][:3]!='mt-']]  # delete 37 mt genes
-
-gene_exp_sum = (out!=0).sum(axis=1)
-out = out[(gene_exp_sum>200) & (gene_exp_sum<7000)]  # gene_cnt>200 & <7000
-out.to_csv('RNA.tsv', index=False)  # 2.5 min
-
-
+## process RNA (GSM3271040)
+mkdir processed && cd processed
 cp ../GSM3271040_RNA_sciCAR_A549_gene_count.txt.gz matrix.mtx.gz
 
 zcat ../GSM3271040_RNA_sciCAR_A549_gene.txt.gz | sed '1d' | awk -F "," '{print $1 "\t" $3 "\t" "Gene Expression"}' > features.tsv
@@ -65,43 +45,7 @@ zcat ../GSM3271040_RNA_sciCAR_A549_cell.txt.gz | sed '1d' | sed 's/,/_/g' > barc
 gzip barcodes.tsv
 
 
-
-import scanpy as sc
-import numpy as np
-import pandas as pd
-
-adata = sc.read_10x_mtx('raw/processed', cache=True)  # duplicated gene names: SNORD116-1  SNORD116-2  SNORD116-3...
-# 6093 × 113153
-
-adata.obs['cell_type'] = [x.split('_')[1] for x in adata.obs_names]
-adata.obs['treatment'] = [x.split('_')[-1] for x in adata.obs_names]
-adata = adata[(adata.obs['cell_type'].isin(['293T', 'A549'])) & (adata.obs['treatment'].isin(['NA', '0'])), :]
-# 1989 × 113153
-
-sc.pp.filter_cells(adata, min_genes=200)
-sc.pp.filter_cells(adata, max_genes=7000)
-# 1989 × 113153 (no cell filtered)
-
-adata.var['mt'] = adata.var_names.str.startswith('mt-')
-adata = adata[:, adata.var['mt']==0]
-# 1989 × 113116
-
-## no normalization
-#adata.raw = adata.copy()
-#n_counts = np.squeeze(np.array(adata.X.sum(axis=1)))
-#sc.pp.normalize_total(adata, inplace=True)
-#adata.obs["size_factors"] = n_counts / np.median(n_counts)
-#adata.uns["median_counts"] = np.median(n_counts)
-#sc.pp.log1p(adata, chunked=True, copy=False, chunk_size=100000)
-#sc.pp.scale(adata, zero_center=True, copy=False)
-
-out = pd.DataFrame(data=adata.X.todense(), index=adata.obs_names, columns=adata.var_names)
-out.to_csv('RNA.csv', index=False)  # ~4 min
-
-adata.write('human_RNA.h5ad')
-
-
-
+## process ATAC (GSM3271041)
 mkdir processed && cd processed
 
 cp ../GSM3271041_ATAC_sciCAR_A549_peak_count.txt.gz matrix.mtx.gz
@@ -114,30 +58,73 @@ zcat ../GSM3271041_ATAC_sciCAR_A549_cell.txt.gz | sed '1d' | sed 's/,/_/g' > bar
 gzip barcodes.tsv
 
 
+## process co-assay
 import scanpy as sc
 import numpy as np
 import pandas as pd
 
-adata = sc.read_10x_mtx('processed', cache=True, gex_only=False) 
+# RNA #
+rna = sc.read_10x_mtx('GSM3271040/processed', cache=True)  # duplicated gene names: SNORD116-1  SNORD116-2  SNORD116-3...
 # 6093 × 113153
 
-adata.obs['cell_type'] = [x.split('_')[1] for x in adata.obs_names]
-adata.obs['treatment'] = [x.split('_')[-1] for x in adata.obs_names]
-adata = adata[(adata.obs['cell_type'].isin(['293T', 'A549'])) & (adata.obs['treatment'].isin(['NA', '0'])), :]
+rna.obs['cell_type'] = [x.split('_')[1] for x in rna.obs_names]
+rna.obs['treatment'] = [x.split('_')[-1] for x in rna.obs_names]
+rna.obs['raw'] = rna.obs_names
+rna.obs_names = [x.split('_')[0] for x in rna.obs_names]
+rna = rna[(rna.obs['cell_type'].isin(['293T', 'A549'])) & (rna.obs['treatment'].isin(['NA', '0'])), :]
 # 1989 × 113153
 
-sc.pp.filter_cells(adata, min_genes=200)
-sc.pp.filter_cells(adata, max_genes=7000)
+sc.pp.filter_cells(rna, min_genes=200)
+sc.pp.filter_cells(rna, max_genes=7000)
 # 1989 × 113153 (no cell filtered)
 
-adata.var['mt'] = adata.var_names.str.startswith('mt-')
-adata = adata[:, adata.var['mt']==0]
+rna.var['mt'] = rna.var_names.str.startswith('mt-')
+rna = rna[:, rna.var['mt']==0]
 # 1989 × 113116
 
-out = pd.DataFrame(data=adata.X.todense(), index=adata.obs_names, columns=adata.var_names)
-out.to_csv('RNA.csv', index=False)  # ~4 min
 
-adata.write('human_RNA.h5ad')
+# ATAC #
+atac = sc.read_10x_mtx('GSM3271041/processed', cache=True, gex_only=False) 
+# 6085 × 189603
+
+atac.obs['species'] = [x.split('_')[1] for x in atac.obs_names]
+atac.obs['treatment'] = [x.split('_')[-3] if x.split('_')[-3]!='3T3' else 'NA' for x in atac.obs_names]
+
+cell_type = []
+for i in range(len(atac.obs_names)):
+    if atac.obs['species'][i]=='Human':
+        cell_type.append(atac.obs_names[i].split('_')[2])
+    elif atac.obs['species'][i]=='Mouse':
+        cell_type.append('3T3')
+    else:
+        cell_type.append('Unknown')
+
+atac.obs['cell_type'] = cell_type
+atac.obs['raw'] = atac.obs_names
+atac.obs_names = [x.split('_')[0] for x in atac.obs_names]
+atac = atac[(atac.obs['species']=='Human') & (atac.obs['treatment'].isin(['NA', '0h'])), :]
+# 2048 × 189603
+
+atac.var['chrom'] = [x.split(':')[0] for x in atac.var_names]
+atac = atac[:, atac.var['chrom'].isin(['chr'+str(i) for i in [*range(1, 23), 'X', 'Y']])]
+# 2048 × 179288
+
+rna_idx = rna.obs_names                                # 1989
+atac_idx = atac.obs_names                              # 2048
+co_idx = [idx for idx in rna_idx if idx in atac_idx]   # 1422
+
+rna = rna[co_idx, :]
+atac = atac[co_idx, :]
+
+rna.write('RNA.h5ad')
+atac.write('ATAC.h5ad')
+
+rna_out = pd.DataFrame(data=rna.X.todense(), index=rna.obs_names, columns=rna.var_names)       # 1422 * 113116
+rna_out.to_csv('RNA.csv', index=False)  # ~2.5 min    
+
+atac_out = pd.DataFrame(data=atac.X.todense(), index=atac.obs_names, columns=atac.var_names)   # 1422 * 179288
+atac_out[atac_out>0] = 1
+atac_out.to_csv('ATAC.csv', index=False)  # ~4.5 min
 
 
 
