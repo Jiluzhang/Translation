@@ -27,7 +27,7 @@ https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM3271nnn/GSM3271043/suppl/GSM3271043_
 
 pip install scanpy
 
-## CMOT ##
+################################################## CMOT ######################################################
 # X: gene expression            (row: cell, column: gene)
 # Y: chromatin accessibility
 # gene_num: 113153
@@ -149,7 +149,9 @@ np.save('W.npy', w)
 
 
 python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train.csv --sourceY ATAC_train.csv --targetY ATAC_test.csv \
-                               --K 5 --d 10 --W W.npy --hc 2 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
+                               --K 5 --d 10 --W W.npy --hc 2 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40   # ~35 min
+
+python3 ~/CMOT/src/cmot_evaluations.py --targetX_hat RNA_test.csv --predX_hat ./results/Norm_ModalityXhat.csv  # ~2.5 min
 
 
 ## modify run_cmot.py
@@ -161,6 +163,46 @@ python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train.csv --sourceY ATAC_train.csv 
 #print('Step B done', datetime.now().replace(microsecond=0))  # Luz add
 
 
+## cal_pearson_r.py
+# python cal_pearson_r.py --pred results/Norm_ModalityXhat.csv --true RNA_test.csv
+import argparse
+import pandas as pd
+from scipy import stats
+import numpy as np
+
+parser = argparse.ArgumentParser(description='Calculate total pearson correlation')
+parser.add_argument('-p', '--pred', type=str, help='prediction')
+parser.add_argument('-t', '--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred = pd.read_csv(pred_file)
+print('read pred file done')
+true = pd.read_csv(true_file)
+print('read true file done')
+
+print('All-wise Pearson r:', stats.pearsonr(pred.values.flatten(), true.values.flatten())[0])
+
+## cell-wise
+cell_r = []
+cell_cnt = pred.shape[0]
+cell_r = [round(stats.pearsonr(pred.iloc[i], true.iloc[i])[0], 4) for i in range(cell_cnt)]
+print('Cell-wise Pearson r:', np.nanmean(cell_r))
+
+## gene-wise
+gene_r = []
+gene_cnt = pred.shape[1]
+gene_r = [round(stats.pearsonr(pred.iloc[:, i], true.iloc[:, i])[0], 4) for i in range(gene_cnt)]
+print('Gene-wise Pearson r:', np.nanmean(gene_r))
+
+
+
+python cal_pearson_r.py --pred results/Norm_ModalityXhat.csv --true RNA_test.csv  # ~ 2.5 min   
+#All-wise Pearson r: 0.3089343750370411
+#Cell-wise Pearson r: 0.42445333333333335
+#Gene-wise Pearson r: 0.008763513721862471
+
 
 ## draft
 #awk -F "," -v OFS="," '{NF=1000}1' RNA_train.csv > RNA_train_p.csv
@@ -170,5 +212,11 @@ python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train.csv --sourceY ATAC_train.csv 
 
 #python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train_p.csv --sourceY ATAC_train_p.csv --targetY ATAC_test_p.csv \
 #                               --K 5 --d 10 --W W.npy --hc 3 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
+
+
+
+############################## Polarbear ##############################
+
+
 
 
