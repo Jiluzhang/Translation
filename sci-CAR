@@ -126,15 +126,49 @@ atac_out = pd.DataFrame(data=atac.X.todense(), index=atac.obs_names, columns=ata
 atac_out[atac_out>0] = 1
 atac_out.to_csv('ATAC.csv', index=False)  # ~4.5 min
 
+import random
+
+## split dataset to train & test (0.8, 0.2)
+train_cnt = int(len(co_idx)*0.8)
+co_idx_shuf = co_idx.copy()
+random.seed(0)
+random.shuffle(co_idx_shuf)
+train_idx = co_idx_shuf[:train_cnt]
+test_idx = co_idx_shuf[train_cnt:]
+
+rna_out.loc[train_idx].to_csv('RNA_train.csv', index=False)   
+rna_out.loc[test_idx].to_csv('RNA_test.csv', index=False) 
+
+atac_out.loc[train_idx].to_csv('ATAC_train.csv', index=False) 
+atac_out.loc[test_idx].to_csv('ATAC_test.csv', index=False) 
+
+
+## correspondence matrix
+w = np.diag([1]*train_cnt)
+np.save('W.npy', w)
+
+
+python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train.csv --sourceY ATAC_train.csv --targetY ATAC_test.csv \
+                               --K 5 --d 10 --W W.npy --hc 2 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
+
+
+## modify run_cmot.py
+#from datetime import datetime  # Luz add
+#print('Read sourceX done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Read sourceY done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Read targetY done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Step A done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Step B done', datetime.now().replace(microsecond=0))  # Luz add
 
 
 
+## draft
+#awk -F "," -v OFS="," '{NF=1000}1' RNA_train.csv > RNA_train_p.csv
+#awk -F "," -v OFS="," '{NF=1000}1' RNA_test.csv > RNA_test_p.csv
+#awk -F "," -v OFS="," '{NF=1000}1' ATAC_train.csv > ATAC_train_p.csv
+#awk -F "," -v OFS="," '{NF=1000}1' ATAC_test.csv > ATAC_test_p.csv
 
-
-
-
-
-
-
+#python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train_p.csv --sourceY ATAC_train_p.csv --targetY ATAC_test_p.csv \
+#                               --K 5 --d 10 --W W.npy --hc 3 --reg_e 5e03 --reg_cl 1e00 --topFeat 150 --k 40
 
 
