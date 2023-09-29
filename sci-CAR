@@ -147,6 +147,9 @@ np.save('W.npy', w)
 #print('Step A done', datetime.now().replace(microsecond=0))  # Luz add
 #print('Step B done', datetime.now().replace(microsecond=0))  # Luz add
 
+## modify cmot_functions.py
+# mask "check_mapping_quality(ot_lpl1, transp_Xs_lpl1)"  # without checking poor cells
+
 
 ## cal_pearson_r.py
 # python cal_pearson_r.py --pred results/Norm_ModalityXhat.csv --true RNA_test.csv
@@ -155,7 +158,7 @@ import pandas as pd
 from scipy import stats
 import numpy as np
 
-parser = argparse.ArgumentParser(description='Calculate total pearson correlation')
+parser = argparse.ArgumentParser(description='Calculate Pearson correlation')
 parser.add_argument('-p', '--pred', type=str, help='prediction')
 parser.add_argument('-t', '--true', type=str, help='ground truth')
 args = parser.parse_args()
@@ -182,19 +185,64 @@ gene_r = [round(stats.pearsonr(pred.iloc[:, i], true.iloc[:, i])[0], 4) for i in
 print('Gene-wise Pearson r:', np.nanmean(gene_r))
 
 
+## cal_auroc.py
+# python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv
+
+import argparse
+import pandas as pd
+import sklearn.metrics as metrics
+import numpy as np
+
+parser = argparse.ArgumentParser(description='Calculate AUROC')
+parser.add_argument('-p', '--pred', type=str, help='prediction')
+parser.add_argument('-t', '--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred = pd.read_csv(pred_file)
+print('read pred file done')
+true = pd.read_csv(true_file)
+print('read true file done')
+
+## all-wise
+fpr, tpr, _ = metrics.roc_curve(true.values.flatten(), pred.values.flatten())
+print('All-wise AUROC:', metrics.auc(fpr, tpr))
+
+## cell-wise
+cell_auroc = []
+cell_cnt = pred.shape[0]
+for i in range(cell_cnt):
+    fpr, tpr, _ = metrics.roc_curve(true.iloc[i], pred.iloc[i])
+    cell_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Cell-wise AUROC:', np.nanmean(cell_auroc))
+
+## gene-wise
+gene_auroc = []
+gene_cnt = pred.shape[1]
+for i in range(gene_cnt):
+    true_v, pred_v = true.iloc[:, i], pred.iloc[:, i]
+    if sum(true_v)!=0 and sum(true_v)!=len(true_v):
+        fpr, tpr, _ = metrics.roc_curve(true_v, pred_v)
+        gene_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Gene-wise AUROC:', np.nanmean(gene_auroc))
+
+
 ## ATAC to RNA
-python3 ~/CMOT/src/run_cmot.py --sourceX RNA_train_p.csv --sourceY ATAC_train_p.csv --targetY ATAC_test_p.csv --K 5 --d 10 \
-                               --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir results_atac2rna
+mkdir atac2rna && cd atac2rna
+python3 ~/CMOT/src/run_cmot.py --sourceX ../RNA_train.csv --sourceY ../ATAC_train.csv --targetY ../ATAC_test.csv --K 5 --d 10 \
+                               --W ../W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir .
+python cal_pearson_r.py --pred atac2rna/Norm_ModalityXhat.csv --true RNA_test.csv  # ~ 2.5 min   
 
-
-python cal_pearson_r.py --pred results/Norm_ModalityXhat.csv --true RNA_test.csv  # ~ 2.5 min   
-#All-wise Pearson r: 0.3089343750370411
-#Cell-wise Pearson r: 0.42445333333333335
-#Gene-wise Pearson r: 0.008763513721862471
 
 ## RNA to ATAC
-python3 ~/CMOT/src/run_cmot.py --sourceX ATAC_train_p.csv --sourceY RNA_train_p.csv --targetY RNA_test_p.csv --K 5 --d 10 \
-                               --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir results_rna2atac
+mkdir rna2atac && cd rna2atac
+python3 ~/CMOT/src/run_cmot.py --sourceX ../ATAC_train.csv --sourceY ../RNA_train.csv --targetY ../RNA_test.csv --K 5 --d 10 \
+                               --W ../W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir .
+python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv 
+
+
+
 
 
 ## draft
