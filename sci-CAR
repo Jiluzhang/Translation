@@ -217,15 +217,15 @@ for i in range(cell_cnt):
     cell_auroc.append(round(metrics.auc(fpr, tpr), 4))
 print('Cell-wise AUROC:', np.nanmean(cell_auroc))
 
-## gene-wise
-gene_auroc = []
-gene_cnt = pred.shape[1]
-for i in range(gene_cnt):
+## peak-wise
+peak_auroc = []
+peak_cnt = pred.shape[1]
+for i in range(peak_cnt):
     true_v, pred_v = true.iloc[:, i], pred.iloc[:, i]
     if sum(true_v)!=0 and sum(true_v)!=len(true_v):
         fpr, tpr, _ = metrics.roc_curve(true_v, pred_v)
-        gene_auroc.append(round(metrics.auc(fpr, tpr), 4))
-print('Gene-wise AUROC:', np.nanmean(gene_auroc))
+        peak_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Peak-wise AUROC:', np.nanmean(peak_auroc))
 
 
 ## ATAC to RNA
@@ -233,13 +233,18 @@ mkdir atac2rna && cd atac2rna
 python3 ~/CMOT/src/run_cmot.py --sourceX ../RNA_train.csv --sourceY ../ATAC_train.csv --targetY ../ATAC_test.csv --K 5 --d 10 \
                                --W ../W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir .
 python cal_pearson_r.py --pred atac2rna/Norm_ModalityXhat.csv --true RNA_test.csv  # ~ 2.5 min   
-
+#All-wise Pearson r: 0.3494361547578832
+#Cell-wise Pearson r: 0.3978905263157895
+#Gene-wise Pearson r: 0.004764645390070921
 
 ## RNA to ATAC
 mkdir rna2atac && cd rna2atac
 python3 ~/CMOT/src/run_cmot.py --sourceX ../ATAC_train.csv --sourceY ../RNA_train.csv --targetY ../RNA_test.csv --K 5 --d 10 \
                                --W ../W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir .
-python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv 
+python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv  # ~ 8 min
+#All-wise AUROC: 0.5389898643042135
+#Cell-wise AUROC: 0.5469782456140351
+#Peak-wise AUROC: 0.5
 
 
 
