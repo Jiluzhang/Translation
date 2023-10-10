@@ -264,4 +264,3 @@ python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv  
 
 
 
-
