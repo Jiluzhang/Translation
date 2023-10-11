@@ -261,6 +261,24 @@ python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv  
 
 
 ############################## Polarbear ##############################
+alias home='cd /fs/home/jiluzhang'
+
+head -n 1 ../CMOT/ATAC.csv | sed 's/,/\n/g' > adultbrainfull50_atac_outer_peaks.txt  # 179288
+
+
+import scanpy as sc
+from scipy.io import mmwrite
+
+atac = sc.read_h5ad('ATAC.h5ad')
+mmwrite('test.mtx', atac.X.astype('int'))
+
+seperate training & testing data!!!
+
+
+
+
+
+
 
 
 
