@@ -263,14 +263,30 @@ python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv  
 ############################## Polarbear ##############################
 alias home='cd /fs/home/jiluzhang'
 
+## adultbrainfull50_atac_outer_peaks.txt
 head -n 1 ../CMOT/ATAC.csv | sed 's/,/\n/g' > adultbrainfull50_atac_outer_peaks.txt  # 179288
 
 
+## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_single_barcodes.tsv
 import scanpy as sc
 from scipy.io import mmwrite
+import pandas as pd
 
-atac = sc.read_h5ad('ATAC.h5ad')
-mmwrite('test.mtx', atac.X.astype('int'))
+atac = sc.read_h5ad('../data/ATAC.h5ad')
+mmwrite('adultbrainfull50_atac_outer_single.mtx', atac.X.astype('int'))
+
+barcode = pd.DataFrame({'index': atac.obs_names})
+barcode.to_csv('adultbrainfull50_atac_outer_single_barcodes.tsv', index=False)
+
+
+## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+## adultbrainfull50_atac_outer_snareseq.mtx
+
+
+
+
 
 seperate training & testing data!!!
 
