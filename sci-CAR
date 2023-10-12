@@ -264,27 +264,65 @@ python cal_auroc.py --pred rna2atac/Norm_ModalityXhat.csv --true ATAC_test.csv  
 alias home='cd /fs/home/jiluzhang'
 
 ## adultbrainfull50_atac_outer_peaks.txt
-head -n 1 ../CMOT/ATAC.csv | sed 's/,/\n/g' > adultbrainfull50_atac_outer_peaks.txt  # 179288
-
-
-## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_single.mtx
 ## adultbrainfull50_atac_outer_single_barcodes.tsv
+
 import scanpy as sc
 from scipy.io import mmwrite
 import pandas as pd
 
 atac = sc.read_h5ad('../data/ATAC.h5ad')
+peak = pd.DataFrame({'pos': atac.var_names})
+peak.to_csv('adultbrainfull50_atac_outer_peaks.txt', index=False, header=False)
+
 mmwrite('adultbrainfull50_atac_outer_single.mtx', atac.X.astype('int'))
 
 barcode = pd.DataFrame({'index': atac.obs_names})
 barcode.to_csv('adultbrainfull50_atac_outer_single_barcodes.tsv', index=False)
 
 
+## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "%%MatrixMarket matrix coordinate integer general" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "%" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "1422 11 1422" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+for i in `seq 1422`;do echo "$i 3 1" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx;done
+
+
 ## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
 ## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
 ## adultbrainfull50_atac_outer_snareseq.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes.tsv adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_atac_outer_single.mtx adultbrainfull50_atac_outer_snareseq.mtx
 
 
+## adultbrainfull50_rna_outer_genes.txt
+## adultbrainfull50_rna_outer_single.mtx
+## adultbrainfull50_rna_outer_single_barcodes.tsv
+import scanpy as sc
+from scipy.io import mmwrite
+import pandas as pd
+
+rna = sc.read_h5ad('../data/RNA.h5ad')
+gene = pd.DataFrame({'pos': rna.var_names})
+gene.to_csv('adultbrainfull50_rna_outer_genes.txt', index=False, header=False)
+
+mmwrite('adultbrainfull50_rna_outer_single.mtx', rna.X)
+
+barcode = pd.DataFrame({'index': rna.obs_names})
+barcode.to_csv('adultbrainfull50_rna_outer_single_barcodes.tsv', index=False)
+
+
+## adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+
+
+## adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+## adultbrainfull50_rna_outer_snareseq.mtx
+cp adultbrainfull50_rna_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
 
 
 
