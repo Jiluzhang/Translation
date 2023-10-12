@@ -325,14 +325,88 @@ cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_sna
 cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
 
 
+## /data
+## babel_train_barcodes.txt
+## babel_valid_barcodes.txt
+## babel_test_barcodes.txt
 
-seperate training & testing data!!!
+import scanpy as sc
+import pandas as pd
+import random
+
+rna = sc.read_h5ad('../data/RNA.h5ad')
+co_idx = list(rna.obs_names)
+train_valid_cnt = int(len(co_idx)*0.8)   # train:valid:test=6:2:2
+test_cnt = len(co_idx) - train_valid_cnt
+valid_cnt = test_cnt
+train_cnt = train_valid_cnt - valid_cnt
+co_idx_shuf = co_idx.copy()
+
+random.seed(0)
+random.shuffle(co_idx_shuf)
+train_idx = co_idx_shuf[:train_cnt]
+valid_idx = co_idx_shuf[train_cnt:(train_cnt+valid_cnt)]
+test_idx = co_idx_shuf[(train_cnt+valid_cnt):]
+
+pd.DataFrame({'idx': train_idx}).to_csv('data/babel_train_barcodes.txt', index=False, header=False)
+pd.DataFrame({'idx': valid_idx}).to_csv('data/babel_valid_barcodes.txt', index=False, header=False)
+pd.DataFrame({'idx': test_idx}).to_csv('data/babel_test_barcodes.txt', index=False, header=False)
+
+
+## /data/babel_genes.txt
+cp adultbrainfull50_rna_outer_genes.txt data/babel_genes.txt
+
+
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                                         --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                                         --train_test_split babel                                \
+                                                         --train train --batch_size 256 
+# 538404
 
 
 
+############################## BABEL ##############################
+
+## h5ad_to_h5.py # modify a little from the raw one
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+
+rna  = h5py.File('../data/RNA.h5ad', 'r')
+atac = h5py.File('../data/ATAC.h5ad', 'r')
+out  = h5py.File('RNA_ATAC.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+g.create_dataset('data', data=np.append(rna['X']['data'][:], atac['X']['data'][:]))
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['_index'].shape[0], [b'Peaks']*atac['var']['_index'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['_index'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+out.close()
 
 
-
+time python /fs/home/jiluzhang/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5 
 
 
 
