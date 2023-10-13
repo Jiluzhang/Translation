@@ -370,7 +370,7 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
 
 
 ############################## BABEL ##############################
-
+## combine rna & atac
 ## h5ad_to_h5.py # modify a little from the raw one
 import h5py
 import numpy as np
@@ -406,7 +406,55 @@ g.create_dataset('shape', data=l)
 out.close()
 
 
-time python /fs/home/jiluzhang/BABEL/bin/train_model.py --data GSE20046_bm_rna_atac.h5  --outdir BABEL_model_GSE20046_bm --device 5 
+## extract train_valid & test datasets
+import scanpy as sc
+import pandas as pd
+
+dat = sc.read_10x_h5('RNA_ATAC.h5', gex_only=False)
+train_idx = pd.read_csv('../Polarbear/data/babel_train_barcodes.txt', header=None)
+valid_idx = pd.read_csv('../Polarbear/data/babel_valid_barcodes.txt', header=None)
+test_idx  = pd.read_csv('../Polarbear/data/babel_test_barcodes.txt', header=None)
+
+train_valid = dat[train_idx[0].tolist() + valid_idx[0].tolist(), :]
+test = dat[test_idx[0].tolist(), ]
+
+train_valid.write('train_valid.h5ad')
+test.write('test.h5ad')
+
+
+## transform h5ad to h5 format
+import h5py
+import numpy as np
+from collections import Counter
+
+def h5ad_to_h5(name):
+    dat = h5py.File(name+'.h5ad', 'r')
+    out = h5py.File(name+'.h5', 'w')
+    
+    g = out.create_group('matrix')
+    g.create_dataset('barcodes', data=dat['obs']['_index'][:])
+    g.create_dataset('data', data=dat['X']['data'][:])
+    
+    g_2 = g.create_group('features')
+    g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+    g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*Counter(dat['var']['feature_types']['codes'][:])[0], 
+                                                      [b'Peaks']*Counter(dat['var']['feature_types']['codes'][:])[1]))
+    g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (dat['var']['_index'].shape[0])))
+    g_2.create_dataset('id', data=dat['var']['_index'][:])
+    g_2.create_dataset('interval', data=dat['var']['_index'][:])
+    g_2.create_dataset('name', data=dat['var']['_index'][:])   
+    
+    g.create_dataset('indices', data=dat['X']['indices'])
+    g.create_dataset('indptr',  data=dat['X']['indptr'])
+    g.create_dataset('shape', data=[dat['var']['_index'].shape[0], dat['obs']['_index'].shape[0]])  # feature * cell
+    
+    out.close()
+
+h5ad_to_h5('train_valid')
+h5ad_to_h5('test')
+
+
+time python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_valid.h5 --outdir train_out --device 5 
 
 
 
