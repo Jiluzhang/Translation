@@ -503,3 +503,51 @@ print('Gene-wise Pearson r:', np.nanmean(gene_r))
 #Cell-wise Pearson r: 0.27143333333333336
 #Gene-wise Pearson r: -0.007835877125193198
 
+
+
+# python cal_auroc_babel.py --pred test_out/rna_atac_adata.h5ad --true test.h5
+
+import argparse
+import pandas as pd
+import sklearn.metrics as metrics
+import numpy as np
+import scanpy as sc
+
+parser = argparse.ArgumentParser(description='Calculate AUROC')
+parser.add_argument('-p', '--pred', type=str, help='prediction')
+parser.add_argument('-t', '--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred_atac = sc.read_h5ad(pred_file)
+print('read pred file done')
+true_atac = sc.read_10x_h5(true_file, gex_only=False)
+print('read true file done')
+
+pred = pd.DataFrame(pred_atac.X.todense())
+true = pd.DataFrame(true_atac[:, pred_atac.var_names].X.todense())
+true[true>0] = 1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  # input atac matrix need to be converted to 0-1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+## all-wise
+fpr, tpr, _ = metrics.roc_curve(true.values.flatten(), pred.values.flatten())
+print('All-wise AUROC:', metrics.auc(fpr, tpr))
+
+
+## cell-wise
+cell_auroc = []
+cell_cnt = pred.shape[0]
+for i in range(cell_cnt):
+    fpr, tpr, _ = metrics.roc_curve(true.iloc[i], pred.iloc[i])
+    cell_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Cell-wise AUROC:', np.nanmean(cell_auroc))
+
+## peak-wise
+peak_auroc = []
+peak_cnt = pred.shape[1]
+for i in range(peak_cnt):
+    true_v, pred_v = true.iloc[:, i], pred.iloc[:, i]
+    if sum(true_v)!=0 and sum(true_v)!=len(true_v):
+        fpr, tpr, _ = metrics.roc_curve(true_v, pred_v)
+        peak_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Peak-wise AUROC:', np.nanmean(peak_auroc))
