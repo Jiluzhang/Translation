@@ -551,3 +551,7 @@ for i in range(peak_cnt):
         fpr, tpr, _ = metrics.roc_curve(true_v, pred_v)
         peak_auroc.append(round(metrics.auc(fpr, tpr), 4))
 print('Peak-wise AUROC:', np.nanmean(peak_auroc))
+
+#All-wise AUROC: 0.6111091215234794
+#Cell-wise AUROC: 0.6648445614035088
+#Peak-wise AUROC: 0.4931407889952733
