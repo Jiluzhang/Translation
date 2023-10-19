@@ -1,0 +1,5 @@
+# https://github.com/TencentAILabHealthcare/scTranslator
+
+conda create -n scTranslator python=3.8.13
+pip install scipy==1.9.1 numpy==1.21.5 pandas==1.5.1 scikit-learn==1.1.2 scanpy==1.9.1 torch==1.12.1
+wget -c https://codeload.github.com/TencentAILabHealthcare/scTranslator/zip/refs/heads/main
