@@ -2,19 +2,53 @@
 # performer: https://github.com/lucidrains/performer-pytorch
 
 conda create -n scTranslator python=3.8.13
-pip install scipy==1.9.1 numpy==1.21.5 pandas==1.5.1 scikit-learn==1.1.2 scanpy==1.9.1 torch==1.12.1  # numba 0.58.1 requires numpy<1.27, >=1.22 (1.24.4)
+pip install scipy==1.9.1 numpy==1.21.5 pandas==1.5.1 scikit-learn==1.1.2 scanpy==1.9.1  # numba 0.58.1 requires numpy<1.27, >=1.22 (1.24.4)
 pip install matplotlib==3.6.3  # import scanpy bug: TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
 pip install einops local_attention
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch  # debug: RuntimeError: CUDA error: no kernel image is available for execution on the device
 wget -c https://codeload.github.com/TencentAILabHealthcare/scTranslator/zip/refs/heads/main
 
 scp -P 6122 GSM2685244_protein_3_PBMCs_matrix_mapped.h5ad GSM2685244_mRNA_3_PBMCs_matrix_mapped.h5ad jiluzhang@10.11.41.108:/fs/home/jiluzhang/scTranslator/dataset/test/dataset2
 scp -P 6122 stage2_single-cell_scTranslator.pt jiluzhang@10.11.41.108:/fs/home/jiluzhang/scTranslator/checkpoint
 
+############################################################################################################
 python code/stage3_inference_without_finetune.py \
 --pretrain_checkpoint='checkpoint/stage2_single-cell_scTranslator.pt' \
 --RNA_path='dataset/test/dataset2/GSM2685244_mRNA_3_PBMCs_matrix_mapped.h5ad' \
 --Pro_path='dataset/test/dataset2/GSM2685244_protein_3_PBMCs_matrix_mapped.h5ad'
 
-#RuntimeError: CUDA error: no kernel image is available for execution on the device
-#CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
-#For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+#Total number of origin RNA genes:  21005
+#Total number of origin proteins:  44
+#Total number of origin cells:  4330
+## of NAN in X 0
+## of NAN in X 0
+#load data ended
+#----------------------------------------
+#single cell 20000 RNA To 1000 Protein on dataset/new_data-without_fine-tune
+#Overall performance in repeat_1 costTime: 168.5123s
+#Test Set: AVG mse 0.0408, AVG ccc 0.3924
+
+#real	2m51.998s
+#user	87m39.110s
+#sys	1m50.236s
+
+# output files
+# args1.txt & performance_log.csv
+############################################################################################################
+
+
+python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
+code/stage3_fine-tune.py  --epoch=1 --frac_finetune_test=0.1 --fix_set \
+--pretrain_checkpoint='checkpoint/stage2_single-cell_scTranslator.pt' \
+--RNA_path='dataset/test/dataset2/GSM2685244_mRNA_3_PBMCs_matrix_mapped.h5ad' \
+--Pro_path='dataset/test/dataset2/GSM2685244_protein_3_PBMCs_matrix_mapped.h5ad'
+
+# assign gpu
+# add 'os.environ["CUDA_VISIBLE_DEVICES"]="3,4"' to 'stage3_fine-tune.py'
+
+# nnodes:当前job包含多少个节点(单机多卡nnodes=1)
+# node_rank: 当前节点的优先级
+# nproc_per_node: 当前主机创建的进程数（一般设定为当前主机的GPU数量）
+# master_addr: master节点的ip
+# master_port: master节点的port
+
