@@ -37,6 +37,7 @@ python code/stage3_inference_without_finetune.py \
 ############################################################################################################
 
 
+## distributed training: https://zhuanlan.zhihu.com/p/76638962
 python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
 code/stage3_fine-tune.py  --epoch=1 --frac_finetune_test=0.1 --fix_set \
 --pretrain_checkpoint='checkpoint/stage2_single-cell_scTranslator.pt' \
