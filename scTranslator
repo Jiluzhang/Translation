@@ -62,6 +62,10 @@ code/scTranslator_train.py  --batch_size 8 --test_batch_size 8 --epoch=1 --seed 
 
 
 
+python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
+code/scTranslator_train.py  --batch_size 8 --test_batch_size 8 --epoch=1 --seed 0 --frac_finetune_test 0.1 --fix_set \
+--RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
+
 
 
 
