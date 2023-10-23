@@ -110,7 +110,7 @@ def main():
         dec_heads=args.dec_heads,
         dec_max_seq_len=args.dec_max_seq_len
         )
-    model = torch.load(args.pretrain_checkpoint)
+    #model = torch.load(args.pretrain_checkpoint)
     # Resume training from breakpoints
     if args.resume == True:
         checkpoint = torch.load(args.path_checkpoint)
