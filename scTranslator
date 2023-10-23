@@ -53,3 +53,18 @@ code/stage3_fine-tune.py  --epoch=1 --frac_finetune_test=0.1 --fix_set \
 # master_addr: master节点的ip
 # master_port: master节点的port
 
+
+
+python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
+code/scTranslator_train.py  --batch_size 8 --test_batch_size 8 --epoch=1 --seed 0 --frac_finetune_test 0.1 --fix_set \
+--RNA_path='dataset/test/dataset2/GSM2685244_mRNA_3_PBMCs_matrix_mapped.h5ad' \
+--Pro_path='dataset/test/dataset2/GSM2685244_protein_3_PBMCs_matrix_mapped.h5ad'
+
+
+
+
+
+
+
+
+
