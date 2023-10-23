@@ -235,4 +235,25 @@ def main():
 if __name__ == '__main__':
     main()
 
-#performer_enc_dec.py  'x += self.pos_emb(geneID)' line 108
+# performer_enc_dec.py  'x += self.pos_emb(geneID)' line 108
+# performer_enc_dec.py  'self.pos_emb = nn.Embedding(85500,dim,padding_idx=0)'  85500 -> 300000
+
+
+
+import scanpy as sc
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/RNA.h5ad')
+rna.var['mt'] = range(rna.var.shape[0])
+rna.var = rna.var.rename(columns={'mt': 'my_Id'})
+rna.write('rna_scTranslator.h5ad')
+
+
+atac = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/ATAC.h5ad')
+atac.var['chrom'] = range(atac.var.shape[0])
+atac.var = atac.var.rename(columns={'chrom': 'my_Id'})
+atac.write('atac_scTranslator.h5ad')
+
+cannot work with np.isnan()!!!!!!!
+
+
+
