@@ -241,19 +241,23 @@ if __name__ == '__main__':
 
 
 import scanpy as sc
+import numpy as np
 
 rna = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/RNA.h5ad')
 rna.var['mt'] = range(rna.var.shape[0])
 rna.var = rna.var.rename(columns={'mt': 'my_Id'})
+rna.X = np.array(rna.X.todense())  # convert compressed to array
 rna.write('rna_scTranslator.h5ad')
 
 
 atac = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/ATAC.h5ad')
 atac.var['chrom'] = range(atac.var.shape[0])
 atac.var = atac.var.rename(columns={'chrom': 'my_Id'})
+atac.X = np.array(atac.X.todense())
+atac.X[atac.X>1] = 1
+atac.X[atac.X<1] = 0
 atac.write('atac_scTranslator.h5ad')
 
-cannot work with np.isnan()!!!!!!!
 
 
 
