@@ -234,3 +234,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+#performer_enc_dec.py  'x += self.pos_emb(geneID)' line 108
