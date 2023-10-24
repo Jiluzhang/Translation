@@ -78,9 +78,16 @@ code/stage3_fine-tune.py --batch_size 32 --test_batch_size 4 --translator_depth 
 
 # large datasets
 python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
-code/stage3_fine-tune.py --batch_size 1 --test_batch_size 1 --translator_depth 1 --epoch=100 --seed 1 --frac_finetune_test 0.1 \
---fix_set --enc_max_seq_len 200000 --dec_max_seq_len 200000 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
+code/stage3_fine-tune.py --batch_size 4 --test_batch_size 4 --translator_depth 1 --epoch=100 --seed 0 --frac_finetune_test 0.1 \
+--fix_set --enc_max_seq_len 50000 --dec_max_seq_len 1000 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
+
+#encodings shape: torch.Size([4, 50000, 16])
+#seq_out shape: torch.Size([4, 1000, 16])
+#out shape: torch.Size([4, 1000])
+
+#torch.squeeze(nn.Linear(16, 1)(seq_out))
+
 
 torch.save(net, path) # 保存模型
 
