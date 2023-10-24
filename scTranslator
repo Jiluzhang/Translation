@@ -54,25 +54,47 @@ code/stage3_fine-tune.py  --epoch=1 --frac_finetune_test=0.1 --fix_set \
 # master_port: master节点的port
 
 
+# performer_enc_dec.py  'self.pos_emb = nn.Embedding(85500,dim,padding_idx=0)'  85500 -> 300000
+# mask 'model = torch.load(args.pretrain_checkpoint)' in 'stage3_fine-tune.py'
+# utils.py: 'loss = F.mse_loss(y_hat[pro_mask], y[pro_mask])' -> 'loss = F.cross_entropy(y_hat[pro_mask], y[pro_mask])' (line 43)
+#            'test_loss += F.mse_loss(y_hat[pro_mask], y[pro_mask]).item()' -> 'test_loss += F.cross_entropy(y_hat[pro_mask], y[pro_mask]).item()' (line 80)
+#            'train_ccc += loss2(y_hat[pro_mask], y[pro_mask]).item()' -> 'import sklearn.metrics as metrics; fpr, tpr, _ = metrics.roc_curve(y[pro_mask].cpu(), y_hat[pro_mask].cpu()); train_ccc += metrics.auc(fpr, tpr)'
+#            'test_ccc += loss2(y_hat[pro_mask], y[pro_mask]).item()' -> 'import sklearn.metrics as metrics; fpr, tpr, _ = metrics.roc_curve(y[pro_mask].cpu(), y_hat[pro_mask].cpu()); test_ccc += metrics.auc(fpr, tpr)'
+# stage3_fine-tune.py: 'mse' -> 'cross entropy' (line 232)
+#                      'mse' -> 'cross entropy' (line 233)
+
 
 python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
-code/scTranslator_train.py  --batch_size 8 --test_batch_size 8 --epoch=1 --seed 0 --frac_finetune_test 0.1 --fix_set \
---RNA_path='dataset/test/dataset2/GSM2685244_mRNA_3_PBMCs_matrix_mapped.h5ad' \
---Pro_path='dataset/test/dataset2/GSM2685244_protein_3_PBMCs_matrix_mapped.h5ad'
-
-
-
-python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
-code/scTranslator_train.py  --batch_size 8 --test_batch_size 8 --epoch=10 --seed 0 --frac_finetune_test 0.1 --fix_set \
+code/stage3_fine-tune.py  --batch_size 8 --test_batch_size 4 --translator_depth 1 --epoch=10 --seed 0 --frac_finetune_test 0.1 \
+--fix_set --enc_max_seq_len 10000 --dec_max_seq_len 1000 --dim 64 --translator_depth 2 --enc_depth 2 --enc_heads 4 --dec_depth 2 --dec_heads 4 \
 --RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
 
 
-python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
-code/scTranslator_train.py  --batch_size 8 --test_batch_size 4 --translator_depth 1 --epoch=500 --seed 0 --frac_finetune_test 0.1 \
---fix_set --enc_max_seq_len 20000 --dec_max_seq_len 1000 --dim 64 --translator_depth 2 --enc_depth 2 --enc_heads 4 --dec_depth 2 --dec_heads 4 \
---RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
 
 
+
+
+
+
+
+## data preprocess
+import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/RNA.h5ad')
+rna.var['mt'] = range(rna.var.shape[0])
+rna.var = rna.var.rename(columns={'mt': 'my_Id'})
+rna.X = np.array(rna.X.todense())  # convert compressed to array
+rna.write('rna_scTranslator.h5ad')
+
+
+atac = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/ATAC.h5ad')
+atac.var['chrom'] = range(atac.var.shape[0])
+atac.var = atac.var.rename(columns={'chrom': 'my_Id'})
+atac.X = np.array(atac.X.todense())
+atac.X[atac.X>1] = 1
+atac.X[atac.X<1] = 0
+atac.write('atac_scTranslator.h5ad')
 
 
 
