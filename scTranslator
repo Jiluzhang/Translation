@@ -1,5 +1,6 @@
 # scTranslator: https://github.com/TencentAILabHealthcare/scTranslator
 # performer: https://github.com/lucidrains/performer-pytorch
+# transformer test: https://github.com/rogershijin/GANOLI
 
 conda create -n scTranslator python=3.8.13
 pip install scipy==1.9.1 numpy==1.21.5 pandas==1.5.1 scikit-learn==1.1.2 scanpy==1.9.1  # numba 0.58.1 requires numpy<1.27, >=1.22 (1.24.4)
@@ -77,15 +78,17 @@ code/stage3_fine-tune.py --batch_size 32 --test_batch_size 4 --translator_depth 
 --RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
 
 # large datasets
-python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 2 --master_addr '10.11.41.108' --master_port 6123 \
+python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
 code/stage3_fine-tune.py --batch_size 1 --test_batch_size 1 --translator_depth 1 --epoch=100 --seed 0 --frac_finetune_test 0.1 \
---fix_set --enc_max_seq_len 50000 --dec_max_seq_len 50000 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
+--fix_set --enc_max_seq_len 50000 --dec_max_seq_len 1000 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
 
 #seq_in shape: torch.Size([4, 50000])
 #encodings shape: torch.Size([4, 50000, 16])
 #seq_out shape: torch.Size([4, 1000, 16])
 #out shape: torch.Size([4, 1000])
+
+# input embedding!!!!!!!!!
 
 #torch.squeeze(nn.Linear(16, 1)(seq_out))
 
@@ -97,7 +100,7 @@ o = nn.Linear(4, 1)(i)
 
 torch.save(net, path) # 保存模型
 
-# 50000 -> 50000 without MLP is just ok!
+
 # 50000 -> 50000 with decoder oom!
 # 50000 -> 50000 without decoder just ok!
 
