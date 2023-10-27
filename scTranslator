@@ -83,6 +83,44 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --translator_depth
 --enc_max_seq_len 50000 --dec_max_seq_len 1000 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_scTranslator.h5ad' --Pro_path='rna2atac/atac_scTranslator.h5ad'
 
+
+# cCREs: wget -c https://downloads.wenglab.org/V3/GRCh38-cCREs.bed
+awk '{if($1!='chrX' && $1!='chrY') print($1 "\t" $2 "\t" $3)}' GRCh38-cCREs.bed > human_cCREs.bed  # 1,063,878
+
+#pip install pybedtools
+
+seq 0 `sed '1d' human_cCREs.bed | wc -l` > human_cCREs_idx.bed 
+paste human_cCREs.bed human_cCREs_idx.bed > human_cCREs.txt
+rm human_cCREs_idx.bed
+bedtools intersect -a human_cCREs.txt -b atac.txt -wa | awk '{print$4}' | sort -n | uniq > tmp.txt
+
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import pybedtools
+
+atac = sc.read_h5ad('atac_scTranslator.h5ad')
+out = pd.DataFrame({'id': atac.var_names})
+out['chr'] = out['id'].map(lambda x: x.split(':')[0])
+out['start'] = out['id'].map(lambda x: x.split(':')[1].split('-')[0])
+out['end'] = out['id'].map(lambda x: x.split(':')[1].split('-')[1])
+out.drop(columns='id', inplace=True)
+#out = pd.concat((out, pd.DataFrame(atac.X).T), axis=1)
+#out = out[(out['chr']!='chrX') & (out['chr']!='chrY')]
+#out['idx'] = list(range(out.shape[0]))
+out.iloc[np.nonzero(atac.X[0])].to_csv('atac.txt', index=0, header=0, sep='\t')
+
+cCREs = pybedtools.BedTool('human_cCREs.txt')
+cell_peaks = pybedtools.BedTool('atac.txt')
+cCREs.intersect(cell_peaks)
+
+### reinstall bedtools!!!!!!!!!!
+
+m = np.zeros([atac.n_obs, 1063878])
+idx = pd.read_csv('tmp.txt', header=None)
+m[0][idx] = 1
+
+
 # --fix_set
 
 # performer_enc_dec.py
