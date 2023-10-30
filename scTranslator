@@ -130,9 +130,30 @@ atac_new.write('atac_scTranslator_new.h5ad')
 # gunzip Homo_sapiens.GRCh38.110.chr.gtf.gz
 grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $2}' | sed 's/"//g' | sed 's/;//g' > gene_id.txt
 grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $6}' | sed 's/"//g' | sed 's/;//g' > gene_name.txt
-paste gene_id.txt gene_name.txt > gene_info.txt  # 39884
+paste gene_id.txt gene_name.txt > human_genes.txt  # 39884
 rm gene_id.txt gene_name.txt
 
+################################################################################################################
+## trans_rna_h5ad.py
+import scanpy as sc
+import pandas as pd
+import numpy as np
+
+rna = sc.read_h5ad('rna_scTranslator.h5ad')
+genes = pd.read_table('human_genes.txt', names=['gene_id', 'gene_name'])
+
+rna_genes = rna.var.copy()
+rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])
+rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
+
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 5:].T
+X_new = np.array(X_new, dtype='float32')
+X_new[np.isnan(X_new)] = 0
+
+rna_new_var = pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression', 'my_Id': range(genes.shape[0])})
+rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)
+rna_new.write('rna_scTranslator_new.h5ad')
+################################################################################################################
 
 
 
