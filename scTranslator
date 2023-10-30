@@ -110,21 +110,33 @@ peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
 peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
 peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
 peaks.drop(columns='id', inplace=True)
+peaks['idx'] = range(peaks.shape[0])
 
-cCREs = pybedtools.BedTool('human_cCREs.txt')
-m = np.zeros([atac.n_obs, 1063878])
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+idx_map.columns = ['peaks_idx', 'cCREs_idx']
 
+m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]])
 for i in tqdm(range(atac.X.shape[0])):
-    cell_peaks = pybedtools.BedTool.from_dataframe(peaks.iloc[np.nonzero(atac.X[i])])
-    idx = cCREs.intersect(cell_peaks, wa=True).to_dataframe().drop_duplicates()['name']
-    m[i][idx] = 1
-    #print('cell '+ str(i) + ' done')
+    m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+
+atac_new_var = pd.DataFrame({'gene_ids': cCREs['chr'] + ':' + cCREs['start'].map(str) + '-' + cCREs['end'].map(str), 'feature_types': 'Peaks', 'my_Id': range(cCREs.shape[0])})
 
 
+#for i in tqdm(range(atac.X.shape[0])):
+#    cell_peaks = pybedtools.BedTool.from_dataframe(peaks.iloc[np.nonzero(atac.X[i])])
+#    idx = cCREs.intersect(cell_peaks, wa=True).to_dataframe().drop_duplicates()['name']
+#    m[i][idx] = 1
+#    #print('cell '+ str(i) + ' done')
 
 #from multiprocessing import Pool
 #p = Pool(3)
 #p.map(peaks_2_cCREs, [1, 2])
+
+
 
 # --fix_set
 
