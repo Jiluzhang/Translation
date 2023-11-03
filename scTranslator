@@ -71,6 +71,28 @@ code/stage3_fine-tune.py  --epoch=1 --frac_finetune_test=0.1 --fix_set \
 
 # pip install torchmetrics
 
+
+## data preprocess
+import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/RNA.h5ad')
+rna.var['mt'] = range(rna.var.shape[0])
+rna.var = rna.var.rename(columns={'mt': 'my_Id'})
+rna.X = np.array(rna.X.todense())  # convert compressed to array
+rna.write('rna_scTranslator.h5ad')
+
+
+atac = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/ATAC.h5ad')
+atac.var['chrom'] = range(atac.var.shape[0])
+atac.var = atac.var.rename(columns={'chrom': 'my_Id'})
+atac.X = np.array(atac.X.todense())
+atac.X[atac.X>1] = 1
+atac.X[atac.X<1] = 0
+atac.write('atac_scTranslator.h5ad')
+
+
+
 # small datasets
 python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
 code/stage3_fine-tune.py --batch_size 32 --test_batch_size 4 --translator_depth 1 --epoch=100 --seed 1 --frac_finetune_test 0.1 \
@@ -191,7 +213,7 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --transl
 time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6124 \
 code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=100 --seed 0 --frac_finetune_test 0.1 \
 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
---RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' 
+--RNA_path='rna2atac/rna_scTranslator_new_2.h5ad' --Pro_path='rna2atac/atac_scTranslator_new_2.h5ad' 
 
 
 ## no weight (prediction)
@@ -200,19 +222,30 @@ time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 ## with weight (prediction)
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_8.pt' \
---RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_1.pt' \
+--RNA_path='rna2atac/rna_scTranslator_new_2.h5ad' --Pro_path='rna2atac/atac_scTranslator_new_2.h5ad' \
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
+
 
 import pandas as pd
 pred = pd.read_table('cell_2_pred.bedgraph', header=None)
 true = pd.read_table('cell_2_true.bedgraph', header=None)
 dat = pd.concat([pred, true[3]], axis=1)
 dat.columns = ['chr', 'start', 'end', 'pred', 'true']
-for i in [0.9, 0.99, 0.999]:
+for i in [0.1, 0.2, 0.3]:
     print('i:', i, end='    ')
     print('precision:',  sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['pred']>i), end='    ')
     print('recall:', sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['true']==1))
+
+
+from torchmetrics import AUROC
+import torch
+auroc = AUROC(task='binary')
+print(auroc(torch.tensor(dat['pred'].values), torch.tensor(dat['true'].values)))
+
+
+scp -P 6122 jiluzhang@10.11.41.108:/fs/home/jiluzhang/scTranslator_with_weight/prediction/*pred.bedgraph .
+
 
 # --fix_set
 
@@ -255,30 +288,6 @@ torch.save(net, path) # 保存模型
 
 # 50000 -> 50000 with decoder oom!
 # 50000 -> 50000 without decoder just ok!
-
-
-
-
-
-## data preprocess
-import scanpy as sc
-import numpy as np
-
-rna = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/RNA.h5ad')
-rna.var['mt'] = range(rna.var.shape[0])
-rna.var = rna.var.rename(columns={'mt': 'my_Id'})
-rna.X = np.array(rna.X.todense())  # convert compressed to array
-rna.write('rna_scTranslator.h5ad')
-
-
-atac = sc.read_h5ad('/fs/home/jiluzhang/Benchmark/sci-CAR/data/ATAC.h5ad')
-atac.var['chrom'] = range(atac.var.shape[0])
-atac.var = atac.var.rename(columns={'chrom': 'my_Id'})
-atac.X = np.array(atac.X.todense())
-atac.X[atac.X>1] = 1
-atac.X[atac.X<1] = 0
-atac.write('atac_scTranslator.h5ad')
-
 
 
 
