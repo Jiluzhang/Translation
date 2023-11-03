@@ -195,16 +195,24 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --transl
 
 
 ## no weight (prediction)
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_no_weight/epoch_15.pt' \
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_no_weight/epoch_25.pt' \
 --RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 ## with weight (prediction)
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_3.pt' \
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_8.pt' \
 --RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
-
+import pandas as pd
+pred = pd.read_table('cell_2_pred.bedgraph', header=None)
+true = pd.read_table('cell_2_true.bedgraph', header=None)
+dat = pd.concat([pred, true[3]], axis=1)
+dat.columns = ['chr', 'start', 'end', 'pred', 'true']
+for i in [0.9, 0.99, 0.999]:
+    print('i:', i, end='    ')
+    print('precision:',  sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['pred']>i), end='    ')
+    print('recall:', sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['true']==1))
 
 # --fix_set
 
