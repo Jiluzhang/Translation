@@ -216,6 +216,17 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --transl
 --RNA_path='rna2atac/rna_scTranslator_new_2.h5ad' --Pro_path='rna2atac/atac_scTranslator_new_2.h5ad' 
 
 
+time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6124 \
+code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=100 --seed 0 --frac_finetune_test 0.1 \
+--enc_max_seq_len 39884 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
+--RNA_path='rna2atac/rna_scTranslator_small.h5ad' --Pro_path='rna2atac/atac_scTranslator_small.h5ad' 
+
+
+grep -o -P 'Training set: Average ce_loss: .{6}' scTranslator_with_weight_lr_2e-3.log | sed 's/Training set: Average ce_loss: //g' > loss_test.txt
+# -o: only show the matching part
+
+
+
 ## no weight (prediction)
 time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_no_weight/epoch_25.pt' \
 --RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
@@ -227,12 +238,18 @@ time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_14.pt' \
+--RNA_path='rna2atac/rna_scTranslator_small.h5ad' --Pro_path='rna2atac/atac_scTranslator_small.h5ad' \
+--test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
+
+
 import pandas as pd
-pred = pd.read_table('cell_2_pred.bedgraph', header=None)
-true = pd.read_table('cell_2_true.bedgraph', header=None)
+import numpy as np
+pred = pd.read_table('cell_1_pred.bedgraph', header=None)
+true = pd.read_table('cell_1_true.bedgraph', header=None)
 dat = pd.concat([pred, true[3]], axis=1)
 dat.columns = ['chr', 'start', 'end', 'pred', 'true']
-for i in [0.1, 0.2, 0.3]:
+for i in np.arange(0.995, 0.999, 0.001):
     print('i:', i, end='    ')
     print('precision:',  sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['pred']>i), end='    ')
     print('recall:', sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['true']==1))
