@@ -222,7 +222,18 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --transl
 --RNA_path='rna2atac/rna_scTranslator_small.h5ad' --Pro_path='rna2atac/atac_scTranslator_small.h5ad' 
 
 
-grep -o -P 'Training set: Average ce_loss: .{6}' scTranslator_with_weight_lr_2e-3.log | sed 's/Training set: Average ce_loss: //g' > loss_test.txt
+## training loss
+grep -o -P 'Training set: Average wbce_loss: .{6}' scTranslator_weight_50_cell_1000.log | sed 's/Training set: Average wbce_loss: //g'
+## training auprc
+grep "Training set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average auprc: .{6}" | sed 's/Average auprc: //g'
+## training auroc
+grep "Training set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average auroc: .{6}" | sed 's/Average auroc: //g'
+## testing loss
+grep -o -P 'Testing set: Average bce_loss: .{6}' scTranslator_weight_50_cell_1000.log | sed 's/Testing set: Average bce_loss: //g'
+## testing auprc
+grep "Testing set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average auprc: .{6}" | sed 's/Average auprc: //g'
+## testing auroc
+grep "Testing set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average auroc: .{6}" | sed 's/Average auroc: //g'
 # -o: only show the matching part
 
 
@@ -238,18 +249,18 @@ time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_14.pt' \
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
 --RNA_path='rna2atac/rna_scTranslator_small.h5ad' --Pro_path='rna2atac/atac_scTranslator_small.h5ad' \
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 
 import pandas as pd
 import numpy as np
-pred = pd.read_table('cell_1_pred.bedgraph', header=None)
-true = pd.read_table('cell_1_true.bedgraph', header=None)
+pred = pd.read_table('cell_0_pred.bedgraph', header=None)
+true = pd.read_table('cell_0_true.bedgraph', header=None)
 dat = pd.concat([pred, true[3]], axis=1)
 dat.columns = ['chr', 'start', 'end', 'pred', 'true']
-for i in np.arange(0.995, 0.999, 0.001):
+for i in np.arange(0.95, 0.99, 0.01):
     print('i:', i, end='    ')
     print('precision:',  sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['pred']>i), end='    ')
     print('recall:', sum((dat['pred']>i) & (dat['true']==1)) / sum(dat['true']==1))
