@@ -203,6 +203,7 @@ metric_collection = MetricCollection([
 print(metric_collection(preds, target))
 
 
+
 ## no weight (scTranslator)
 time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
 code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=100 --seed 0 --frac_finetune_test 0.1 \
@@ -272,6 +273,7 @@ auroc = AUROC(task='binary')
 print(auroc(torch.tensor(dat['pred'].values), torch.tensor(dat['true'].values)))
 
 
+## https://data.humantumoratlas.org/explore?selectedFilters=%5B%7B%22group%22%3A%22AtlasName%22%2C%22value%22%3A%22HTAN+WUSTL%22%7D%5D&tab=file
 pip install synapseclient
 
 import synapseclient
