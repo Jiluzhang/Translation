@@ -256,8 +256,8 @@ time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM
 
 import pandas as pd
 import numpy as np
-pred = pd.read_table('cell_0_pred.bedgraph', header=None)
-true = pd.read_table('cell_0_true.bedgraph', header=None)
+pred = pd.read_table('cell_2_pred.bedgraph', header=None)
+true = pd.read_table('cell_2_true.bedgraph', header=None)
 dat = pd.concat([pred, true[3]], axis=1)
 dat.columns = ['chr', 'start', 'end', 'pred', 'true']
 for i in np.arange(0.95, 0.99, 0.01):
@@ -270,6 +270,16 @@ from torchmetrics import AUROC
 import torch
 auroc = AUROC(task='binary')
 print(auroc(torch.tensor(dat['pred'].values), torch.tensor(dat['true'].values)))
+
+
+pip install synapseclient
+
+import synapseclient
+syn = synapseclient.Synapse()
+syn.login('Luz','57888282')
+syn52176724 = syn.get(entity='syn52176724', downloadLocation='.')
+
+
 
 
 scp -P 6122 jiluzhang@10.11.41.108:/fs/home/jiluzhang/scTranslator_with_weight/prediction/*pred.bedgraph .
