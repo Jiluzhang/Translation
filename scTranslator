@@ -128,10 +128,12 @@ grep "Testing set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average au
 
 
 ####################################### Prediction ##########################################
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_no_weight/epoch_25.pt' \
+time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_25.pt' \
 --RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
 --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/tmp/epoch_2.pt' \
+--RNA_path='rna2atac/rna_test_dm_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
 import pandas as pd
 import numpy as np
