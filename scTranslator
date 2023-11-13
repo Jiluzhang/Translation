@@ -128,12 +128,84 @@ grep "Testing set" scTranslator_weight_50_cell_1000.log | grep -o -P "Average au
 
 
 ####################################### Prediction ##########################################
-time python code/stage3_inference_without_finetune.py --pretrain_checkpoint='scM2M_with_weight/epoch_25.pt' \
---RNA_path='rna2atac/rna_scTranslator_new.h5ad' --Pro_path='rna2atac/atac_scTranslator_new.h5ad' \
---test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
-
-time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/tmp/epoch_2.pt' \
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
+
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
+--RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
+
+# python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_dm_100.h5ad
+# python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_pbmc_100.h5ad
+
+import argparse
+import pandas as pd
+import sklearn.metrics as metrics
+import numpy as np
+import scanpy as sc
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(description='Evaluate predicted atac peaks')
+parser.add_argument('-p', '--pred', type=str, help='prediction')
+parser.add_argument('-t', '--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred_atac = sc.read_h5ad(pred_file)
+print('read pred file done')
+true_atac = sc.read_h5ad(true_file)
+print('read true file done')
+
+pred = pd.DataFrame(pred_atac.X)
+true = pd.DataFrame(true_atac.X)
+
+## auroc
+fpr, tpr, _ = metrics.roc_curve(true.values.flatten(), pred.values.flatten())
+auroc = metrics.auc(fpr, tpr)
+fig, ax = plt.subplots(dpi=300, figsize=(7, 5))
+ax.plot(fpr, tpr)
+ax.set(xlim=(0, 1.0), ylim=(0.0, 1.05),
+       xlabel="False positive rate", ylabel="True positive rate",
+       title=f"scM2M RNA->ATAC (AUROC={auroc:.3f})")
+fig.savefig('rna2atac_auroc.pdf', dpi=600, bbox_inches="tight")
+print('plot roc curve done')
+
+## auprc
+precision, recall, _thresholds = metrics.precision_recall_curve(true.values.flatten(), pred.values.flatten())
+auprc = metrics.auc(recall, precision)
+fig, ax = plt.subplots(dpi=300, figsize=(7, 5))
+ax.plot(recall, precision)
+ax.set(xlim=(0, 1.0), ylim=(0.0, 1.05),
+       xlabel="Recall", ylabel="Precision",
+       title=f"scM2M RNA->ATAC (AUPRC={auprc:.3f})")
+fig.savefig('rna2atac_auprc.pdf', dpi=600, bbox_inches="tight")
+print('plot pr curve done')
+
+
+
+## cell-wise
+cell_auroc = []
+cell_cnt = pred.shape[0]
+for i in range(cell_cnt):
+    fpr, tpr, _ = metrics.roc_curve(true.iloc[i], pred.iloc[i])
+    cell_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Cell-wise AUROC:', np.nanmean(cell_auroc))
+
+## peak-wise
+peak_auroc = []
+peak_cnt = pred.shape[1]
+for i in tqdm(range(peak_cnt)):
+    true_v, pred_v = true.iloc[:, i], pred.iloc[:, i]
+    if sum(true_v)!=0 and sum(true_v)!=len(true_v):
+        fpr, tpr, _ = metrics.roc_curve(true_v, pred_v)
+        peak_auroc.append(round(metrics.auc(fpr, tpr), 4))
+print('Peak-wise AUROC:', np.nanmean(peak_auroc))
+
+#All-wise AUROC: 0.6111091215234794
+#Cell-wise AUROC: 0.6648445614035088
+#Peak-wise AUROC: 0.4931407889952733
+
+
 
 import pandas as pd
 import numpy as np
