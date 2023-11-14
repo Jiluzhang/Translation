@@ -182,6 +182,59 @@ fig.savefig('rna2atac_auprc.pdf', dpi=600, bbox_inches="tight")
 print('plot pr curve done')
 
 
+## plot atac peak distribution ##
+import scanpy as sc
+import numpy as np
+import matplotlib.pyplot as plt
+
+atac = sc.read_h5ad('atac_train_dm_1000.h5ad') # atac = sc.read_h5ad('atac_test_dm_100.h5ad')  atac = sc.read_h5ad('atac_test_pbmc_100.h5ad')
+peak_cnt = np.count_nonzero(atac.X, axis=1)
+
+plt.hist(peak_cnt, bins=30, color='skyblue', alpha=0.8)
+plt.title('ATAC peak distribution')
+plt.xlabel('Peak count')
+plt.ylabel('Frequency')
+plt.savefig('atac_train_dm_1000_peak_dist.pdf') # plt.savefig('atac_test_dm_100_peak_dist.pdf')  plt.savefig('atac_test_pbmc_100_peak_dist.pdf')
+plt.close()
+
+
+## combine rna & atac
+## merge_h5ad_to_h5.py # modify a little from the raw one
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+
+rna  = h5py.File('rna_train_dm_1000.h5ad', 'r')
+atac = h5py.File('atac_train_dm_1000.h5ad', 'r')
+out  = h5py.File('train_dm_1000.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+g.create_dataset('data', data=np.append(rna['X'][:], atac['X']['data'][:]))
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['_index'].shape[0], [b'Peaks']*atac['var']['_index'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['_index'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+out.close()
+
+
+
 
 ## cell-wise
 cell_auroc = []
