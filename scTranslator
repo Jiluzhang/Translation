@@ -210,19 +210,16 @@ out  = h5py.File('train_dm_1000.h5', 'w')
 
 g = out.create_group('matrix')
 g.create_dataset('barcodes', data=rna['obs']['_index'][:])
-g.create_dataset('data', data=np.append(rna['X'][:], atac['X']['data'][:]))
+rna_atac_csr_mat = hstack((csr_matrix(rna['X']), csr_matrix(atac['X']))).tocsr()
+g.create_dataset('data', data=rna_atac_csr_mat.data)
 
 g_2 = g.create_group('features')
 g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
-g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['_index'].shape[0], [b'Peaks']*atac['var']['_index'].shape[0]))
-g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['_index'].shape[0])))
-g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
-g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
-g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
-
-rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
-                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
-rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))      
 
 g.create_dataset('indices', data=rna_atac_csr_mat.indices)
 g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
@@ -233,6 +230,13 @@ g.create_dataset('shape', data=l)
 
 out.close()
 
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_dm_1000.h5 --outdir train_out --device 1
+
+!!!!!!!!!!!!!!!!!!!!!!gene_id!!!!!!!!!!!!!!!
+
+# sc_data_loaders.py
+# "sort_by_pos": True  ->  "sort_by_pos": False  line 176
 
 
 
