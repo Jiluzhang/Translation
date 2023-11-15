@@ -20,9 +20,13 @@ X_new = np.array(X_new, dtype='float32')
 X_new[np.isnan(X_new)] = 0
 
 rna_new_var = pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression', 'my_Id': range(genes.shape[0])})
-rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)  # 5517*39884
+rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)  # 5517*38244
+
+rna_new.var.index = genes['gene_name']  # set index for var
+
 rna_new[:1000, :].write('rna_train_dm_1000.h5ad')
 rna_new[5417:, :].write('rna_test_dm_100.h5ad')
+
 
 ########## atac ##########
 atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
@@ -50,7 +54,8 @@ for i in tqdm(range(atac.X.shape[0])):
 
 atac_new_var = pd.DataFrame({'gene_ids': cCREs['chr'] + ':' + cCREs['start'].map(str) + '-' + cCREs['end'].map(str), 'feature_types': 'Peaks', 'my_Id': range(cCREs.shape[0])})
 atac_new = sc.AnnData(m, obs=atac.obs, var=atac_new_var)
+
+atac_new.var.index = atac_new.var['gene_ids']  # set index
+
 atac_new[:1000, :].write('atac_train_dm_1000.h5ad')
 atac_new[5417:, :].write('atac_test_dm_100.h5ad')
-
-
