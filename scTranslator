@@ -156,6 +156,8 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_dm_100.h5ad
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_pbmc_100.h5ad
 
+python plot_atac_roc_pr.py --pred rna_atac_adata.h5ad --true truth_atac.h5ad
+
 import argparse
 import pandas as pd
 import sklearn.metrics as metrics
@@ -175,28 +177,34 @@ print('read pred file done')
 true_atac = sc.read_h5ad(true_file)
 print('read true file done')
 
+if type(pred_atac.X) != np.ndarray:
+    pred_atac.X = pred_atac.X.todense()
+
+if type(true_atac.X) != np.ndarray:
+    true_atac.X = true_atac.X.todense()
+
 pred = pd.DataFrame(pred_atac.X)
 true = pd.DataFrame(true_atac.X)
 
 ## auroc
 fpr, tpr, _ = metrics.roc_curve(true.values.flatten(), pred.values.flatten())
 auroc = metrics.auc(fpr, tpr)
-fig, ax = plt.subplots(dpi=300, figsize=(7, 5))
+fig, ax = plt.subplots(dpi=300, figsize=(5, 5))
 ax.plot(fpr, tpr)
 ax.set(xlim=(0, 1.0), ylim=(0.0, 1.05),
        xlabel="False positive rate", ylabel="True positive rate",
-       title=f"scM2M RNA->ATAC (AUROC={auroc:.3f})")
+       title=f"RNA->ATAC (AUROC={auroc:.3f})")
 fig.savefig('rna2atac_auroc.pdf', dpi=600, bbox_inches="tight")
 print('plot roc curve done')
 
 ## auprc
 precision, recall, _thresholds = metrics.precision_recall_curve(true.values.flatten(), pred.values.flatten())
 auprc = metrics.auc(recall, precision)
-fig, ax = plt.subplots(dpi=300, figsize=(7, 5))
+fig, ax = plt.subplots(dpi=300, figsize=(5, 5))
 ax.plot(recall, precision)
 ax.set(xlim=(0, 1.0), ylim=(0.0, 1.05),
        xlabel="Recall", ylabel="Precision",
-       title=f"scM2M RNA->ATAC (AUPRC={auprc:.3f})")
+       title=f"RNA->ATAC (AUPRC={auprc:.3f})")
 fig.savefig('rna2atac_auprc.pdf', dpi=600, bbox_inches="tight")
 print('plot pr curve done')
 
@@ -218,7 +226,7 @@ plt.close()
 
 
 ## combine rna & atac
-## merge_h5ad_to_h5.py # modify a little from the raw one
+## merge_h5ad_to_h5_train.py # modify a little from the raw one
 import h5py
 import numpy as np
 from scipy.sparse import csr_matrix, hstack
@@ -250,14 +258,16 @@ g.create_dataset('shape', data=l)
 out.close()
 
 
-python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_dm_1000.h5 --outdir train_out --device 1 --nofilter
+## BABEL
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_1000.h5 --outdir babel_train_out --device 1 --nofilter  # ~8 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~2.5 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100 --device 1 --nofilter
 
-!!!!!!!!!!!!!!!!!!!!!!gene_id!!!!!!!!!!!!!!!
 
 # keep input data same, evaluate overlap of output data!
 
-# sc_data_loaders.py
-# "sort_by_pos": True  ->  "sort_by_pos": False  line 176
+
+
 
 
 
