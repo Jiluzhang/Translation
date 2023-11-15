@@ -100,10 +100,29 @@ awk '{if($1!="chrX" && $1!="chrY") print($1 "\t" $2 "\t" $3)}' GRCh38-cCREs.bed 
 
 # human gtf file: wget -c https://ftp.ensembl.org/pub/release-110/gtf/homo_sapiens/Homo_sapiens.GRCh38.110.chr.gtf.gz
 # gunzip Homo_sapiens.GRCh38.110.chr.gtf.gz
+## centered by gene_id
 grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $2}' | sed 's/"//g' | sed 's/;//g' > gene_id.txt
 grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $6}' | sed 's/"//g' | sed 's/;//g' > gene_name.txt
 paste gene_id.txt gene_name.txt > human_genes.txt  # 39884
 rm gene_id.txt gene_name.txt
+
+## cetered by gene_name
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $2}' | sed 's/"//g' | sed 's/;//g' > gene_id.txt
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $6}' | sed 's/"//g' | sed 's/;//g' > gene_name.txt
+paste gene_id.txt gene_name.txt | sort > human_genes_raw.txt
+rm gene_id.txt gene_name.txt
+
+import pandas as pd
+dat = pd.read_table('human_genes_raw.txt', names=['gene_id', 'gene_name'])
+gene_cnt = dat.groupby('gene_name').agg('count').reset_index()
+gene_cnt.columns = ['gene_name', 'cnt']
+out = pd.merge(dat, gene_cnt)
+out = out[out['cnt']==1][['gene_id', 'gene_name']]
+out.to_csv('human_genes.txt', sep='\t', index=False, header=False)  # 38244
+
+rm human_genes_raw.txt
+
+
 
 
 ####################################### Train model ##########################################
@@ -219,7 +238,7 @@ g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var'
 g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
 g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
 g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
-g_2.create_dataset('name', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))      
+g_2.create_dataset('name', data=np.append(rna['var']['gene_name'][:], atac['var']['gene_ids'][:]))      
 
 g.create_dataset('indices', data=rna_atac_csr_mat.indices)
 g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
@@ -231,9 +250,11 @@ g.create_dataset('shape', data=l)
 out.close()
 
 
-python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_dm_1000.h5 --outdir train_out --device 1
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_dm_1000.h5 --outdir train_out --device 1 --nofilter
 
 !!!!!!!!!!!!!!!!!!!!!!gene_id!!!!!!!!!!!!!!!
+
+# keep input data same, evaluate overlap of output data!
 
 # sc_data_loaders.py
 # "sort_by_pos": True  ->  "sort_by_pos": False  line 176
