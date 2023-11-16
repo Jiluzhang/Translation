@@ -138,6 +138,12 @@ code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --transl
 --RNA_path='rna2atac/rna_train_dm_1000.h5ad' --Pro_path='rna2atac/atac_train_dm_1000.h5ad'  # update gene number
 
 
+time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
+code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
+--enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
+--RNA_path='rna2atac/rna_train_dm_5000.h5ad' --Pro_path='rna2atac/atac_train_dm_5000.h5ad'
+
+
 ## training loss
 grep -o -P 'Training set: Average wbce_loss: .{6}' scTranslator_weight_50_cell_1000.log | sed 's/Training set: Average wbce_loss: //g'
 ## training auprc
@@ -159,6 +165,14 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt
 
 time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
 --RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
+
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
+--RNA_path='rna2atac/rna_test_dm_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 
+
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
+--RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 
+
+
 
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_dm_100.h5ad
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_pbmc_100.h5ad
@@ -216,6 +230,13 @@ fig.savefig('rna2atac_auprc.pdf', dpi=600, bbox_inches="tight")
 print('plot pr curve done')
 
 
+idx = []
+for i in range(100):
+     if sum(true[i])!=0:
+         idx.append(i)
+
+
+
 ## plot atac peak distribution ##
 import scanpy as sc
 import numpy as np
@@ -265,16 +286,21 @@ g.create_dataset('shape', data=l)
 out.close()
 
 
-## BABEL
-python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_1000.h5 --outdir babel_train_out --device 1 --nofilter  # ~8 min
-python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~2.5 min
+##################### BABEL #####################
+## train_model.py
+## add following code for not filtering genes or peaks
+## if args.nofilter:
+##     atac_data_kwargs = {k: v for k, v in atac_data_kwargs.items() if not k.startswith("filt_")}
+
+## modify gtf file for babel reference
+head -n 5 Homo_sapiens.GRCh38.110.chr.gtf >> /fs/home/jiluzhang/BABEL/data/Homo_sapiens.GRCh38.110.chr.gtf
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT") print $0}' >> /fs/home/jiluzhang/BABEL/data/Homo_sapiens.GRCh38.110.chr.gtf
+gzip Homo_sapiens.GRCh38.110.chr.gtf 
+mv Homo_sapiens.GRCh38.110.chr.gtf.gz Homo_sapiens.GRCh38.100.gtf.gz
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_1000.h5 --outdir babel_train_out --device 1 --nofilter  # ~30 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~8 min
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100 --device 1 --nofilter
-
-
-# keep input data same, evaluate overlap of output data!
-
-
-
 
 
 
