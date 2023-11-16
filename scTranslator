@@ -148,6 +148,57 @@ code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000/epoch_30.pt
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_train_dm_1000_2000.h5ad' --Pro_path='rna2atac/atac_train_dm_1000_2000.h5ad'
 
+---------------
+--- Epoch 1 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:34<00:00, 14.31s/it]
+Training set: Average wbce_loss: 0.7846, Average auprc: 0.3545, Average auroc: 0.9189
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:47<00:00, 23.75s/it]
+Testing set: Average bce_loss: 0.2879, Average auprc: 0.4279, Average auroc: 0.9689
+---------------
+--- Epoch 2 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:32<00:00, 14.18s/it]
+Training set: Average wbce_loss: 0.3954, Average auprc: 0.4630, Average auroc: 0.9710
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:47<00:00, 23.81s/it]
+Testing set: Average bce_loss: 0.2574, Average auprc: 0.4793, Average auroc: 0.9720
+---------------
+--- Epoch 3 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:41<00:00, 14.78s/it]
+Training set: Average wbce_loss: 1.7653, Average auprc: 0.4001, Average auroc: 0.9642
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:48<00:00, 24.29s/it]
+Testing set: Average bce_loss: 6.2082, Average auprc: 0.2418, Average auroc: 0.9508
+---------------
+--- Epoch 4 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:47<00:00, 15.14s/it]
+Training set: Average wbce_loss: 8.0211, Average auprc: 0.2505, Average auroc: 0.9515
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:49<00:00, 24.57s/it]
+Testing set: Average bce_loss: 8.3914, Average auprc: 0.2341, Average auroc: 0.9500
+---------------
+--- Epoch 5 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [04:05<00:00, 16.38s/it]
+Training set: Average wbce_loss: 7.8238, Average auprc: 0.2438, Average auroc: 0.9509
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:48<00:00, 24.09s/it]
+Testing set: Average bce_loss: 5.4398, Average auprc: 0.2423, Average auroc: 0.9512
+---------------
+--- Epoch 6 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:58<00:00, 15.90s/it]
+Training set: Average wbce_loss: 1.5319, Average auprc: 0.3105, Average auroc: 0.9553
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:52<00:00, 26.42s/it]
+Testing set: Average bce_loss: 0.2545, Average auprc: 0.3910, Average auroc: 0.9630
+---------------
+--- Epoch 7 ---
+---------------
+Training: 100%|█████████████████████████████████████████████████████| 15/15 [03:50<00:00, 15.39s/it]
+Training set: Average wbce_loss: 0.4342, Average auprc: 0.4242, Average auroc: 0.9673
+Testing: 100%|████████████████████████████████████████████████████████| 2/2 [00:53<00:00, 26.89s/it]
+Testing set: Average bce_loss: 0.2234, Average auprc: 0.4373, Average auroc: 0.9696
+
+
 time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
 code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000/epoch_30.pt' --batch_size 64 --test_batch_size 64 --lr 2e-4 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
