@@ -25,6 +25,10 @@ rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)  # 5517*38244
 rna_new.var.index = genes['gene_name']  # set index for var
 
 rna_new[:1000, :].write('rna_train_dm_1000.h5ad')
+rna_new[1000:2000, :].write('rna_train_dm_1000_2000.h5ad')
+rna_new[2000:3000, :].write('rna_train_dm_2000_3000.h5ad')
+rna_new[3000:4000, :].write('rna_train_dm_3000_4000.h5ad')
+rna_new[4000:5000, :].write('rna_train_dm_4000_5000.h5ad')
 rna_new[5417:, :].write('rna_test_dm_100.h5ad')
 
 
@@ -58,4 +62,8 @@ atac_new = sc.AnnData(m, obs=atac.obs, var=atac_new_var)
 atac_new.var.index = atac_new.var['gene_ids']  # set index
 
 atac_new[:1000, :].write('atac_train_dm_1000.h5ad')
+atac_new[1000:2000, :].write('atac_train_dm_1000_2000.h5ad')
+atac_new[2000:3000, :].write('atac_train_dm_2000_3000.h5ad')
+atac_new[3000:4000, :].write('atac_train_dm_3000_4000.h5ad')
+atac_new[4000:5000, :].write('atac_train_dm_4000_5000.h5ad')
 atac_new[5417:, :].write('atac_test_dm_100.h5ad')
