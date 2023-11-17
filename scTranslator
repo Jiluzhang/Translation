@@ -160,6 +160,12 @@ time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_nod
 code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_train_dm_500_hsr_500_1.h5ad' --Pro_path='rna2atac/atac_train_dm_500_hsr_500_1.h5ad'
+
+time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
+code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
+--enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
+--RNA_path='rna2atac/rna_train_dm_500_hsr_500_2.h5ad' --Pro_path='rna2atac/atac_train_dm_500_hsr_500_2.h5ad'
+
 ######################################################
 
 
@@ -191,7 +197,7 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt
 time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
 --RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
-time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_5.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 
 
 time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
