@@ -67,3 +67,25 @@ atac_new[2000:3000, :].write('atac_train_dm_2000_3000.h5ad')
 atac_new[3000:4000, :].write('atac_train_dm_3000_4000.h5ad')
 atac_new[4000:5000, :].write('atac_train_dm_4000_5000.h5ad')
 atac_new[5417:, :].write('atac_test_dm_100.h5ad')
+
+
+
+import scanpy as sc
+rna_dm = sc.read_h5ad('rna_train_dm_1000.h5ad')
+rna_dm.var.index = rna_dm.var['gene_ids']
+rna_hsr = sc.read_h5ad('rna_train_hsr_1000.h5ad')
+rna_hsr.var.index = rna_hsr.var['gene_ids']
+sc.AnnData.concatenate(rna_dm[:500, :], rna_hsr[:500, :]).write('rna_train_dm_500_hsr_500_1.h5ad')
+sc.AnnData.concatenate(rna_dm[500:1000, :], rna_hsr[500:1000, :]).write('rna_train_dm_500_hsr_500_2.h5ad')
+
+atac_dm = sc.read_h5ad('atac_train_dm_1000.h5ad')
+atac_dm.var.index = atac_dm.var['gene_ids']
+atac_hsr = sc.read_h5ad('atac_train_hsr_1000.h5ad')
+atac_hsr.var.index = atac_hsr.var['gene_ids']
+sc.AnnData.concatenate(atac_dm[:500, :], atac_hsr[:500, :]).write('atac_train_dm_500_hsr_500_1.h5ad')
+sc.AnnData.concatenate(atac_dm[500:1000, :], atac_hsr[500:1000, :]).write('atac_train_dm_500_hsr_500_2.h5ad')
+
+
+
+
+
