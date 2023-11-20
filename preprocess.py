@@ -86,6 +86,15 @@ sc.AnnData.concatenate(atac_dm[:500, :], atac_hsr[:500, :]).write('atac_train_dm
 sc.AnnData.concatenate(atac_dm[500:1000, :], atac_hsr[500:1000, :]).write('atac_train_dm_500_hsr_500_2.h5ad')
 
 
+import scanpy as sc
+dat = sc.read_10x_h5('train_dm_1000.h5', gex_only=False)
+atac = dat[:, dat.var['feature_types']=='Peaks']
+m = atac.X.toarray()
+for i in range(20):
+    print(sum(m[i]!=0))
 
-
+cnt = 0
+for i in range(1000):
+    if (sum(m[i])<5000):
+        cnt += 1
 
