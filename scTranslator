@@ -208,7 +208,7 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_dm_100.h5ad
 # python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true rna2atac/atac_test_pbmc_100.h5ad
 
-python plot_atac_roc_pr.py --pred rna_atac_adata.h5ad --true truth_atac.h5ad
+# python plot_atac_roc_pr.py --pred rna_atac_adata.h5ad --true truth_atac.h5ad
 
 import argparse
 import pandas as pd
@@ -332,6 +332,12 @@ mv Homo_sapiens.GRCh38.110.chr.gtf.gz Homo_sapiens.GRCh38.100.gtf.gz
 python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_1000.h5 --outdir babel_train_out --device 1 --nofilter  # ~30 min
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~8 min
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100 --device 1 --nofilter
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_500_hsr_500_1.h5 --outdir babel_train_out --device 1 --nofilter  # ~30 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~8 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100 --device 1 --nofilter
+
+
 
 
 
