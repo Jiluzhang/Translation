@@ -15,7 +15,7 @@ rna_genes = rna.var.copy()
 rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])  # delete ensembl id with version number
 rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
 
-X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 5:].T
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 5:].T  # X_new = pd.merge(genes, rna_exp, how='left', left_on='gene_name', right_on='gene_id').iloc[:, 6:].T
 X_new = np.array(X_new, dtype='float32')
 X_new[np.isnan(X_new)] = 0
 
@@ -69,7 +69,7 @@ atac_new[4000:5000, :].write('atac_train_dm_4000_5000.h5ad')
 atac_new[5417:, :].write('atac_test_dm_100.h5ad')
 
 
-
+## concat dm & hsr cells
 import scanpy as sc
 rna_dm = sc.read_h5ad('rna_train_dm_1000.h5ad')
 rna_dm.var.index = rna_dm.var['gene_ids']
@@ -86,15 +86,25 @@ sc.AnnData.concatenate(atac_dm[:500, :], atac_hsr[:500, :]).write('atac_train_dm
 sc.AnnData.concatenate(atac_dm[500:1000, :], atac_hsr[500:1000, :]).write('atac_train_dm_500_hsr_500_2.h5ad')
 
 
+## select cells with peaks less than 4,000
 import scanpy as sc
-dat = sc.read_10x_h5('train_dm_1000.h5', gex_only=False)
-atac = dat[:, dat.var['feature_types']=='Peaks']
-m = atac.X.toarray()
-for i in range(20):
-    print(sum(m[i]!=0))
+import numpy as np
+dat = sc.read_10x_h5('/fs/home/jiluzhang/scMOG_raw/scMOG_modified/dataset/DM_rep4.h5', gex_only=False)
+atac = dat[:, dat.var['feature_types']=='Peaks'][:5000, :]  # avoid overlapping with testing set
+cnt = np.count_nonzero(atac.X.toarray(), axis=1)
+atac = atac[cnt<4000, :][:1000, ].copy()
+##### preprocess #####
 
-cnt = 0
-for i in range(1000):
-    if (sum(m[i])<5000):
-        cnt += 1
 
+rna = dat[:, dat.var['feature_types']=='Gene Expression'][:5000, :]
+rna = rna[cnt<4000, :][:1000, ].copy()
+##### preprocess #####
+
+
+## calculate mean peak number
+import scanpy as sc
+import numpy as np
+np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000.h5ad').X, axis=1))  # 31529.794
+np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_500_hsr_500_1.h5ad').X, axis=1))  # 25666.041
+np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000_less_peaks.h5ad').X, axis=1))  # 10360.896
+np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1))  # 249.813
