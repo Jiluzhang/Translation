@@ -207,8 +207,52 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_7.pt'
 ## obtain attention matrix
 python code/attention_matrix.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --Pro_path='rna2atac/atac_test_dm_100.h5ad' \
---test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
+--test_batch_size 2 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
 
+
+seed 0
+Total number of origin RNA genes:  38244
+Total number of origin proteins:  1036913
+Total number of origin cells:  10
+# of NAN in X 0
+# of NAN in X 0
+load data ended!
+torch.Size([2, 1, 38244, 266])
+torch.Size([2, 38244, 38244])
+Traceback (most recent call last):
+  File "code/attention_matrix.py", line 503, in <module>
+    main()
+  File "code/attention_matrix.py", line 478, in main
+    enc_weight, dec_weight, enc2dec_weight = model(x, RNA_geneID, Protein_geneID, enc_mask=rna_mask, dec_mask=pro_mask[:, :128])
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 383, in forward
+    encodings, enc_weights = self.enc(seq_in, seq_inID, return_encodings = True, **enc_kwargs)# batch_size, input_seq_lenth, dim
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 346, in forward
+    x, attn_weights = self.performer(x, pos_emb = layer_pos_emb, output_attentions = output_attentions, **kwargs)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 277, in forward
+    return self.net(x, output_attentions = output_attentions, **kwargs)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 44, in forward
+    x = x + f(x, output_attentions = output_attentions, **f_args)[0]
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/fs/home/jiluzhang/scTranslator_new/code/model/performer_pytorch.py", line 334, in forward
+    return self.fn(self.norm(x), **kwargs)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 178, in forward
+    out, attn_weights = self.fast_attention(q, k, v, output_attentions)
+  File "/fs/home/jiluzhang/softwares/miniconda3/envs/scTranslator/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1130, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "code/attention_matrix.py", line 113, in forward
+    print(attn_fn(q[:,head_dim], k[:,head_dim], v_diag[:,head_dim]).shape); attn_weights += attn_fn(q[:,head_dim], k[:,head_dim], v_diag[:,head_dim])
+RuntimeError: output with shape [1, 1, 38244, 38244] doesn't match the broadcast shape [1, 2, 38244, 38244]
 
 
 
