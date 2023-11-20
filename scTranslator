@@ -157,9 +157,9 @@ code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000/epoch_30.pt
 
 ######################################################
 time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
-code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
+code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=10 --seed 0 --frac_finetune_test 0.1 \
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
---RNA_path='rna2atac/rna_train_dm_500_hsr_500_1.h5ad' --Pro_path='rna2atac/atac_train_dm_500_hsr_500_1.h5ad'
+--RNA_path='rna2atac/rna_train_sci_car_1000.h5ad' --Pro_path='rna2atac/atac_train_sci_car_1000.h5ad'
 
 time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
 code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=50 --seed 0 --frac_finetune_test 0.1 \
@@ -197,11 +197,18 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt
 time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
 --RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 39884 --dec_max_seq_len 1036913 
 
-time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_5.pt' \
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_10.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 
 
-time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_30.pt' \
+time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_7.pt' \
 --RNA_path='rna2atac/rna_test_pbmc_100.h5ad' --test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 
+
+
+## obtain attention matrix
+python code/attention_matrix.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' \
+--RNA_path='rna2atac/rna_test_dm_100.h5ad' --Pro_path='rna2atac/atac_test_dm_100.h5ad' \
+--test_batch_size 64 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
+
 
 
 
@@ -336,6 +343,17 @@ python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_ou
 python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_500_hsr_500_1.h5 --outdir babel_train_out --device 1 --nofilter  # ~30 min
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100 --device 1 --nofilter  # ~8 min
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100 --device 1 --nofilter
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_dm_1000_less_peaks.h5 --outdir babel_train_out --device 0 --nofilter --earlystop 10 # ~30 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100_less_peaks --device 0 --nofilter  # ~8 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100_less_peaks --device 0 --nofilter
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data ../train_sci_car_1000.h5 --outdir babel_train_out --device 0 --nofilter --earlystop 10 # ~30 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_dm_100.h5 --outdir babel_test_out_dm_100_sci_car --device 0 --nofilter  # ~8 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100_less_peaks --device 0 --nofilter
+
+
+
 
 
 
