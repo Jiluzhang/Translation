@@ -207,7 +207,7 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_7.pt'
 ## obtain attention matrix
 python code/attention_matrix.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --Pro_path='rna2atac/atac_test_dm_100.h5ad' \
---test_batch_size 2 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
+--test_batch_size 1 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
 
 
 seed 0
