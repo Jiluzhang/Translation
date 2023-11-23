@@ -166,6 +166,7 @@ atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
 # pyreadr.custom_errors.LibrdataError: The file contains an unrecognized object
 
 
+# https://biocpy.github.io/rds2py/tutorial.html
 # pip install rds2py
 from rds2py import read_rds, as_sparse_matrix
 
