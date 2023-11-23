@@ -110,7 +110,17 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000_less_peaks.h5ad').X, a
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1))  # 249.813
 
 
-## process snubar-coassay data
+######################## process snubar-coassay data ########################
+# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $1 ":" $2 "-" $3}' | awk '{print $0 "\t" $0 "\t" "Peaks"}' > features.tsv
+# gzip features.tsv
+# wget -c https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+# wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
+# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $0 "\t" "peak_" NR}' > peaks_hg19.bed
+# liftOver peaks_hg19.bed hg19ToHg38.over.chain.gz peaks_hg38.bed unmapped.bed
+
+# wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM5484nnn/GSM5484484/suppl/GSM5484484_lib.coassay.std_cellname_dictionary.csv.gz
+
 import scanpy as sc
 import pandas as pd
 
@@ -148,13 +158,28 @@ atac_co.X = atac_co.X.toarray()
 atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
 
 
-# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $1 ":" $2 "-" $3}' | awk '{print $0 "\t" $0 "\t" "Peaks"}' > features.tsv
-# gzip features.tsv
-# wget -c https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
-# wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+################## process snare-seq data ##################
+# pip install pyreadr
+# import pyreadr
+# dat = pyreadr.read_r('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
+# not work!
+# pyreadr.custom_errors.LibrdataError: The file contains an unrecognized object
 
 
-# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $0 "\t" "peak_" NR}' > peaks_hg19.bed
-# liftOver peaks_hg19.bed hg19ToHg38.over.chain.gz peaks_hg38.bed unmapped.bed
+# pip install rds2py
+from rds2py import read_rds, as_sparse_matrix
 
-# wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM5484nnn/GSM5484484/suppl/GSM5484484_lib.coassay.std_cellname_dictionary.csv.gz
+atac = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
+# dict_keys(['data', 'package_name', 'class_name', 'attributes'])
+# 'attributes'  dict_keys(['i', 'p', 'Dim', 'Dimnames', 'x', 'factors'])
+
+atac['attributes']['Dimnames']['data'][0]['data'][:5]
+#['chr1-180738-180958', 'chr1-181000-181565', 'chr1-191218-191601', 'chr1-267970-268170', 'chr1-629564-630410']
+atac['attributes']['Dimnames']['data'][1]['data'][:5]
+['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
+
+
+rna = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
+
+
+
