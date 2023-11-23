@@ -108,3 +108,53 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000.h5ad').X, axis=1))  # 
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_500_hsr_500_1.h5ad').X, axis=1))  # 25666.041
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000_less_peaks.h5ad').X, axis=1))  # 10360.896
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1))  # 249.813
+
+
+## process snubar-coassay data
+import scanpy as sc
+import pandas as pd
+
+rna = sc.read_10x_mtx('scRNA', gex_only=False)    # 27129 × 32738
+atac = sc.read_10x_mtx('scATAC', gex_only=False)  # 24373 × 142391
+
+## find correspondence for rna & atac
+co_barcodes = pd.read_csv('GSM5484484_lib.coassay.std_cellname_dictionary.csv.gz')
+co_barcodes['RNA_original_cell_name'] = co_barcodes['RNA_original_cell_name'] + '-1'
+co_barcodes['ATAC_original_cell_name'] = co_barcodes['ATAC_original_cell_name'] + '-1'
+
+rna_idx = pd.DataFrame({'RNA_original_cell_name': rna.obs.index})
+atac_idx = pd.DataFrame({'ATAC_original_cell_name': atac.obs.index})
+rna_barcodes = pd.merge(rna_idx, co_barcodes)
+rna_atac_barcodes = pd.merge(atac_idx, rna_barcodes)
+
+rna_co = rna[rna_atac_barcodes['RNA_original_cell_name']]
+atac_co = atac[rna_atac_barcodes['ATAC_original_cell_name']]
+
+## hg19 -> hg38 for peaks
+peaks_hg19 = pd.read_table('scATAC/peaks_hg19.bed', names=['chr_hg19', 'start_hg19', 'end_hg19', 'idx'])
+peaks_hg38 = pd.read_table('scATAC/peaks_hg38.bed', names=['chr_hg38', 'start_hg38', 'end_hg38', 'idx'])
+peaks_hg19_hg38 = pd.merge(peaks_hg19, peaks_hg38)
+peaks_hg19_hg38 = peaks_hg19_hg38[peaks_hg19_hg38['chr_hg38'].isin(['chr'+str(i) for i in range(1, 23)])]
+peaks_idx_hg19 = peaks_hg19_hg38['chr_hg19']+':'+peaks_hg19_hg38['start_hg19'].astype(str)+'-'+peaks_hg19_hg38['end_hg19'].astype(str)
+peaks_idx_hg38 = peaks_hg19_hg38['chr_hg38']+':'+peaks_hg19_hg38['start_hg38'].astype(str)+'-'+peaks_hg19_hg38['end_hg38'].astype(str)
+
+atac_co = atac_co[:, peaks_idx_hg19]
+atac_co.var.index = peaks_idx_hg38
+atac_co.var['gene_ids'] = peaks_idx_hg38.values
+
+rna_co.X = rna_co.X.toarray()
+rna_co.write('breast_snubar_rna.h5ad')     # 22123 × 32738
+atac_co.X = atac_co.X.toarray()
+atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
+
+
+# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $1 ":" $2 "-" $3}' | awk '{print $0 "\t" $0 "\t" "Peaks"}' > features.tsv
+# gzip features.tsv
+# wget -c https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+# wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
+
+# zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $0 "\t" "peak_" NR}' > peaks_hg19.bed
+# liftOver peaks_hg19.bed hg19ToHg38.over.chain.gz peaks_hg38.bed unmapped.bed
+
+# wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM5484nnn/GSM5484484/suppl/GSM5484484_lib.coassay.std_cellname_dictionary.csv.gz
