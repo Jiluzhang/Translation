@@ -359,6 +359,26 @@ python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_ou
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100_less_peaks --device 0 --nofilter
 
 
+## 10x genomics multiome data (healthy human)
+# brain (3,233)
+wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.0/human_brain_3k/human_brain_3k_filtered_feature_bc_matrix.h5
+# jejunum (10,640)
+wget c- https://cf.10xgenomics.com/samples/cell-arc/2.0.2/M_Jejunum_Chromium_Nuc_Isolation_vs_SaltyEZ_vs_ComplexTissueDP/M_Jejunum_Chromium_Nuc_Isolation_vs_SaltyEZ_vs_ComplexTissueDP_filtered_feature_bc_matrix.h5
+# PBMCs (11,898)
+wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.0/pbmc_granulocyte_sorted_10k/pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5
+# Epidermis https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE207335 
+# GSM6284671_S1_filtered_feature_bc_matrix.h5  3,422
+# GSM6284672_S2_filtered_feature_bc_matrix.h5  3,371
+
+## SNARE-seq data (healthy human)
+# https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183273
+
+## Snubar-CoAssay (healthy human)
+# ATAC: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM5484482
+# RNA:  https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM5484483
+
+# hg19 hg38
+
 
 
 
