@@ -304,7 +304,11 @@ rna_genes = rna.var.copy()
 rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])  # delete ensembl id with version number
 rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
 
-X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 5:].T  # X_new = pd.merge(genes, rna_exp, how='left', left_on='gene_name', right_on='gene_id').iloc[:, 6:].T
+## fit for the case of no ensembl id
+if rna_exp['gene_id'][0][:4]=='ENSG':
+    X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 5:].T
+else:
+    X_new = pd.merge(genes, rna_exp, how='left', left_on='gene_name', right_on='gene_id').iloc[:, 6:].T
 X_new = np.array(X_new, dtype='float32')
 X_new[np.isnan(X_new)] = 0
 
@@ -347,11 +351,8 @@ atac_new.var.index = atac_new.var['gene_ids']  # set index
 
 atac_new.write('kidney_atac_200.h5ad')
 
-sum(atac_new.X[0]!=0)
 
-
-
-## concat different tissues
+######################## concat different tissues ########################
 import scanpy as sc
 
 ## rna
@@ -369,5 +370,4 @@ atac_epidermis = sc.read_h5ad('epidermis_atac_200.h5ad')
 atac_breast = sc.read_h5ad('breast_atac_200.h5ad')
 atac_kidney = sc.read_h5ad('kidney_atac_200.h5ad')
 sc.AnnData.concatenate(atac_brain, atac_jejunum, atac_epidermis, atac_breast, atac_kidney).write('atac_train_five_tissues_1000.h5ad')
-
 
