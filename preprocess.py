@@ -169,18 +169,26 @@ atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
 # https://biocpy.github.io/rds2py/tutorial.html
 # pip install rds2py
 from rds2py import read_rds, as_sparse_matrix
+import scanpy as sc
 
-atac = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
+atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
 # dict_keys(['data', 'package_name', 'class_name', 'attributes'])
 # 'attributes'  dict_keys(['i', 'p', 'Dim', 'Dimnames', 'x', 'factors'])
+# atac['attributes']['Dimnames']['data'][0]['data'][:5]
+# ['chr1-180738-180958', 'chr1-181000-181565', 'chr1-191218-191601', 'chr1-267970-268170', 'chr1-629564-630410']
+# atac['attributes']['Dimnames']['data'][1]['data'][:5]
+# ['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
 
-atac['attributes']['Dimnames']['data'][0]['data'][:5]
-#['chr1-180738-180958', 'chr1-181000-181565', 'chr1-191218-191601', 'chr1-267970-268170', 'chr1-629564-630410']
-atac['attributes']['Dimnames']['data'][1]['data'][:5]
-['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
+## change peak position format
+peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
+
+atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=[], var=peaks_pos)
+atac_out.obs.index=atac['attributes']['Dimnames']['data'][1]['data']
 
 
-rna = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
+rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)
+
+rna = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
 
 
 
