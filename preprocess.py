@@ -110,7 +110,14 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000_less_peaks.h5ad').X, a
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1))  # 249.813
 
 
-######################## process snubar-coassay data ########################
+######################## 10x genomics multiome data (brain) ########################
+
+
+
+######################## snubar-coassay data ########################
+## Human normal breast tissue
+## ATAC: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM5484482
+## RNA:  https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM5484483
 # zcat raw/GSM5484482_SNuBarARC-HBCA.scATAC.filtered_peak_bc_matrix.peaks.bed.gz | awk '{print $1 ":" $2 "-" $3}' | awk '{print $0 "\t" $0 "\t" "Peaks"}' > features.tsv
 # gzip features.tsv
 # wget -c https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
@@ -123,6 +130,7 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1)
 
 import scanpy as sc
 import pandas as pd
+import anndata as ad
 
 rna = sc.read_10x_mtx('scRNA', gex_only=False)    # 27129 × 32738
 atac = sc.read_10x_mtx('scATAC', gex_only=False)  # 24373 × 142391
@@ -151,14 +159,20 @@ peaks_idx_hg38 = peaks_hg19_hg38['chr_hg38']+':'+peaks_hg19_hg38['start_hg38'].a
 atac_co = atac_co[:, peaks_idx_hg19]
 atac_co.var.index = peaks_idx_hg38
 atac_co.var['gene_ids'] = peaks_idx_hg38.values
+atac_co.var['genome'] = 'GRCh38'
 
-rna_co.X = rna_co.X.toarray()
-rna_co.write('breast_snubar_rna.h5ad')     # 22123 × 32738
-atac_co.X = atac_co.X.toarray()
-atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
+rna_co.var['genome'] = 'GRCh38'
+
+## convert obs name to the common
+rna_co.obs.index = rna_atac_barcodes['standard_cell_name']
+atac_co.obs.index = rna_atac_barcodes['standard_cell_name']
+
+rna_atac_out = ad.concat([rna_co, atac_co], axis=1)
+rna_atac_out.write('Breast_snubar.h5ad')  # 22123 × 171806
 
 
-################## process snare-seq data ##################
+################## snare-seq data ##################
+## Human kidney: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183273
 # pip install pyreadr
 # import pyreadr
 # dat = pyreadr.read_r('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
@@ -199,7 +213,7 @@ rna_out.var['genome'] = 'GRCh38'
 
 ## output rna & atac
 rna_atac_out = ad.concat([rna_out, atac_out], axis=1)
-rna_atac_out.write('Kidney_snareseq.h5ad')
+rna_atac_out.write('Kidney_snareseq.h5ad')  # 104809 × 217007
 
 
 
