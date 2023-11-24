@@ -170,8 +170,8 @@ atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
 # pip install rds2py
 from rds2py import read_rds, as_sparse_matrix
 import scanpy as sc
+import pandas as pd
 
-atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
 # dict_keys(['data', 'package_name', 'class_name', 'attributes'])
 # 'attributes'  dict_keys(['i', 'p', 'Dim', 'Dimnames', 'x', 'factors'])
 # atac['attributes']['Dimnames']['data'][0]['data'][:5]
@@ -179,16 +179,20 @@ atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Count
 # atac['attributes']['Dimnames']['data'][1]['data'][:5]
 # ['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
 
-## change peak position format
+atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
 peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
-
-atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=[], var=peaks_pos)
-atac_out.obs.index=atac['attributes']['Dimnames']['data'][1]['data']
-
-
-rna_new = sc.AnnData(X_new, obs=rna.obs, var=rna_new_var)
+atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
+atac_out.var.columns = ['gene_ids']
+atac_out.var.index = atac_out.var['gene_ids']
+atac_out.var['feature_types'] = 'Peaks'
+atac_out.var['genome'] = 'GRCh38'
 
 rna = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
-
+peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
+atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
+atac_out.var.columns = ['gene_ids']
+atac_out.var.index = atac_out.var['gene_ids']
+atac_out.var['feature_types'] = 'Peaks'
+atac_out.var['genome'] = 'GRCh38'
 
 
