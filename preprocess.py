@@ -110,8 +110,23 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_dm_1000_less_peaks.h5ad').X, a
 np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1))  # 249.813
 
 
-######################## 10x genomics multiome data (brain) ########################
+######################## 10x genomics multiome data (brain, offical) ########################
+# wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.0/human_brain_3k/human_brain_3k_filtered_feature_bc_matrix.h5
+# 3233 × 170631
 
+######################## 10x genomics multiome data (jejunum, offical) ########################
+# wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.2/M_Jejunum_Chromium_Nuc_Isolation_vs_SaltyEZ_vs_ComplexTissueDP/ 
+#                                                           M_Jejunum_Chromium_Nuc_Isolation_vs_SaltyEZ_vs_ComplexTissueDP_filtered_feature_bc_matrix.h5
+# 10640 × 95299
+
+######################## 10x genomics multiome data (PBMCs, offical) ########################
+# wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.0/pbmc_granulocyte_sorted_10k/pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5
+# 11898 × 180488
+
+######################## 10x genomics multiome data (epidermis) ########################
+# https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE207335 
+# GSM6284671_S1_filtered_feature_bc_matrix.h5  3422 × 108012
+# GSM6284672_S2_filtered_feature_bc_matrix.h5  3371 × 94954
 
 
 ######################## snubar-coassay data ########################
@@ -131,6 +146,8 @@ np.mean(np.count_nonzero(sc.read_h5ad('atac_train_sci_car_1000.h5ad').X, axis=1)
 import scanpy as sc
 import pandas as pd
 import anndata as ad
+import h5py
+import numpy as np
 
 rna = sc.read_10x_mtx('scRNA', gex_only=False)    # 27129 × 32738
 atac = sc.read_10x_mtx('scATAC', gex_only=False)  # 24373 × 142391
@@ -168,7 +185,32 @@ rna_co.obs.index = rna_atac_barcodes['standard_cell_name']
 atac_co.obs.index = rna_atac_barcodes['standard_cell_name']
 
 rna_atac_out = ad.concat([rna_co, atac_co], axis=1)
-rna_atac_out.write('Breast_snubar.h5ad')  # 22123 × 171806
+#rna_atac_out.write('Breast_snubar.h5ad')  # 22123 × 171806
+
+## h5ad to h5
+out  = h5py.File('Breast_snubar.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna_atac_out.obs.index.values)
+g.create_dataset('data', data=rna_atac_out.X.data)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*(sum(rna_atac_out.var['feature_types']=='Gene Expression')),
+                                                  [b'Peaks']*(sum(rna_atac_out.var['feature_types']=='Peaks'))))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna_atac_out.n_vars)))
+g_2.create_dataset('id', data=rna_atac_out.var['gene_ids'].values)
+g_2.create_dataset('interval', data=rna_atac_out.var['gene_ids'].values)
+g_2.create_dataset('name', data=rna_atac_out.var.index.values)      
+
+g.create_dataset('indices', data=rna_atac_out.X.indices)
+g.create_dataset('indptr',  data=rna_atac_out.X.indptr)
+
+l = list(rna_atac_out.X.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+out.close()
 
 
 ################## snare-seq data ##################
@@ -179,6 +221,7 @@ rna_atac_out.write('Breast_snubar.h5ad')  # 22123 × 171806
 # not work!
 # pyreadr.custom_errors.LibrdataError: The file contains an unrecognized object
 
+# pip install diopy
 
 # https://biocpy.github.io/rds2py/tutorial.html
 # pip install rds2py
@@ -186,6 +229,8 @@ from rds2py import read_rds, as_sparse_matrix
 import scanpy as sc
 import pandas as pd
 import anndata as ad
+import h5py
+import numpy as np
 
 # dict_keys(['data', 'package_name', 'class_name', 'attributes'])
 # 'attributes'  dict_keys(['i', 'p', 'Dim', 'Dimnames', 'x', 'factors'])
@@ -195,7 +240,7 @@ import anndata as ad
 # ['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
 
 ## process atac
-atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
+atac = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
 peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
 atac_out = sc.AnnData(as_sparse_matrix(atac).T.tocsr(), obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
 atac_out.var.columns = ['gene_ids']
@@ -204,16 +249,43 @@ atac_out.var['feature_types'] = 'Peaks'
 atac_out.var['genome'] = 'GRCh38'
 
 ## process rna
-rna = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
+rna = read_rds('raw/GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
 rna_out = sc.AnnData(as_sparse_matrix(rna).T.tocsr(), obs=pd.DataFrame(index=rna['attributes']['Dimnames']['data'][1]['data']),
                                                       var=pd.DataFrame({'gene_ids': rna['attributes']['Dimnames']['data'][0]['data']}))
 rna_out.var.index = rna_out.var['gene_ids'].values
 rna_out.var['feature_types'] = 'Gene Expression'
 rna_out.var['genome'] = 'GRCh38'
 
-## output rna & atac
+## output rna & atac (h5 format)
 rna_atac_out = ad.concat([rna_out, atac_out], axis=1)
-rna_atac_out.write('Kidney_snareseq.h5ad')  # 104809 × 217007
+#rna_atac_out.write('Kidney_snareseq.h5ad')  # 104809 × 217007
+
+## h5ad to h5
+out  = h5py.File('Kidney_snareseq.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna_atac_out.obs.index.values)
+g.create_dataset('data', data=rna_atac_out.X.data)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*(sum(rna_atac_out.var['feature_types']=='Gene Expression')),
+                                                  [b'Peaks']*(sum(rna_atac_out.var['feature_types']=='Peaks'))))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna_atac_out.n_vars)))
+g_2.create_dataset('id', data=rna_atac_out.var['gene_ids'].values)
+g_2.create_dataset('interval', data=rna_atac_out.var['gene_ids'].values)
+g_2.create_dataset('name', data=rna_atac_out.var.index.values)      
+
+g.create_dataset('indices', data=rna_atac_out.X.indices)
+g.create_dataset('indptr',  data=rna_atac_out.X.indptr)
+
+l = list(rna_atac_out.X.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+out.close()
 
 
 
+import scanpy as sc
+dat = sc.read_10x_h5('Breast_snubar.h5', gex_only=False)
