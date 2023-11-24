@@ -171,6 +171,7 @@ atac_co.write('breast_snubar_atac.h5ad')   # 22123 × 139068
 from rds2py import read_rds, as_sparse_matrix
 import scanpy as sc
 import pandas as pd
+import anndata as ad
 
 # dict_keys(['data', 'package_name', 'class_name', 'attributes'])
 # 'attributes'  dict_keys(['i', 'p', 'Dim', 'Dimnames', 'x', 'factors'])
@@ -179,20 +180,26 @@ import pandas as pd
 # atac['attributes']['Dimnames']['data'][1]['data'][:5]
 # ['KM14_AGATGTACGTACGCAACAGCGTTA', 'KM14_CAAGACTAGACTAGTACAGCGTTA', 'KM14_CAATGGAAGGAGAACACAGCGTTA', 'KM14_TGGAACAACACTTCGACACTTCGA', 'KM14_AATGTTGCCTGTAGCCCATACCAA']
 
+## process atac
 atac = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-AC_Peak-Counts_03282022.RDS')
 peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
-atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
+atac_out = sc.AnnData(as_sparse_matrix(atac).T.tocsr(), obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
 atac_out.var.columns = ['gene_ids']
-atac_out.var.index = atac_out.var['gene_ids']
+atac_out.var.index = atac_out.var['gene_ids'].values
 atac_out.var['feature_types'] = 'Peaks'
 atac_out.var['genome'] = 'GRCh38'
 
+## process rna
 rna = read_rds('GSE183273_Kidney_Healthy-Injury_Cell_Atlas_SNARE2-RNA_Counts_03282022.RDS')
-peaks_pos = [i.split('-')[0]+':'+i.split('-')[1]+'-'+i.split('-')[2] for i in atac['attributes']['Dimnames']['data'][0]['data']]
-atac_out = sc.AnnData(as_sparse_matrix(atac).tocsr().T, obs=pd.DataFrame(index=atac['attributes']['Dimnames']['data'][1]['data']), var=peaks_pos)
-atac_out.var.columns = ['gene_ids']
-atac_out.var.index = atac_out.var['gene_ids']
-atac_out.var['feature_types'] = 'Peaks'
-atac_out.var['genome'] = 'GRCh38'
+rna_out = sc.AnnData(as_sparse_matrix(rna).T.tocsr(), obs=pd.DataFrame(index=rna['attributes']['Dimnames']['data'][1]['data']),
+                                                      var=pd.DataFrame({'gene_ids': rna['attributes']['Dimnames']['data'][0]['data']}))
+rna_out.var.index = rna_out.var['gene_ids'].values
+rna_out.var['feature_types'] = 'Gene Expression'
+rna_out.var['genome'] = 'GRCh38'
+
+## output rna & atac
+rna_atac_out = ad.concat([rna_out, atac_out], axis=1)
+rna_atac_out.write('Kidney_snareseq.h5ad')
+
 
 
