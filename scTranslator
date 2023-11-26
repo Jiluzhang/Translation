@@ -366,6 +366,9 @@ python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_ou
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data ../test_pbmc_100.h5 --outdir babel_test_out_pbmc_100_less_peaks --device 0 --nofilter
 
 
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_five_tissues_train_out --data ../rna2atac/test_dm_100.h5 --outdir babel_five_tissues_test_out_dm_100 --device 1 --nofilter
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_five_tissues_train_out --data ../rna2atac/test_pbmc_100.h5 --outdir babel_five_tissues_test_out_pbmc_100 --device 2 --nofilter
+
 
 ## cell-wise
 cell_auroc = []
