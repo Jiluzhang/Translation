@@ -370,6 +370,20 @@ python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_five_tis
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_five_tissues_train_out --data ../rna2atac/test_pbmc_100.h5 --outdir babel_five_tissues_test_out_pbmc_100 --device 2 --nofilter
 
 
+
+##################### scMOG #####################
+## Preprocessing.py.py
+## add following code for not filtering genes or peaks
+## if args.nofilter:
+##     atac_data_kwargs = {k: v for k, v in atac_data_kwargs.items() if not k.startswith("filt_")}
+
+## replace the gtf file
+
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/Preprocessing.py --data train_five_tissues_1000.h5 --outdir scMOG_five_tissues --nofilter
+
+
+
+
 ## cell-wise
 cell_auroc = []
 cell_cnt = pred.shape[0]
