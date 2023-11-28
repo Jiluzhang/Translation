@@ -448,7 +448,7 @@ pip install scanpy
 #Y_hat = pd.read_csv(targetY) -> Y_hat = pd.DataFrame(sc.read_h5ad(targetY).X)
 #X_hat_pred.to_csv(outdir+"/Norm_ModalityXhat.csv", index=False) -> pred_obs = sc.read_h5ad(targetY).obs
 #                                                                   pred_var = sc.read_h5ad(sourceX).var 
-#                                                                   sc.AnnData(X_hat_pred.values, obs=pred_obs, var=pred_var).write('predicted.h5ad')
+#                                                                   sc.AnnData(X_hat_pred.values, obs=pred_obs, var=pred_var).write(outdir+'predicted.h5ad')
 
 ## modify cmot_functions.py
 # mask "check_mapping_quality(ot_lpl1, transp_Xs_lpl1)"  # without checking poor cells
@@ -461,7 +461,11 @@ np.save('W.npy', w)
 
 python3 /fs/home/jiluzhang/CMOT/src/run_cmot.py --sourceX ../atac_train_five_tissues_1000.h5ad --sourceY ../rna_train_five_tissues_1000.h5ad \
                                                 --targetY /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad --K 5 --d 10 \
-                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac  # all parameters are default (~ 8 min)
+                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac_dm_100  # all parameters are default (~ 8 min)
+
+python3 /fs/home/jiluzhang/CMOT/src/run_cmot.py --sourceX ../atac_train_five_tissues_1000.h5ad --sourceY ../rna_train_five_tissues_1000.h5ad \
+                                                --targetY /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_pbmc_100.h5ad --K 5 --d 10 \
+                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac_pbmc_100 
 
 ## convert csv to h5ad ##
 import pandas as pd
@@ -476,8 +480,8 @@ true.write('atac_test_dm_100.h5ad')
 
 
 
-python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad
-python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_pbmc_100.h5ad
+python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_dm_100.h5ad
+python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_pbmc_100.h5ad
 
 
 
