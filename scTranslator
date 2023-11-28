@@ -436,6 +436,24 @@ conda install pandas numpy scikit-learn
 conda install -c conda-forge pot
 pip install scanpy
 
+## modify run_cmot.py
+#import scanpy as sc; from datetime import datetime  # Luz add
+#print('Read sourceX done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Read sourceY done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Read targetY done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Step A done', datetime.now().replace(microsecond=0))  # Luz add
+#print('Step B done', datetime.now().replace(microsecond=0))  # Luz add
+#X = pd.read_csv(sourceX) -> X = pd.DataFrame(sc.read_h5ad(sourceX).X)
+#Y = pd.read_csv(sourceY) -> Y = pd.DataFrame(sc.read_h5ad(sourceY).X)
+#Y_hat = pd.read_csv(targetY) -> Y_hat = pd.DataFrame(sc.read_h5ad(targetY).X)
+#X_hat_pred.to_csv(outdir+"/Norm_ModalityXhat.csv", index=False) -> pred_obs = sc.read_h5ad(targetY).obs
+#                                                                   pred_var = sc.read_h5ad(sourceX).var 
+#                                                                   sc.AnnData(X_hat_pred.values, obs=pred_obs, var=pred_var).write('predicted.h5ad')
+
+## modify cmot_functions.py
+# mask "check_mapping_quality(ot_lpl1, transp_Xs_lpl1)"  # without checking poor cells
+
+
 ## correspondence matrix
 import numpy as np
 w = np.diag([1]*1000)
@@ -444,8 +462,22 @@ np.save('W.npy', w)
 python3 /fs/home/jiluzhang/CMOT/src/run_cmot.py --sourceX ../atac_train_five_tissues_1000.h5ad --sourceY ../rna_train_five_tissues_1000.h5ad \
                                                 --targetY /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad --K 5 --d 10 \
                                                 --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac  # all parameters are default (~ 8 min)
-## convert csv to h5ad ##
 
+## convert csv to h5ad ##
+import pandas as pd
+dat = pd.read_csv('tmp.csv')
+
+import scanpy as sc
+true = sc.read_h5ad('/fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_dm_100.h5ad')
+true = true[:2, :]
+pred = sc.AnnData(dat, obs=true.obs, var=true.var)
+pred.write('atac_predicted.h5ad')
+true.write('atac_test_dm_100.h5ad')
+
+
+
+python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad
+python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_pbmc_100.h5ad
 
 
 
