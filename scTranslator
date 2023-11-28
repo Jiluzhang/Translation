@@ -432,6 +432,9 @@ time python plot_atac_roc_pr.py --pred rna_atac_adata_final.h5ad --true ../truth
 
 ################## CMOT ###################
 conda create -n CMOT_new python=3.8.13
+conda install pandas numpy scikit-learn
+conda install -c conda-forge pot
+pip install scanpy
 
 ## correspondence matrix
 import numpy as np
@@ -440,7 +443,8 @@ np.save('W.npy', w)
 
 python3 /fs/home/jiluzhang/CMOT/src/run_cmot.py --sourceX ../atac_train_five_tissues_1000.h5ad --sourceY ../rna_train_five_tissues_1000.h5ad \
                                                 --targetY /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad --K 5 --d 10 \
-                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac  # all parameters are default
+                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac  # all parameters are default (~ 8 min)
+## convert csv to h5ad ##
 
 
 
