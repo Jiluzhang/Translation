@@ -379,7 +379,69 @@ python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_five_tis
 
 ## replace the gtf file
 
+# mkdir data  # copy gtf files and snareseq fold 
+
+## sc_data_loaders.py
+## line 554: assert train_idx, "Got empty training split"    -> assert train_idx.any(), "Got empty training split"
+## line 555: assert valid_idx, "Got empty validation split"  -> assert valid_idx.any(), "Got empty validation split"
+## line 556: assert test_idx, "Got empty test split"         -> assert test_idx.any(), "Got empty test split"
+
+## train.py & predict-rna.py & predict-atac.py
+## add "import mpl_scatter_density" to debug "ValueError: Unknown projection 'scatter_density'"
+## add "os.environ["CUDA_VISIBLE_DEVICES"] = "5""
+
+## predict-rna.py
+## "sc_rna_test_dataset = ad.read_h5ad('truth_rna_GM.h5ad')"    ->  "sc_rna_test_dataset = ad.read_h5ad('truth_rna.h5ad')"
+## "sc_atac_test_dataset = ad.read_h5ad('truth_atac_GM.h5ad')"  ->  "sc_atac_test_dataset = ad.read_h5ad('truth_atac.h5ad')"
+## "sc_atac_rna_test_preds =pridect(test_iter)"  ->  "sc_atac_rna_test_preds =pridect(test_iter).cpu()"
+
+## predict-atac.py
+## "sc_rna_test_dataset = ad.read_h5ad('truth_rna_GM.h5ad')"    ->  "sc_rna_test_dataset = ad.read_h5ad('truth_rna.h5ad')"
+## "sc_atac_test_dataset = ad.read_h5ad('truth_atac_GM.h5ad')"  ->  "sc_atac_test_dataset = ad.read_h5ad('truth_atac.h5ad')"
+
+
 time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/Preprocessing.py --data train_five_tissues_1000.h5 --outdir scMOG_five_tissues --nofilter
+
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/train.py --outdir training_out  # ~20 min
+
+## test dm 100
+cp rna_test_dm_100.h5ad /fs/home/jiluzhang/scTranslator_new/datasets/scMOG_five_tissues/training_out/truth_rna.h5ad
+cp atac_test_dm_100.h5ad /fs/home/jiluzhang/scTranslator_new/datasets/scMOG_five_tissues/training_out/truth_atac.h5ad
+
+## covert numpy.ndarray to sparse matrix ##
+import scanpy as sc
+from scipy.sparse import csr_matrix
+
+rna = sc.read_h5ad('truth_rna.h5ad')
+rna.X = csr_matrix(rna.X)
+rna.write('truth_rna.h5ad')
+
+atac = sc.read_h5ad('truth_atac.h5ad')
+atac.X = csr_matrix(atac.X)
+atac.write('truth_atac.h5ad')
+########################################
+
+cp rna_test_pbmc_100.h5ad /fs/home/jiluzhang/scTranslator_new/datasets/scMOG_five_tissues/training_out/truth_rna.h5ad
+cp atac_test_pbmc_100.h5ad /fs/home/jiluzhang/scTranslator_new/datasets/scMOG_five_tissues/training_out/truth_atac.h5ad
+
+# convert matrix format
+
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/predict-atac.py --outdir predict_atac_out
+time python plot_atac_roc_pr.py --pred rna_atac_adata_final.h5ad --true ../truth_atac.h5ad
+
+
+################## CMOT ###################
+conda create -n CMOT_new python=3.8.13
+
+## correspondence matrix
+import numpy as np
+w = np.diag([1]*1000)
+np.save('W.npy', w)
+
+python3 /fs/home/jiluzhang/CMOT/src/run_cmot.py --sourceX ../atac_train_five_tissues_1000.h5ad --sourceY ../rna_train_five_tissues_1000.h5ad \
+                                                --targetY /fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad --K 5 --d 10 \
+                                                --W W.npy --hc 2 --reg_e 1e00 --reg_cl 1e00 --topFeat 100 --k 1 --outdir rna2atac  # all parameters are default
+
 
 
 
