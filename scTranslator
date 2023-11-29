@@ -535,7 +535,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 atac = sc.read_h5ad('../atac_train_five_tissues_1000.h5ad')
-peak = pd.DataFrame({'pos': atac.var_names})
+peak = pd.DataFrame({'pos': atac.var_names})  # double check var_names!!!
 peak.to_csv('adultbrainfull50_atac_outer_peaks.txt', index=False, header=False)
 print('atac_train_five_tissues_1000.h5ad done')
 
@@ -597,6 +597,17 @@ cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_sna
 cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
 
 
+## two-step training (with unpaired data)
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single nornasingle                             \
+                                                         --path_y_single noatacsingle                            \
+                                                         --train_test_split random                               \
+                                                         --train train --batch_size 256  # ~4.5 h
+
+## one-step training (only paired data)
 python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
                                                          --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
                                                          --outdir output_semi_gpu                                \
@@ -606,6 +617,7 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
                                                          --train_test_split random                               \
                                                          --train train --batch_size 256  # ~4.5 h
 
+# need pre-trained model fold (***step4)
 python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
                                                          --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
                                                          --outdir output_semi_gpu                                \
@@ -614,6 +626,15 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
                                                          --path_y_single adultbrainfull50_atac_outer_single.mtx  \
                                                          --train_test_split random                               \
                                                          --train predict --predict predict --batch_size 256
+
+python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_dm_100.h5ad
+
+
+    if predict == 'predict':
+        output_prefix = sim_url + '_test'
+        pred_rna_norm(autoencoder, data_rna_train.shape[1], data_atac, data_batch_atac, output_prefix=output_prefix)
+        pred_atac_norm(autoencoder, data_rna, data_batch_rna, data_atac_train.shape[1], output_prefix)
+
 
 
 
