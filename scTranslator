@@ -255,19 +255,7 @@ plt.savefig('attention_heatmap_dec.pdf')
 plt.close()
 
 
-
-model = scPerformerEncDec(
-        dim=16,
-        translator_depth=args.translator_depth,
-        initial_dropout=args.initial_dropout,
-        enc_depth=args.enc_depth,
-        enc_heads=args.enc_heads,
-        enc_max_seq_len=args.enc_max_seq_len,
-        dec_depth=args.dec_depth,
-        dec_heads=args.dec_heads,
-        dec_max_seq_len=args.dec_max_seq_len
-        )
-
+## extract parameters: https://blog.csdn.net/qq_45100200/article/details/123766745
 
 
 
