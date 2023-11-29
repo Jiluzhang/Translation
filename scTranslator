@@ -181,10 +181,6 @@ code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000/epoch_30.pt
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_train_dm_1000_2000.h5ad' --Pro_path='rna2atac/atac_train_dm_1000_2000.h5ad'  # reduce learning rate
 
-## plot attention matrix heatmap
-import seaborn as snc
-dat = sc.read_h5ad('encoder_attention_score.h5ad')
-sns.heatmap(dat.X[:10, :10]).get_figure().savefig('attention_heatmap.pdf')
 
 
 
@@ -222,6 +218,56 @@ time python code/predict.py --pretrain_checkpoint='scM2M_with_weight/epoch_10.pt
 python code/attention_matrix.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mix_1/epoch_10.pt' \
 --RNA_path='rna2atac/rna_test_dm_100.h5ad' --Pro_path='rna2atac/atac_test_dm_100.h5ad' \
 --test_batch_size 1 --seed 0 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1
+
+
+model = scPerformerEncDec(
+        dim=16,
+        translator_depth=1,
+        initial_dropout=0.1,
+        enc_depth=1,
+        enc_heads=1,
+        enc_max_seq_len=38244,
+        dec_depth=1,
+        dec_heads=1,
+        dec_max_seq_len=1036913
+        )
+
+
+
+## plot attention matrix heatmap
+import scanpy as sc
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+enc_dec = sc.read_h5ad('encoder2decoder_attention_score.h5ad')
+fig = sns.heatmap(enc_dec.X[:100, :100], cmap='Reds')
+plt.savefig('attention_heatmap_enc_dec.pdf')
+plt.close()
+
+enc = sc.read_h5ad('encoder_attention_score.h5ad')
+fig = sns.heatmap(enc.X[:100, :100], cmap='Reds')
+plt.savefig('attention_heatmap_enc.pdf')
+plt.close()
+
+dec = sc.read_h5ad('decoder_attention_score.h5ad')
+fig = sns.heatmap(dec.X[:100, :100], cmap='Reds')
+plt.savefig('attention_heatmap_dec.pdf')
+plt.close()
+
+
+
+model = scPerformerEncDec(
+        dim=16,
+        translator_depth=args.translator_depth,
+        initial_dropout=args.initial_dropout,
+        enc_depth=args.enc_depth,
+        enc_heads=args.enc_heads,
+        enc_max_seq_len=args.enc_max_seq_len,
+        dec_depth=args.dec_depth,
+        dec_heads=args.dec_heads,
+        dec_max_seq_len=args.dec_max_seq_len
+        )
+
 
 
 
@@ -513,17 +559,73 @@ barcode.to_csv('adultbrainfull50_atac_outer_single_barcodes.tsv', index=False)
 print('adultbrainfull50_atac_outer_single_barcodes.tsv done')
 
 
-## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx (seems batch info)
 echo "%%MatrixMarket matrix coordinate integer general" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
 echo "%" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
-echo "1422 11 1422" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
-for i in `seq 1422`;do echo "$i 3 1" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx;done
+echo "1000 11 1000" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+for i in `seq 1000`;do echo "$i 3 1" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx;done
 
 
+## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+## adultbrainfull50_atac_outer_snareseq.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes.tsv adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_atac_outer_single.mtx adultbrainfull50_atac_outer_snareseq.mtx
 
 
+## python s2.py
+## adultbrainfull50_rna_outer_genes.txt
+## adultbrainfull50_rna_outer_single.mtx
+## adultbrainfull50_rna_outer_single_barcodes.tsv
+
+import scanpy as sc
+from scipy.io import mmwrite
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+rna = sc.read_h5ad('../rna_train_five_tissues_1000.h5ad')
+gene = pd.DataFrame({'pos': rna.var_names})
+gene.to_csv('adultbrainfull50_rna_outer_genes.txt', index=False, header=False)
+print('adultbrainfull50_rna_outer_genes.txt done')
+
+mmwrite('adultbrainfull50_rna_outer_single.mtx', csr_matrix(rna.X.astype('int')))
+print('adultbrainfull50_rna_outer_single.mtx done')
+
+barcode = pd.DataFrame({'index': rna.obs_names})
+barcode.to_csv('adultbrainfull50_rna_outer_single_barcodes.tsv', index=False)
+print('adultbrainfull50_rna_outer_single_barcodes.tsv done')
 
 
+## adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+
+
+## adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+## adultbrainfull50_rna_outer_snareseq.mtx
+cp adultbrainfull50_rna_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
+
+
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                                         --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                                         --train_test_split random                               \
+                                                         --train train --batch_size 256  # ~4.5 h
+
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single adultbrainfull50_rna_outer_single.mtx   \
+                                                         --path_y_single adultbrainfull50_atac_outer_single.mtx  \
+                                                         --train_test_split random                               \
+                                                         --train predict --predict predict --batch_size 256
 
 
 
