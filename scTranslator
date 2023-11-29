@@ -436,6 +436,11 @@ conda install pandas numpy scikit-learn
 conda install -c conda-forge pot
 pip install scanpy
 
+## rename CMOT_new to CMOT
+#conda remove -n CMOT --all
+#conda create -n CMOT --clone CMOT_new
+#conda remove -n CMOT_new --all
+
 ## modify run_cmot.py
 #import scanpy as sc; from datetime import datetime  # Luz add
 #print('Read sourceX done', datetime.now().replace(microsecond=0))  # Luz add
@@ -448,7 +453,7 @@ pip install scanpy
 #Y_hat = pd.read_csv(targetY) -> Y_hat = pd.DataFrame(sc.read_h5ad(targetY).X)
 #X_hat_pred.to_csv(outdir+"/Norm_ModalityXhat.csv", index=False) -> pred_obs = sc.read_h5ad(targetY).obs
 #                                                                   pred_var = sc.read_h5ad(sourceX).var 
-#                                                                   sc.AnnData(X_hat_pred.values, obs=pred_obs, var=pred_var).write(outdir+'predicted.h5ad')
+#                                                                   sc.AnnData(X_hat_pred.values, obs=pred_obs, var=pred_var).write(outdir+'/predicted.h5ad')
 
 ## modify cmot_functions.py
 # mask "check_mapping_quality(ot_lpl1, transp_Xs_lpl1)"  # without checking poor cells
@@ -482,6 +487,43 @@ true.write('atac_test_dm_100.h5ad')
 
 python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_dm_100.h5ad
 python plot_atac_roc_pr.py --pred predicted.h5ad --true /fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_pbmc_100.h5ad
+
+
+########################## Polarbear ##########################
+## python s1.py
+## adultbrainfull50_atac_outer_peaks.txt
+## adultbrainfull50_atac_outer_single.mtx
+## adultbrainfull50_atac_outer_single_barcodes.tsv
+
+import scanpy as sc
+from scipy.io import mmwrite
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+atac = sc.read_h5ad('../atac_train_five_tissues_1000.h5ad')
+peak = pd.DataFrame({'pos': atac.var_names})
+peak.to_csv('adultbrainfull50_atac_outer_peaks.txt', index=False, header=False)
+print('atac_train_five_tissues_1000.h5ad done')
+
+mmwrite('adultbrainfull50_atac_outer_single.mtx', csr_matrix(atac.X.astype('int')))
+print('adultbrainfull50_atac_outer_single.mtx done')
+
+barcode = pd.DataFrame({'index': atac.obs_names})
+barcode.to_csv('adultbrainfull50_atac_outer_single_barcodes.tsv', index=False)
+print('adultbrainfull50_atac_outer_single_barcodes.tsv done')
+
+
+## adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "%%MatrixMarket matrix coordinate integer general" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "%" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+echo "1422 11 1422" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx
+for i in `seq 1422`;do echo "$i 3 1" >> adultbrainfull50_atac_outer_single_barcodes_dataset.mtx;done
+
+
+
+
+
+
 
 
 
