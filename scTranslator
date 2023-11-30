@@ -712,13 +712,14 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
 
 
 python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_dm_100.h5ad
+python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_pbmc_100.h5ad
 
-#
+## run_polarbear.py
 #if predict == 'predict':
 #    output_prefix = sim_url + '_test'
 #    pred_rna_norm(autoencoder, data_rna_train.shape[1], data_atac, data_batch_atac, output_prefix=output_prefix)
 #    pred_atac_norm(autoencoder, data_rna, data_batch_rna, data_atac_train.shape[1], output_prefix)
-
+## modify pre_rna_norm & pre_atac_norm
 
 
 
