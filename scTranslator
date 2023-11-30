@@ -173,6 +173,15 @@ code/conti_train.py --pretrain_checkpoint='scM2M_with_weight/dm_1000_hsr_1000_mi
 --enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 1 --dec_depth 1 --dec_heads 1 \
 --RNA_path='rna2atac/rna_train_dm_500_hsr_500_2.h5ad' --Pro_path='rna2atac/atac_train_dm_500_hsr_500_2.h5ad'
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+time python -m torch.distributed.launch --nnodes=1 --node_rank=0 --nproc_per_node 1 --master_addr '10.11.41.108' --master_port 6123 \
+code/stage3_fine-tune.py --batch_size 64 --test_batch_size 64 --lr 2e-3 --translator_depth 1 --epoch=30 --seed 0 --frac_finetune_test 0.1 \
+--enc_max_seq_len 38244 --dec_max_seq_len 1036913 --dim 16 --translator_depth 1 --enc_depth 1 --enc_heads 2 --dec_depth 1 --dec_heads 2 \
+--RNA_path='rna2atac/rna_train_five_tissues_1000.h5ad' --Pro_path='rna2atac/atac_train_five_tissues_1000.h5ad'
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
 ######################################################
 
 
@@ -597,7 +606,7 @@ cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_sna
 cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
 
 
-
+############################### only paired data ###############################
 ## python s1.py
 ## adultbrainfull50_atac_outer_peaks.txt
 ## adultbrainfull50_atac_outer_snareseq.mtx
@@ -611,7 +620,7 @@ from scipy.sparse import csr_matrix
 atac = sc.read_h5ad('../../atac_train_five_tissues_1000.h5ad')
 peak = pd.DataFrame({'pos': atac.var['gene_ids']})  # double check var_names!!!
 peak.to_csv('adultbrainfull50_atac_outer_peaks.txt', index=False, header=False)
-print('atac_train_five_tissues_1000.h5ad done')
+print('adultbrainfull50_atac_outer_peaks.txt done')
 
 mmwrite('adultbrainfull50_atac_outer_snareseq.mtx', csr_matrix(atac.X.astype('int')))
 print('adultbrainfull50_atac_outer_snareseq.mtx done')
@@ -619,8 +628,6 @@ print('adultbrainfull50_atac_outer_snareseq.mtx done')
 barcode = pd.DataFrame({'index': atac.obs_names})
 barcode.to_csv('adultbrainfull50_atac_outer_snareseq_barcodes.tsv', index=False)
 print('adultbrainfull50_atac_outer_snareseq_barcodes.tsv done')
-
-
 
 
 ## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx (seems batch info)
@@ -634,47 +641,32 @@ for i in `seq 601 800`;do echo "$i 4 1" >> adultbrainfull50_atac_outer_snareseq_
 for i in `seq 801 1000`;do echo "$i 5 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
 
 
-## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
-## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
-## adultbrainfull50_atac_outer_snareseq.mtx
-cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
-cp adultbrainfull50_atac_outer_single_barcodes.tsv adultbrainfull50_atac_outer_snareseq_barcodes.tsv
-cp adultbrainfull50_atac_outer_single.mtx adultbrainfull50_atac_outer_snareseq.mtx
-
-
 ## python s2.py
 ## adultbrainfull50_rna_outer_genes.txt
-## adultbrainfull50_rna_outer_single.mtx
-## adultbrainfull50_rna_outer_single_barcodes.tsv
+## adultbrainfull50_rna_outer_snareseq.mtx
+## adultbrainfull50_rna_outer_snareseq_barcodes.tsv
 
 import scanpy as sc
 from scipy.io import mmwrite
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-rna = sc.read_h5ad('../rna_train_five_tissues_1000.h5ad')
+rna = sc.read_h5ad('../../rna_train_five_tissues_1000.h5ad')
 gene = pd.DataFrame({'pos': rna.var_names})
 gene.to_csv('adultbrainfull50_rna_outer_genes.txt', index=False, header=False)
 print('adultbrainfull50_rna_outer_genes.txt done')
 
-mmwrite('adultbrainfull50_rna_outer_single.mtx', csr_matrix(rna.X.astype('int')))
-print('adultbrainfull50_rna_outer_single.mtx done')
+mmwrite('adultbrainfull50_rna_outer_snareseq.mtx', csr_matrix(rna.X.astype('int')))
+print('adultbrainfull50_rna_outer_snareseq.mtx done')
 
 barcode = pd.DataFrame({'index': rna.obs_names})
-barcode.to_csv('adultbrainfull50_rna_outer_single_barcodes.tsv', index=False)
-print('adultbrainfull50_rna_outer_single_barcodes.tsv done')
-
-
-## adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
-cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+barcode.to_csv('adultbrainfull50_rna_outer_snareseq_barcodes.tsv', index=False)
+print('adultbrainfull50_rna_outer_snareseq_barcodes.tsv done')
 
 
 ## adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
-## adultbrainfull50_rna_outer_snareseq_barcodes.tsv
-## adultbrainfull50_rna_outer_snareseq.mtx
-cp adultbrainfull50_rna_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
-cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_snareseq_barcodes.tsv
-cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
+cp adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+
 
 
 
@@ -721,11 +713,11 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
 
 python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_dm_100.h5ad
 
-
-    if predict == 'predict':
-        output_prefix = sim_url + '_test'
-        pred_rna_norm(autoencoder, data_rna_train.shape[1], data_atac, data_batch_atac, output_prefix=output_prefix)
-        pred_atac_norm(autoencoder, data_rna, data_batch_rna, data_atac_train.shape[1], output_prefix)
+#
+#if predict == 'predict':
+#    output_prefix = sim_url + '_test'
+#    pred_rna_norm(autoencoder, data_rna_train.shape[1], data_atac, data_batch_atac, output_prefix=output_prefix)
+#    pred_atac_norm(autoencoder, data_rna, data_batch_rna, data_atac_train.shape[1], output_prefix)
 
 
 
