@@ -597,17 +597,89 @@ cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_sna
 cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
 
 
-## two-step training (with unpaired data)
-python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
-                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
-                                                         --outdir output_semi_gpu                                \
-                                                         --patience 45                                           \
-                                                         --path_x_single nornasingle                             \
-                                                         --path_y_single noatacsingle                            \
-                                                         --train_test_split random                               \
-                                                         --train train --batch_size 256  # ~4.5 h
 
-## one-step training (only paired data)
+## python s1.py
+## adultbrainfull50_atac_outer_peaks.txt
+## adultbrainfull50_atac_outer_snareseq.mtx
+## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+
+import scanpy as sc
+from scipy.io import mmwrite
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+atac = sc.read_h5ad('../../atac_train_five_tissues_1000.h5ad')
+peak = pd.DataFrame({'pos': atac.var['gene_ids']})  # double check var_names!!!
+peak.to_csv('adultbrainfull50_atac_outer_peaks.txt', index=False, header=False)
+print('atac_train_five_tissues_1000.h5ad done')
+
+mmwrite('adultbrainfull50_atac_outer_snareseq.mtx', csr_matrix(atac.X.astype('int')))
+print('adultbrainfull50_atac_outer_snareseq.mtx done')
+
+barcode = pd.DataFrame({'index': atac.obs_names})
+barcode.to_csv('adultbrainfull50_atac_outer_snareseq_barcodes.tsv', index=False)
+print('adultbrainfull50_atac_outer_snareseq_barcodes.tsv done')
+
+
+
+
+## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx (seems batch info)
+echo "%%MatrixMarket matrix coordinate integer general" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+echo "%" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+echo "1000 11 1000" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+for i in `seq 200`;do echo "$i 1 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
+for i in `seq 201 400`;do echo "$i 2 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
+for i in `seq 401 600`;do echo "$i 3 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
+for i in `seq 601 800`;do echo "$i 4 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
+for i in `seq 801 1000`;do echo "$i 5 1" >> adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx;done
+
+
+## adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+## adultbrainfull50_atac_outer_snareseq.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes.tsv adultbrainfull50_atac_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_atac_outer_single.mtx adultbrainfull50_atac_outer_snareseq.mtx
+
+
+## python s2.py
+## adultbrainfull50_rna_outer_genes.txt
+## adultbrainfull50_rna_outer_single.mtx
+## adultbrainfull50_rna_outer_single_barcodes.tsv
+
+import scanpy as sc
+from scipy.io import mmwrite
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+rna = sc.read_h5ad('../rna_train_five_tissues_1000.h5ad')
+gene = pd.DataFrame({'pos': rna.var_names})
+gene.to_csv('adultbrainfull50_rna_outer_genes.txt', index=False, header=False)
+print('adultbrainfull50_rna_outer_genes.txt done')
+
+mmwrite('adultbrainfull50_rna_outer_single.mtx', csr_matrix(rna.X.astype('int')))
+print('adultbrainfull50_rna_outer_single.mtx done')
+
+barcode = pd.DataFrame({'index': rna.obs_names})
+barcode.to_csv('adultbrainfull50_rna_outer_single_barcodes.tsv', index=False)
+print('adultbrainfull50_rna_outer_single_barcodes.tsv done')
+
+
+## adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+cp adultbrainfull50_atac_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_single_barcodes_dataset.mtx
+
+
+## adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+## adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+## adultbrainfull50_rna_outer_snareseq.mtx
+cp adultbrainfull50_rna_outer_single_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
+cp adultbrainfull50_rna_outer_single_barcodes.tsv adultbrainfull50_rna_outer_snareseq_barcodes.tsv
+cp adultbrainfull50_rna_outer_single.mtx adultbrainfull50_rna_outer_snareseq.mtx
+
+
+
+
+## training (with single data)
 python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
                                                          --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
                                                          --outdir output_semi_gpu                                \
@@ -626,6 +698,26 @@ python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull
                                                          --path_y_single adultbrainfull50_atac_outer_single.mtx  \
                                                          --train_test_split random                               \
                                                          --train predict --predict predict --batch_size 256
+
+## training (only paired data)
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single nornasingle                             \
+                                                         --path_y_single noatacsingle                            \
+                                                         --train_test_split random                               \
+                                                         --train train --batch_size 256  # ~2.5 h
+
+python /fs/home/jiluzhang/Polarbear/bin/run_polarbear.py --path_x adultbrainfull50_rna_outer_snareseq.mtx        \
+                                                         --path_y adultbrainfull50_atac_outer_snareseq.mtx       \
+                                                         --outdir output_semi_gpu                                \
+                                                         --patience 45                                           \
+                                                         --path_x_single nornasingle                             \
+                                                         --path_y_single noatacsingle                            \
+                                                         --train_test_split random                               \
+                                                         --train predict --predict predict --batch_size 256
+
 
 python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_dm_100.h5ad
 
