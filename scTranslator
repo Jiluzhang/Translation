@@ -242,6 +242,22 @@ model = scPerformerEncDec(
         )
 
 
+import scanpy as sc
+rna = sc.read_h5ad('/fs/home/jiluzhang/scTranslator_new/rna2atac/rna_test_dm_100.h5ad')
+atac = sc.read_h5ad('/fs/home/jiluzhang/scTranslator_new/rna2atac/atac_test_dm_100.h5ad')
+rna.var[rna.var_names=='CTCF']  # 2509
+
+enc_dec = sc.read_h5ad('attention_matrix/encoder2decoder_attention_score.h5ad')
+np.where(enc_dec.X[2509]==1)  # 25, 127
+atac.var['gene_ids'][model.state_dict()['d_r_2.weight'][:, 25].topk(10)[1].cpu().numpy()]
+atac.var['gene_ids'][model.state_dict()['d_r_2.weight'][:, 127].topk(10)[1].cpu().numpy()]
+
+# 模型可解释性
+# https://imsg.ac.cn/pdfs/2020-%E4%BF%A1%E5%AE%89%E5%AD%A6%E6%8A%A5-%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E6%A8%A1%E5%9E%8B%E5%8F%
+#                               AF%E8%A7%A3%E9%87%8A%E6%80%A7%E7%9A%84%E7%A0%94%E7%A9%B6%E8%BF%9B%E5%B1%95.pdf
+# mlp structure
+# https://cleverbobo.github.io/2020/08/30/bp/
+
 
 ## plot attention matrix heatmap
 import scanpy as sc
