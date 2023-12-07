@@ -684,7 +684,7 @@ print('adultbrainfull50_rna_outer_snareseq_barcodes.tsv done')
 cp adultbrainfull50_atac_outer_snareseq_barcodes_dataset.mtx adultbrainfull50_rna_outer_snareseq_barcodes_dataset.mtx
 
 
-
+## attention score: https://imzhanghao.com/2021/09/15/self-attention-multi-head-attention/
 
 
 ## training (with single data)
