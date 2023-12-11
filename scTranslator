@@ -739,6 +739,18 @@ python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_pbmc_100.
 
 
 
+############################## scM2M ##############################
+conda activate /data/home/zouqihang/miniconda3/envs/m2m
+
+accelerate launch --config_file default_config.yaml m2m_pre-train.py > test.txt
+
+tensorboard --logdir "2023-12-11_5tissue_testing_logs" --host 10.11.41.108 --port 6133
+
+
+01: enc_depth = 1, enc_heads = 1, dec_depth = 1, dec_heads = 1
+02: enc_depth = 1, enc_heads = 2, dec_depth = 1, dec_heads = 2
+03: enc_depth = 2, enc_heads = 1, dec_depth = 2, dec_heads = 1
+
 
 ## cell-wise
 cell_auroc = []
