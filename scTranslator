@@ -806,9 +806,24 @@ print(auroc(torch.tensor(dat['pred'].values), torch.tensor(dat['true'].values)))
 
 ####################################### Pan-cancer multiomic data ##########################################
 ## https://data.humantumoratlas.org/explore?selectedFilters=%5B%7B%22group%22%3A%22AtlasName%22%2C%22value%22%3A%22HTAN+WUSTL%22%7D%5D&tab=file
+# filters
+#Atlas: HTAN WUSTL
+#Level: Level 3
+#Assay: scATAC-seq
+#File: Formatgzip
+
 pip install synapseclient
 
 import synapseclient
+import pandas as pd
+
 syn = synapseclient.Synapse()
 syn.login('Luz','57888282')
-syn52176724 = syn.get(entity='syn52176724', downloadLocation='.')
+
+ids = pd.read_csv('synapse_id.txt', header=None)
+cnt = 0
+for id in ids[0].values:
+    file = syn.get(entity=id, downloadLocation='.')
+    cnt += 1
+    print('file '+str(cnt)+' done')
+
