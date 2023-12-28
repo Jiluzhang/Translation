@@ -36,6 +36,14 @@ for id in ids[0].values:
         print('file '+str(cnt)+' '+meta.name+' skip')
 
 
+## cell count stats for each sample
+#for sample in `cat files.txt`; do
+#    echo $sample `zcat $sample/barcodes.tsv.gz | wc -l` >> files_cell_cnt.txt
+#done
+
+
+## paper associated github: https://github.com/ding-lab/PanCan_snATAC_publication/tree/main
+
 # python filter_cells.py
 import scanpy as sc
 
@@ -49,7 +57,6 @@ peaks_info.reset_index(drop=True, inplace=True)
 peaks_info = peaks_info[peaks_info['feature_types']=='Peaks']
 
 (peaks_info['gene_ids'].map(lambda x: x.split(':')[0])).isin(['chr'+str(i) for i in range(1, 23)])
-
 
 
 
