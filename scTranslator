@@ -747,6 +747,9 @@ conda activate /data/home/zouqihang/miniconda3/envs/m2m
 
 accelerate launch --config_file default_config.yaml m2m_pre-train.py > test.txt
 
+nohup accelerate launch --config_file default_config.yaml m2m_pre-train.py > normal_normal_1000.txt &
+
+
 tensorboard --logdir "2023-12-11_5tissue_testing_logs" --host 10.11.41.108 --port 6133
 
 python m2m_predict_dm_100.py
