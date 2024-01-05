@@ -45,6 +45,70 @@ for id in ids[0].values:
 ## paper associated github: https://github.com/ding-lab/PanCan_snATAC_publication/tree/main
 
 
+#conda create -n copykat
+#conda install -c conda-forge r-devtools
+
+#library(devtools)
+#install_github("navinlabcode/copykat")
+#install.packages('scales')
+#install.packages('ggplot2')
+#install.packages('plotly')
+#install.packages('mixtools')
+#install_github("navinlabcode/copykat")
+
+#install.packages('Seurat')
+#conda install r-polyclip
+#install.packages('spatstat')
+#install.packages('Seurat')
+
+
+library(Seurat)
+library(copykat)
+dat <- Read10X(data.dir='CE336E1-S1')
+raw <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
+
+gene_cnt <- colSums(raw@assays$RNA$counts.Gene!=0)  # gene number stats
+
+rna_mat <- as.matrix(raw@assays$RNA$counts.Gene[, names(which(gene_cnt>200 & gene_cnt<10000))])  #raw@assays$RNA$counts.Peaks
+#ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
+#nrow(raw@assays$RNA$counts.Gene)  # 36601  (gene number)
+res <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1", distance="euclidean",
+               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=10)
+# ngene.chr: at least 5 genes in each chromosome
+# win.size: at least 25 genes per segment (15-150)
+# KS.cut: segmentation parameter (0-1, 0.05-0.15 usually)
+# distance: parameter for clustering (correlational distances tend to favor noisy data, while euclidean distance tends to favor data with larger CN segments)
+
+# 3000 cells ~ 10 mins !!!
+
+
+
+library(Seurat)
+library(copykat)
+
+dat <- Read10X(data.dir='CE336E1-S1')
+raw <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
+
+gene_cnt <- colSums(raw@assays$RNA$counts.Gene!=0)  # gene number stats
+cells <- names(which(gene_cnt>200 & gene_cnt<10000))
+
+print(paste0('CE336E1-S1: ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
+#[1] "CE336E1-S1: 3085 cells pass QC from 625129 cells (0.493%)"
+
+rna_mat <- as.matrix(raw@assays$RNA$counts.Gene[, cells])  #raw@assays$RNA$counts.Peaks
+#ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
+#nrow(raw@assays$RNA$counts.Gene)  # 36601  (gene number)
+res <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1", distance="euclidean",
+               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=10)
+# ngene.chr: at least 5 genes in each chromosome
+# win.size: at least 25 genes per segment (15-150)
+# KS.cut: segmentation parameter (0-1, 0.05-0.15 usually)
+# distance: parameter for clustering (correlational distances tend to favor noisy data, while euclidean distance tends to favor data with larger CN segments)
+
+# 3000 cells ~ 10 mins !!!
+
+
+
 # python filter_cells.py
 import scanpy as sc
 import pandas as pd
@@ -236,36 +300,3 @@ atac_new.write('CEAD_normal_normal_atac_1000.h5ad')
 
 
 
-#conda create -n copykat
-#conda install -c conda-forge r-devtools
-
-#library(devtools)
-#install_github("navinlabcode/copykat")
-#install.packages('scales')
-#install.packages('ggplot2')
-#install.packages('plotly')
-#install.packages('mixtools')
-#install_github("navinlabcode/copykat")
-
-#install.packages('Seurat')
-#conda install r-polyclip
-#install.packages('spatstat')
-#install.packages('Seurat')
-
-library(Seurat)
-dat <- Read10X(data.dir='CE336E1-S1')
-raw <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
-
-gene_cnt <- colSums(raw@assays$RNA$counts.Gene!=0)  # gene number stats
-
-rna_mat <- as.matrix(raw@assays$RNA$counts.Gene[, names(which(tmp>200 & tmp<10000))])  #raw@assays$RNA$counts.Peaks
-#ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
-#nrow(raw@assays$RNA$counts.Gene)  # 36601  (gene number)
-res <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1", distance="euclidean",
-               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=10)
-# ngene.chr: at least 5 genes in each chromosome
-# win.size: at least 25 genes per segment (15-150)
-# KS.cut: segmentation parameter (0-1, 0.05-0.15 usually)
-# distance: parameter for clustering (correlational distances tend to favor noisy data, while euclidean distance tends to favor data with larger CN segments)
-
-# 3000 cells ~ 10 mins !!!
