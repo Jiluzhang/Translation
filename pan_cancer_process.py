@@ -1,34 +1,51 @@
 #remotes::install_github("pmbio/MuDataSeurat")
+#library(MuDataSeurat)
+
+# dat['attributes']['assays']['data'][0]['attributes']['cells']['attributes']['dimnames']['data'][0]['data'][:5]
+# dat['attributes']['assays']['data'][0]['attributes']['features']['attributes']['dimnames']['data'][0]['data'][-5:]
+# dat['attributes']['assays']['data'][0]['attributes']['layers']['data'][0]['attributes']  # genes
+# dat['attributes']['assays']['data'][0]['attributes']['layers']['data'][1]['attributes']  # peaks
+
+#saveRDS(raw, file='CE336E1-S1/CE336E1-S1.rds')
+
 
 library(Seurat)
 library(copykat)
-library(MuDataSeurat)
+library(Matrix)
 
 dat <- Read10X(data.dir='CE336E1-S1')
-raw <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
+rna_atac <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
 
-gene_cnt <- colSums(raw@assays$RNA$counts.Gene!=0)  # gene number stats
-cells <- names(which(gene_cnt>200 & gene_cnt<10000))  # cutoff from Nature paper
+## filter based on rna
+gene_cnt <- colSums(rna_atac@assays$RNA$counts.Gene!=0)  # gene number stats
+rna_cells <- names(which(gene_cnt>200 & gene_cnt<10000))  # cutoff from Nature paper
+
+## filter based on atac
+peak_cnt <- colSums(rna_atac@assays$RNA$counts.Peaks!=0)  # gene number stats
+atac_cells <- names(which(peak_cnt>500))
+
+## filter based on rna & atac
+cells <- intersect(rna_cells, atac_cells)
 
 print(paste0('CE336E1-S1: ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
 #[1] "CE336E1-S1: 3085 cells pass QC from 625129 cells (0.493%)"
 
-rna_mat <- as.matrix(raw@assays$RNA$counts.Gene[, cells])  #raw@assays$RNA$counts.Peaks
+rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
+
+res <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1/CE336E1-S1", distance="euclidean",
+               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
+pred <- res$prediction
+
+normal_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
+normal_out <- rbind(rna_atac@assays$RNA$counts.Gene[, normal_cells], rna_atac@assays$RNA$counts.Peaks[, normal_cells])
+system('mkdir CE336E1-S1/normal')
+writeMM(obj=normal_out, file='CE336E1-S1/normal/matrix.mtx')
+
+tumor_cells <- pred[pred$copykat.pred=='aneuploid', 'cell.names']
+
+
 #ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
 #nrow(raw@assays$RNA$counts.Gene)  # 36601  (gene number)
-res <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1/CE336E1-S1", distance="euclidean",
-               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
-
-saveRDS(raw, file='CE336E1-S1/CE336E1-S1.rds')
-
-
-dat['attributes']['assays']['data'][0]['attributes']['cells']['attributes']['dimnames']['data'][0]['data'][:5]
-dat['attributes']['assays']['data'][0]['attributes']['features']['attributes']['dimnames']['data'][0]['data'][-5:]
-dat['attributes']['assays']['data'][0]['attributes']['layers']['data'][0]['attributes']  # genes
-dat['attributes']['assays']['data'][0]['attributes']['layers']['data'][1]['attributes']  # peaks
-
-writeMM(obj=raw@assays$RNA$counts.Gene, file='matrix.mtx')
-
 
 # ngene.chr: at least 5 genes in each chromosome
 # win.size: at least 25 genes per segment (15-150)
