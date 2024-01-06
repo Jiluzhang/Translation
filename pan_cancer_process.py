@@ -13,6 +13,11 @@ library(Seurat)
 library(copykat)
 library(Matrix)
 
+## create folds
+system('mkdir -p CE336E1-S1_out/copykat')
+system('mkdir -p CE336E1-S1_out/normal')
+system('mkdir -p CE336E1-S1_out/tumor')
+
 dat <- Read10X(data.dir='CE336E1-S1')
 rna_atac <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
 
@@ -32,16 +37,30 @@ print(paste0('CE336E1-S1: ', length(cells), ' cells pass QC from ', length(gene_
 
 rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
 
-res <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1/CE336E1-S1", distance="euclidean",
-               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
-pred <- res$prediction
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+copykat_out <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1_out/copykat/CE336E1-S1", distance="euclidean",
+                       norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
+pred <- copykat_out$prediction
 
+## output normal cells
 normal_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
 normal_out <- rbind(rna_atac@assays$RNA$counts.Gene[, normal_cells], rna_atac@assays$RNA$counts.Peaks[, normal_cells])
-system('mkdir CE336E1-S1/normal')
-writeMM(obj=normal_out, file='CE336E1-S1/normal/matrix.mtx')
+writeMM(obj=normal_out, file='CE336E1-S1_out/normal/matrix.mtx')
+system('gzip CE336E1-S1_out/normal/matrix.mtx')
+write.table(normal_cells, 'CE336E1-S1_out/normal/barcodes.tsv', row.names=FALSE, col.names=FALSE, quote=FALSE)
+system('gzip CE336E1-S1_out/normal/barcodes.tsv')
+system('cp CE336E1-S1/features.tsv.gz CE336E1-S1_out/normal')
+print(paste0('CE336E1-S1: ', length(normal_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(normal_cells)/length(gene_cnt)*100, 3), '%)'))
 
+## output tumor cells
 tumor_cells <- pred[pred$copykat.pred=='aneuploid', 'cell.names']
+tumor_out <- rbind(rna_atac@assays$RNA$counts.Gene[, tumor_cells], rna_atac@assays$RNA$counts.Peaks[, tumor_cells])
+writeMM(obj=tumor_out, file='CE336E1-S1_out/tumor/matrix.mtx')
+system('gzip CE336E1-S1_out/tumor/matrix.mtx')
+write.table(tumor_cells, 'CE336E1-S1_out/tumor/barcodes.tsv', row.names=FALSE, col.names=FALSE, quote=FALSE)
+system('gzip CE336E1-S1_out/tumor/barcodes.tsv')
+system('cp CE336E1-S1/features.tsv.gz CE336E1-S1_out/tumor')
+print(paste0('CE336E1-S1: ', length(tumor_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(tumor_cells)/length(gene_cnt)*100, 3), '%)'))
 
 
 #ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
