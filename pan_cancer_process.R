@@ -41,7 +41,7 @@ for (i in 1:length(ids)){
         
         rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
         
-        copykat_out <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[i], "_out/copykat/", ids[i]), distance="euclidean",
+        copykat_out <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[i], "_out/copykat/", ids[i]), distance="euclidean",
                                norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
         pred <- copykat_out$prediction
         
