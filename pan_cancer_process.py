@@ -13,13 +13,20 @@ library(Seurat)
 library(copykat)
 library(Matrix)
 
-## create folds
-system('mkdir -p CE336E1-S1_out/copykat')
-system('mkdir -p CE336E1-S1_out/normal')
-system('mkdir -p CE336E1-S1_out/tumor')
+## read sample id
+ids <- scan('files.txt', what='c')
 
-dat <- Read10X(data.dir='CE336E1-S1')
-rna_atac <- CreateSeuratObject(counts=dat, project="CE336E1-S1", min.cells=0, min.features=0)
+for (i in 1:length(ids)){
+    print(ids[i])
+}
+
+## create folds
+system(paste0('mkdir -p ', ids[1], '_out/copykat'))
+system(paste0('mkdir -p ', ids[1], '_out/normal'))
+system(paste0('mkdir -p ', ids[1], '_out/tumor'))
+
+dat <- Read10X(data.dir=ids[1])
+rna_atac <- CreateSeuratObject(counts=dat, project=ids[1], min.cells=0, min.features=0)
 
 ## filter based on rna
 gene_cnt <- colSums(rna_atac@assays$RNA$counts.Gene!=0)  # gene number stats
@@ -32,35 +39,33 @@ atac_cells <- names(which(peak_cnt>500))
 ## filter based on rna & atac
 cells <- intersect(rna_cells, atac_cells)
 
-print(paste0('CE336E1-S1: ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
-#[1] "CE336E1-S1: 3085 cells pass QC from 625129 cells (0.493%)"
+print(paste0(ids[1], ': ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
 
 rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-copykat_out <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name="CE336E1-S1_out/copykat/CE336E1-S1", distance="euclidean",
+copykat_out <- copykat(rawmat=rna_mat[, 1:100], id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[1], "_out/copykat/", ids[1]), distance="euclidean",
                        norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
 pred <- copykat_out$prediction
 
 ## output normal cells
 normal_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
 normal_out <- rbind(rna_atac@assays$RNA$counts.Gene[, normal_cells], rna_atac@assays$RNA$counts.Peaks[, normal_cells])
-writeMM(obj=normal_out, file='CE336E1-S1_out/normal/matrix.mtx')
-system('gzip CE336E1-S1_out/normal/matrix.mtx')
-write.table(normal_cells, 'CE336E1-S1_out/normal/barcodes.tsv', row.names=FALSE, col.names=FALSE, quote=FALSE)
-system('gzip CE336E1-S1_out/normal/barcodes.tsv')
-system('cp CE336E1-S1/features.tsv.gz CE336E1-S1_out/normal')
-print(paste0('CE336E1-S1: ', length(normal_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(normal_cells)/length(gene_cnt)*100, 3), '%)'))
+writeMM(obj=normal_out, file=paste0(ids[1], '_out/normal/matrix.mtx'))
+system(paste0('gzip ', ids[1], '_out/normal/matrix.mtx'))
+write.table(normal_cells, paste0(ids[1], '_out/normal/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
+system(paste0('gzip ', ids[1], '_out/normal/barcodes.tsv'))
+system(paste0('cp ', ids[1], '/features.tsv.gz ', ids[1], '_out/normal'))
+print(paste0(ids[1], ': ', length(normal_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(normal_cells)/length(gene_cnt)*100, 3), '%)'))
 
 ## output tumor cells
-tumor_cells <- pred[pred$copykat.pred=='aneuploid', 'cell.names']
+tumor_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
 tumor_out <- rbind(rna_atac@assays$RNA$counts.Gene[, tumor_cells], rna_atac@assays$RNA$counts.Peaks[, tumor_cells])
-writeMM(obj=tumor_out, file='CE336E1-S1_out/tumor/matrix.mtx')
-system('gzip CE336E1-S1_out/tumor/matrix.mtx')
-write.table(tumor_cells, 'CE336E1-S1_out/tumor/barcodes.tsv', row.names=FALSE, col.names=FALSE, quote=FALSE)
-system('gzip CE336E1-S1_out/tumor/barcodes.tsv')
-system('cp CE336E1-S1/features.tsv.gz CE336E1-S1_out/tumor')
-print(paste0('CE336E1-S1: ', length(tumor_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(tumor_cells)/length(gene_cnt)*100, 3), '%)'))
+writeMM(obj=tumor_out, file=paste0(ids[1], '_out/tumor/matrix.mtx'))
+system(paste0('gzip ', ids[1], '_out/tumor/matrix.mtx'))
+write.table(tumor_cells, paste0(ids[1], '_out/tumor/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
+system(paste0('gzip ', ids[1], '_out/tumor/barcodes.tsv'))
+system(paste0('cp ', ids[1], '/features.tsv.gz ', ids[1], '_out/tumor'))
+print(paste0(ids[1], ': ', length(tumor_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(tumor_cells)/length(gene_cnt)*100, 3), '%)'))
 
 
 #ncol(raw@assays$RNA$counts.Gene)  # 625129 (cell number)
