@@ -17,54 +17,58 @@ library(Matrix)
 ids <- scan('files.txt', what='c')
 
 for (i in 1:length(ids)){
+    
+    print(paste0(ids[i], ' start ', date()))
+    
+    ## create folds
+    system(paste0('mkdir -p ', ids[i], '_out/copykat'))
+    system(paste0('mkdir -p ', ids[i], '_out/normal'))
+    system(paste0('mkdir -p ', ids[i], '_out/tumor'))
+    
+    dat <- Read10X(data.dir=ids[i])
+    rna_atac <- CreateSeuratObject(counts=dat, project=ids[i], min.cells=0, min.features=0)
+    
+    ## filter based on rna
+    gene_cnt <- colSums(rna_atac@assays$RNA$counts.Gene!=0)  # gene number stats
+    rna_cells <- names(which(gene_cnt>200 & gene_cnt<10000))  # cutoff from Nature paper
+    
+    ## filter based on atac
+    peak_cnt <- colSums(rna_atac@assays$RNA$counts.Peaks!=0)  # gene number stats
+    atac_cells <- names(which(peak_cnt>500))
+    
+    ## filter based on rna & atac
+    cells <- intersect(rna_cells, atac_cells)
+    
+    print(paste0(ids[i], ': ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
+    
+    rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
+    
+    copykat_out <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[i], "_out/copykat/", ids[i]), distance="euclidean",
+                           norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
+    pred <- copykat_out$prediction
+    
+    ## output normal cells
+    normal_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
+    normal_out <- rbind(rna_atac@assays$RNA$counts.Gene[, normal_cells], rna_atac@assays$RNA$counts.Peaks[, normal_cells])
+    writeMM(obj=normal_out, file=paste0(ids[i], '_out/normal/matrix.mtx'))
+    system(paste0('gzip ', ids[i], '_out/normal/matrix.mtx'))
+    write.table(normal_cells, paste0(ids[i], '_out/normal/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
+    system(paste0('gzip ', ids[i], '_out/normal/barcodes.tsv'))
+    system(paste0('cp ', ids[i], '/features.tsv.gz ', ids[i], '_out/normal'))
+    print(paste0(ids[i], ': ', length(normal_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(normal_cells)/length(gene_cnt)*100, 3), '%)'))
+    
+    ## output tumor cells
+    tumor_cells <- pred[pred$copykat.pred=='aneuploid', 'cell.names']
+    tumor_out <- rbind(rna_atac@assays$RNA$counts.Gene[, tumor_cells], rna_atac@assays$RNA$counts.Peaks[, tumor_cells])
+    writeMM(obj=tumor_out, file=paste0(ids[i], '_out/tumor/matrix.mtx'))
+    system(paste0('gzip ', ids[i], '_out/tumor/matrix.mtx'))
+    write.table(tumor_cells, paste0(ids[i], '_out/tumor/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
+    system(paste0('gzip ', ids[i], '_out/tumor/barcodes.tsv'))
+    system(paste0('cp ', ids[i], '/features.tsv.gz ', ids[i], '_out/tumor'))
+    print(paste0(ids[i], ': ', length(tumor_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(tumor_cells)/length(gene_cnt)*100, 3), '%)'))
+    print(paste0(ids[i], ' done'))
 
-        ## create folds
-        system(paste0('mkdir -p ', ids[i], '_out/copykat'))
-        system(paste0('mkdir -p ', ids[i], '_out/normal'))
-        system(paste0('mkdir -p ', ids[i], '_out/tumor'))
-        
-        dat <- Read10X(data.dir=ids[i])
-        rna_atac <- CreateSeuratObject(counts=dat, project=ids[i], min.cells=0, min.features=0)
-        
-        ## filter based on rna
-        gene_cnt <- colSums(rna_atac@assays$RNA$counts.Gene!=0)  # gene number stats
-        rna_cells <- names(which(gene_cnt>200 & gene_cnt<10000))  # cutoff from Nature paper
-        
-        ## filter based on atac
-        peak_cnt <- colSums(rna_atac@assays$RNA$counts.Peaks!=0)  # gene number stats
-        atac_cells <- names(which(peak_cnt>500))
-        
-        ## filter based on rna & atac
-        cells <- intersect(rna_cells, atac_cells)
-        
-        print(paste0(ids[i], ': ', length(cells), ' cells pass QC from ', length(gene_cnt), ' cells (', round(length(cells)/length(gene_cnt)*100, 3), '%)'))
-        
-        rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
-        
-        copykat_out <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[i], "_out/copykat/", ids[i]), distance="euclidean",
-                               norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
-        pred <- copykat_out$prediction
-        
-        ## output normal cells
-        normal_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
-        normal_out <- rbind(rna_atac@assays$RNA$counts.Gene[, normal_cells], rna_atac@assays$RNA$counts.Peaks[, normal_cells])
-        writeMM(obj=normal_out, file=paste0(ids[i], '_out/normal/matrix.mtx'))
-        system(paste0('gzip ', ids[i], '_out/normal/matrix.mtx'))
-        write.table(normal_cells, paste0(ids[i], '_out/normal/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
-        system(paste0('gzip ', ids[i], '_out/normal/barcodes.tsv'))
-        system(paste0('cp ', ids[i], '/features.tsv.gz ', ids[i], '_out/normal'))
-        print(paste0(ids[i], ': ', length(normal_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(normal_cells)/length(gene_cnt)*100, 3), '%)'))
-        
-        ## output tumor cells
-        tumor_cells <- pred[pred$copykat.pred=='diploid', 'cell.names']
-        tumor_out <- rbind(rna_atac@assays$RNA$counts.Gene[, tumor_cells], rna_atac@assays$RNA$counts.Peaks[, tumor_cells])
-        writeMM(obj=tumor_out, file=paste0(ids[i], '_out/tumor/matrix.mtx'))
-        system(paste0('gzip ', ids[i], '_out/tumor/matrix.mtx'))
-        write.table(tumor_cells, paste0(ids[i], '_out/tumor/barcodes.tsv'), row.names=FALSE, col.names=FALSE, quote=FALSE)
-        system(paste0('gzip ', ids[i], '_out/tumor/barcodes.tsv'))
-        system(paste0('cp ', ids[i], '/features.tsv.gz ', ids[i], '_out/tumor'))
-        print(paste0(ids[i], ': ', length(tumor_cells), ' cells from ', length(gene_cnt), ' cells (', round(length(tumor_cells)/length(gene_cnt)*100, 3), '%)'))
-        print(paste0(ids[i], ' done'))
+    print(paste0(ids[i], ' end ', date()))
 }
 
 
