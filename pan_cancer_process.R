@@ -44,7 +44,7 @@ for (i in 1:length(ids)){
     rna_mat <- as.matrix(rna_atac@assays$RNA$counts.Gene[, cells])
     
     copykat_out <- copykat(rawmat=rna_mat, id.type="S", ngene.chr=5, win.size=25, KS.cut=0.1, sam.name=paste0(ids[i], "_out/copykat/", ids[i]), distance="euclidean",
-                           norm.cell.names="", output.seg="FLASE", plot.genes="TRUE", genome="hg20", n.cores=20)
+                           norm.cell.names="", output.seg="FALSE", plot.genes="FALSE", genome="hg20", n.cores=40)  # plot.genes="TRUE" slows down the speed (not plot with pdf format)
     pred <- copykat_out$prediction
     
     ## output normal cells
