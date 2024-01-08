@@ -95,3 +95,33 @@ for i in range(len(ids)):
     atac_new.write('normal_h5ad/'+ids[0][i]+'_atac.h5ad')
 
     print(ids[0][i], 'end', datetime.now().replace(microsecond=0))
+
+
+#grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*: //g' cells_qc_stats.txt | sed 's/ cells.*//g' > cells_qc.txt
+
+from plotnine import *
+import pandas as pd
+
+dat = pd.read_table('cells_qc.txt', header=None)
+dat.columns = ['cnt']
+
+ggplot(dat, aes(x=0, y="cnt")) + geom_boxplot(show_legend=False) +scale_fill_hue(s=0.90, l=0.65, h=0.0417, color_space='husl') \
+                               + theme_matplotlib() +theme(aspect_ratio=1.05, dpi=100, figure_size=(4,4))
+
+p = ggplot(dat, aes(x=0, y="cnt")) + geom_boxplot() + theme_bw()
+p.save(filename='test.pdf', dpi=600)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
