@@ -97,24 +97,50 @@ for i in range(len(ids)):
     print(ids[0][i], 'end', datetime.now().replace(microsecond=0))
 
 
-#grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*: //g' cells_qc_stats.txt | sed 's/ cells.*//g' > cells_qc.txt
+#grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*: //g' | sed 's/ cells.*//g' > cells_qc.txt
+#grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*from //g' | sed 's/ cells.*//g' > cells_all.txt
+#grep from pan_cancer_process_20240108_2.log | grep % | grep -v QC | sed -n '1~2p' | sed 's/.*: //g' | sed 's/ cells.*//g' > cells_normal.txt
+#grep from pan_cancer_process_20240108_2.log | grep % | grep -v QC | sed -n '2~2p' | sed 's/.*: //g' | sed 's/ cells.*//g' > cells_tumor.txt
 
 from plotnine import *
 import pandas as pd
+import numpy as np
 
+## RAW
+dat = pd.read_table('cells_all.txt', header=None)
+dat.columns = ['count']
+dat['idx'] = 'RAW'
+np.median(dat['count'])  # 710663.0
+p = ggplot(dat, aes(x='idx', y='count')) + geom_boxplot(width=0.5, color='black', fill='brown', outlier_shape='') + xlab('') + \
+                                           scale_y_continuous(limits=[600000, 800000], breaks=range(600000, 800000+1, 50000)) + theme_bw()
+p.save(filename='cells_all.pdf', dpi=600, height=5, width=4)
+
+## QC
 dat = pd.read_table('cells_qc.txt', header=None)
-dat.columns = ['cnt']
+dat.columns = ['count']
+dat['idx'] = 'QC'
+np.median(dat['count'])  # 9828.0
+p = ggplot(dat, aes(x='idx', y='count')) + geom_boxplot(width=0.5, color='black', fill='orange', outlier_shape='') + xlab('') + \
+                                           scale_y_continuous(limits=[0, 20000], breaks=range(0, 20000+1, 5000)) + theme_bw()
+p.save(filename='cells_qc.pdf', dpi=600, height=5, width=4)
 
-ggplot(dat, aes(x=0, y="cnt")) + geom_boxplot(show_legend=False) +scale_fill_hue(s=0.90, l=0.65, h=0.0417, color_space='husl') \
-                               + theme_matplotlib() +theme(aspect_ratio=1.05, dpi=100, figure_size=(4,4))
+## Normal
+dat = pd.read_table('cells_normal.txt', header=None)
+dat.columns = ['count']
+dat['idx'] = 'Normal'
+np.median(dat['count'])  # 3398.5
+p = ggplot(dat, aes(x='idx', y='count')) + geom_boxplot(width=0.5, color='black', fill='cornflowerblue', outlier_shape='') + xlab('') + \
+                                           scale_y_continuous(limits=[0, 10000], breaks=range(0, 10000+1, 2000)) + theme_bw()
+p.save(filename='cells_normal.pdf', dpi=600, height=5, width=4)
 
-p = ggplot(dat, aes(x=0, y="cnt")) + geom_boxplot() + theme_bw()
-p.save(filename='test.pdf', dpi=600)
-
-
-
-
-
+## Tumor
+dat = pd.read_table('cells_tumor.txt', header=None)
+dat.columns = ['count']
+dat['idx'] = 'Tumor'
+np.median(dat['count'])  # 2515.0
+p = ggplot(dat, aes(x='idx', y='count')) + geom_boxplot(width=0.5, color='black', fill='darkolivegreen', outlier_shape='') + xlab('') + \
+                                           scale_y_continuous(limits=[0, 10000], breaks=range(0, 10000+1, 2000)) + theme_bw()
+p.save(filename='cells_tumor.pdf', dpi=600, height=5, width=4)
 
 
 
