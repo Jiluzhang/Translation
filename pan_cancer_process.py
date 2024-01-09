@@ -97,6 +97,7 @@ for i in range(len(ids)):
     print(ids[0][i], 'end', datetime.now().replace(microsecond=0))
 
 
+## plot cell stats
 #grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*: //g' | sed 's/ cells.*//g' > cells_qc.txt
 #grep from pan_cancer_process_20240108_2.log | grep QC | sed 's/.*from //g' | sed 's/ cells.*//g' > cells_all.txt
 #grep from pan_cancer_process_20240108_2.log | grep % | grep -v QC | sed -n '1~2p' | sed 's/.*: //g' | sed 's/ cells.*//g' > cells_normal.txt
