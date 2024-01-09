@@ -145,9 +145,27 @@ p.save(filename='cells_tumor.pdf', dpi=600, height=5, width=4)
 
 
 
+############################################ plot histogram for gene/peak count ############################################
+from plotnine import *
+import pandas as pd
+import numpy as np
+import scanpy as sc
 
+rna = sc.read_h5ad('HT230C1-Th1_rna.h5ad')
+rna_cnt = np.count_nonzero(rna.X.toarray(), axis=1)
+rna_cnt_df = pd.DataFrame({'Genes': rna_cnt})
+p = ggplot(rna_cnt_df)+ geom_histogram(aes(x='Genes'), color='black', fill='orange', bins=100) + \
+                        scale_x_continuous(limits=[0, 5000], breaks=range(0, 5000+1, 1000)) + \
+                        scale_y_continuous(limits=[0, 600], breaks=range(0, 600+1, 100)) + theme_bw()
+p.save(filename='gene_cnt_stats.pdf', dpi=600, height=5, width=5)
 
-
+atac = sc.read_h5ad('HT230C1-Th1_atac.h5ad')
+atac_cnt = np.count_nonzero(atac.X.toarray(), axis=1)
+atac_cnt_df = pd.DataFrame({'Peaks': atac_cnt})
+p = ggplot(atac_cnt_df)+ geom_histogram(aes(x='Peaks'), color='black', fill='cornflowerblue', bins=100) + \
+                        scale_x_continuous(limits=[0, 40000], breaks=range(0, 40000+1, 10000)) + \
+                        scale_y_continuous(limits=[0, 600], breaks=range(0, 600+1, 100)) + theme_bw()
+p.save(filename='peak_cnt_stats.pdf', dpi=600, height=5, width=5)
 
 
 
