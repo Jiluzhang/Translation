@@ -166,14 +166,29 @@ p = ggplot(rna_cnt_df)+ geom_histogram(aes(x='Genes'), color='black', fill='oran
 p.save(filename='gene_cnt_stats.pdf', dpi=600, height=5, width=5)
 
 
+for i in range(len(ids)):
+atac_cnt = []
+for i in range(3):
+    atac = sc.read_h5ad(ids[0][i]+'_atac.h5ad')
+    atac_cnt = atac_cnt + list(np.count_nonzero(atac.X.toarray(), axis=1))
+    print(ids[0][i], 'ATAC done')
+    
+atac_cnt_df = pd.DataFrame({'Peaks': atac_cnt})
+p = ggplot(atac_cnt_df)+ geom_histogram(aes(x='Peaks'), color='black', fill='cornflowerblue', bins=100) + \
+                         scale_x_continuous(limits=[0, 40000], breaks=range(0, 40000+1, 10000)) + \
+                         scale_y_continuous(limits=[0, 600], breaks=range(0, 600+1, 100)) + theme_bw()
+p.save(filename='peak_cnt_stats.pdf', dpi=600, height=5, width=5)
 
-    atac = sc.read_h5ad('HT230C1-Th1_atac.h5ad')
-    atac_cnt = np.count_nonzero(atac.X.toarray(), axis=1)
-    atac_cnt_df = pd.DataFrame({'Peaks': atac_cnt})
-    p = ggplot(atac_cnt_df)+ geom_histogram(aes(x='Peaks'), color='black', fill='cornflowerblue', bins=100) + \
-                            scale_x_continuous(limits=[0, 40000], breaks=range(0, 40000+1, 10000)) + \
-                            scale_y_continuous(limits=[0, 600], breaks=range(0, 600+1, 100)) + theme_bw()
-    p.save(filename='peak_cnt_stats.pdf', dpi=600, height=5, width=5)
+## normal samples
+# CPT704DU-M1
+# GBML018G1-M1N2
+# GBML019G1-M1N1
+# HT291C1-M1A3
+# SN001H1-Ms1
+# SP369H1-Mc1
+# SP819H1-Mc1
+
+
 
 
 
