@@ -106,10 +106,10 @@ import matplotlib.pyplot as plt
 
 train_atac_file = "atac_test_pbmc_100.h5ad"
 train_rna_file = "rna_test_pbmc_100.h5ad"
-saved_model_path = "save_att/pytorch_model.bin"
+saved_model_path = "save_raw/2024-01-11_None_epoch_1/pytorch_model.bin"
 
 enc_max_len = 38244
-dec_max_len = 1036913
+dec_max_len = 1033239  #1036913
 
 batch_size = 1
 rna_max_value = 255
@@ -160,7 +160,8 @@ model = M2M_rna2atac(
     dec_ff_mult = 4
 )
 
-model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
+#model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
+model.load_state_dict(torch.load(saved_model_path))
 model.to(device)
 
 
@@ -173,7 +174,7 @@ with torch.no_grad():
     enc_attn, dec_attn, logist = model(src, attn_matrix =True)
 
 gene_name = train_rna.var.index
-peak_name = train_atac.var['gene_ids']
+peak_name = train_atac.var.index
 
 x = gene_name[enc_attn["k_indices"]]
 y = gene_name[enc_attn["q_indices"]]
@@ -194,7 +195,7 @@ plt.colorbar()
 plt.savefig('encoder_self_local_attn_2.png')
 
 
-
+src = torch.randint(0,255,(1,38244)).to(device)
 
 
 #CE347E1-S1K1: 4126 cells
