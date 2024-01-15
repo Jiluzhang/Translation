@@ -184,8 +184,8 @@ model_2 = M2M_rna2atac(
 
 #model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
 #model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
-model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_0/pytorch_model.bin'))
-model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-15_None_epoch_0/pytorch_model.bin'))
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-15_None_epoch_14/pytorch_model.bin'))
 model.to(device)
 
 model.state_dict()['enc.longnet.net.layers.0.0.fn.to_q.weight']
@@ -197,7 +197,7 @@ for i in model_1.state_dict():
 
 for name, param in model_1.named_parameters():
     if param.requires_grad:
-        print(name)
+        print(name, param)
     
 
 ############### pseudo cell ###############
@@ -212,6 +212,19 @@ atac = sc.read_h5ad('atac_10.h5ad')
 atac.X[atac.X>=100] = 1
 atac.X[atac.X!=1] = 0
 atac.write('atac_10_pseudo.h5ad')
+
+
+rna = sc.read_h5ad('rna_10.h5ad')
+rna.X = np.random.randint(0,255, (10, 38244))
+rna.write('rna_10_pseudo_random.h5ad')
+
+atac = sc.read_h5ad('atac_10.h5ad')
+atac.X[0] = [1]*1033239
+atac.X[1] = [0]*1033239
+atac.X[2] = [1]*1033239
+atac.X[3] = [0]*1033239
+atac.X[4] = [1]*1033239
+atac.write('atac_10_pseudo_random.h5ad')
 ############################################
 
 
