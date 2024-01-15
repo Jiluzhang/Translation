@@ -104,9 +104,9 @@ from utils import *
 import scanpy as sc
 import matplotlib.pyplot as plt
 
-train_atac_file = "atac_test_pbmc_100.h5ad"
-train_rna_file = "rna_test_pbmc_100.h5ad"
-saved_model_path = "save_raw/2024-01-11_None_epoch_1/pytorch_model.bin"
+train_atac_file = "datasets/atac_10k.h5ad"
+train_rna_file = "datasets/rna_10k.h5ad"
+#saved_model_path = "save_raw/2024-01-11_None_epoch_1/pytorch_model.bin"
 
 enc_max_len = 38244
 dec_max_len = 1033239  #1036913
@@ -138,7 +138,29 @@ train_dataset = FullLenPairDataset(train_rna.X, train_atac.X, rna_max_value)
 train_loader = torch.utils.data.DataLoader(train_dataset, **train_kwargs)
 
 
-model = M2M_rna2atac(
+model_1 = M2M_rna2atac(
+    dim = 64,
+    enc_num_tokens = rna_max_value + 1,
+    enc_seq_len = enc_max_len,
+    enc_depth = 2,
+    enc_heads = 1,
+    enc_attn_window_size = attn_window_size,
+    enc_dilation_growth_rate = 2,
+    enc_ff_mult = 4,
+    
+    latent_len = 256, 
+    num_middle_MLP = 2, 
+    latent_dropout = 0.1,
+    
+    dec_seq_len = dec_max_len,
+    dec_depth = 2,
+    dec_heads = 1,
+    dec_attn_window_size = attn_window_size,
+    dec_dilation_growth_rate = 5,
+    dec_ff_mult = 4
+)
+
+model_2 = M2M_rna2atac(
     dim = 64,
     enc_num_tokens = rna_max_value + 1,
     enc_seq_len = enc_max_len,
@@ -161,8 +183,36 @@ model = M2M_rna2atac(
 )
 
 #model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
-model.load_state_dict(torch.load(saved_model_path))
+#model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_0/pytorch_model.bin'))
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
 model.to(device)
+
+model.state_dict()['enc.longnet.net.layers.0.0.fn.to_q.weight']
+model.state_dict()['trans.model.0.0.weight']
+
+for i in model_1.state_dict():
+    if model_1.state_dict()[i].equal(model_2.state_dict()[i]):
+        print(i)
+
+for name, param in model_1.named_parameters():
+    if param.requires_grad:
+        print(name)
+    
+
+############### pseudo cell ###############
+import numpy as np
+import scanpy as sc
+
+rna = sc.read_h5ad('rna_10.h5ad')
+rna.X = np.random.randint(0,255, (10, 38244))
+rna.write('rna_10_pseudo.h5ad')
+
+atac = sc.read_h5ad('atac_10.h5ad')
+atac.X[atac.X>=100] = 1
+atac.X[atac.X!=1] = 0
+atac.write('atac_10_pseudo.h5ad')
+############################################
 
 
 src, tgt = next(iter(train_loader))
@@ -183,7 +233,7 @@ y = gene_name[enc_attn["q_indices"]]
 
 # 调整图像尺寸
 fig = plt.figure(figsize=(20, 20))
-plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='viridis', interpolation='nearest')
+plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
 
 # 添加刻度值
 plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
@@ -192,7 +242,7 @@ plt.yticks(ticks = list(range(len(y))), labels = y)
 # 添加颜色条
 plt.colorbar()  
 
-plt.savefig('encoder_self_local_attn_2.png')
+plt.savefig('gene_attention_tme_10k_pseudo.png')
 
 
 src = torch.randint(0,255,(1,38244)).to(device)
