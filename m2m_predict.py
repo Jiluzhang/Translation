@@ -104,8 +104,8 @@ from utils import *
 import scanpy as sc
 import matplotlib.pyplot as plt
 
-train_atac_file = "datasets/atac_10k.h5ad"
-train_rna_file = "datasets/rna_10k.h5ad"
+train_atac_file = "datasets/atac_3_pseudo_1000.h5ad"
+train_rna_file = "datasets/rna_3_pseudo.h5ad"
 #saved_model_path = "save_raw/2024-01-11_None_epoch_1/pytorch_model.bin"
 
 enc_max_len = 38244
@@ -184,12 +184,15 @@ model_2 = M2M_rna2atac(
 
 #model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
 #model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
-model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-15_None_epoch_0/pytorch_model.bin'))
-model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-15_None_epoch_14/pytorch_model.bin'))
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-16_None_epoch_0/pytorch_model.bin'))
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-16_None_epoch_99/pytorch_model.bin'))
 model.to(device)
 
-model.state_dict()['enc.longnet.net.layers.0.0.fn.to_q.weight']
+model.state_dict()['enc.longnet.net.layers.0.0.fn.to_v.weight']
 model.state_dict()['trans.model.0.0.weight']
+
+for i in model_1.state_dict():
+    print(i, model_1.state_dict()[i].shape)
 
 for i in model_1.state_dict():
     if model_1.state_dict()[i].equal(model_2.state_dict()[i]):
@@ -197,7 +200,7 @@ for i in model_1.state_dict():
 
 for name, param in model_1.named_parameters():
     if param.requires_grad:
-        print(name, param)
+        print(param)
     
 
 ############### pseudo cell ###############
