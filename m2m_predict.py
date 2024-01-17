@@ -184,8 +184,8 @@ model_2 = M2M_rna2atac(
 
 #model.load_state_dict(torch.load('/data/home/zouqihang/desktop/project/M2M/version3.2/save/2023-12-25_5tissue_testing_new_attention_weight/pytorch_model.bin'))
 #model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save_raw/2024-01-11_None_epoch_1/pytorch_model.bin'))
-model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-16_None_epoch_0/pytorch_model.bin'))
-model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-16_None_epoch_99/pytorch_model.bin'))
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-17_None_epoch_-1/pytorch_model.bin'))
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/2024-01-17_None_epoch_0/pytorch_model.bin'))
 model.to(device)
 
 model.state_dict()['enc.longnet.net.layers.0.0.fn.to_v.weight']
