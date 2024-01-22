@@ -753,6 +753,8 @@ nohup accelerate launch --config_file default_config.yaml m2m_pre-train.py > nor
 nohup time accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --atac datasets/atac_10k.h5ad --rna datasets/rna_10k.h5ad > 10k.log &
 
 python rna2atac_pre-train.py --atac atac_train_five_tissues_1000_1000.h5ad --rna rna_train_five_tissues_1000.h5ad --batch_size 100 --epoch 100
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 tensorboard --logdir "2023-12-11_5tissue_testing_logs" --host 10.11.41.108 --port 6133
