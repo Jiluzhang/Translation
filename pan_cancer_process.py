@@ -78,7 +78,11 @@ cCREs['peak_idx'] = range(cCREs.shape[0])
 
 cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
 genes_bed = pybedtools.BedTool.from_dataframe(exp_gene)
-idx_out = cCREs_bed.intersect(genes_bed, wa=True).to_dataframe()
+idx_out = genes_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe()
+
+dict(idx_out.groupby(['name'], as_index=True)['thickEnd'].apply(lambda x: [i for i in x]))
+
+pre_seq = 
 ##########################################################
 
 
