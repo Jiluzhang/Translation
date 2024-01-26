@@ -26,6 +26,63 @@ rm human_genes_raw.txt
 
 
 
+
+
+## cetered by gene_name
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $2}' | sed 's/"//g' | sed 's/;//g' > gene_id.txt
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print$9}' | awk '{print $6}' | sed 's/"//g' | sed 's/;//g' > gene_name.txt
+grep gene_name Homo_sapiens.GRCh38.110.chr.gtf | awk -F "\t" '{if($1!="X" && $1!="Y" && $1!="MT" && $3=="gene") print("chr" $1 "\t" $4 "\t" $5 "\t" $7)}' > gene_pos.txt
+awk '{if($4=="+") print($1 "\t" $2); else print($1 "\t" $3)}' gene_pos.txt > gene_tss.txt
+paste gene_id.txt gene_name.txt gene_tss.txt | sort -k3,3V -k4,4n | awk '{print $3 "\t" $4 "\t" $4+1 "\t" $2 "\t" $1}' > gene_pos_id.txt
+rm gene_id.txt gene_name.txt gene_pos.txt gene_tss.txt
+
+## remove duplicates
+import pandas as pd
+# output unique gene name
+gene_pos_id = pd.read_table('gene_pos_id.txt', names=['chr', 'tss', 'tss_1', 'gene_name', 'gene_id'])
+gene_cnt = gene_pos_id[['gene_name', 'gene_id']].groupby('gene_name').agg('count').reset_index()
+gene_cnt.columns = ['gene_name', 'cnt']
+out = pd.merge(gene_pos_id[['gene_name', 'gene_id']], gene_cnt, how='left')
+out = out[out['cnt']==1][['gene_id', 'gene_name']]
+out.to_csv('human_genes.txt', sep='\t', index=False, header=False)  # 38,244
+# output unique gene name with pos info
+out_2 = pd.merge(out, gene_pos_id, how='left')
+out_2 = out_2[['chr', 'tss', 'tss_1', 'gene_name', 'gene_id']]
+out_2.to_csv('human_genes_pos_id.txt', sep='\t', index=False, header=False)  # 38,244
+
+rm human_genes_raw.txt gene_pos_id.txt 
+
+
+##########################################################
+import scanpy as sc
+import numpy as np
+import pandas as pd
+import pybedtools
+
+rna = sc.read_h5ad('rna_test_dm_100.h5ad')
+atac = sc.read_h5ad('atac_test_dm_100.h5ad')
+
+gene_pos_id = pd.read_table('human_genes_pos_id.txt', names=['chr', 'tss', 'tss_1', 'gene_name', 'gene_id'])
+gene_pos_id.index = gene_pos_id['gene_id'].values
+
+exp_gene = gene_pos_id.loc[rna.var[rna.X[0]!=0]['gene_ids'].tolist()[:2]][['chr', 'tss', 'tss_1']]
+exp_gene['start'] = exp_gene['tss']-100000
+exp_gene['end'] = exp_gene['tss']+100000
+exp_gene = exp_gene[['chr', 'start', 'end']]
+exp_gene['gene_idx'] = range(exp_gene.shape[0])
+
+cCREs = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                      'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                      'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+cCREs['peak_idx'] = range(cCREs.shape[0])
+
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+genes_bed = pybedtools.BedTool.from_dataframe(exp_gene)
+idx_out = cCREs_bed.intersect(genes_bed, wa=True).to_dataframe()
+##########################################################
+
+
+
 ## out_paired_h5ad.py
 import scanpy as sc
 import pandas as pd
