@@ -754,6 +754,8 @@ nohup time accelerate launch --config_file default_config.yaml rna2atac_pre-trai
 
 python rna2atac_pre-train.py --atac atac_train_five_tissues_1000_1000.h5ad --rna rna_train_five_tissues_1000.h5ad --batch_size 100 --epoch 100
 
+python rna2atac_pre-train.py --atac atac_1k.h5ad --rna rna_1k.h5ad --pre_seq atac_1k_pre_seq.h5ad --batch_size 5 --epoch 100 --lr 0.001 --dec_max_len 1033239 --SEED 0
+
 accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --atac atac_test_dm_100.h5ad --rna rna_test_dm_100.h5ad 
 
 
