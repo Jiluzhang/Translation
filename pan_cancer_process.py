@@ -59,8 +59,8 @@ import numpy as np
 import pandas as pd
 import pybedtools
 
-rna = sc.read_h5ad('rna_10.h5ad')
-atac = sc.read_h5ad('atac_10.h5ad')
+rna = sc.read_h5ad('rna_1k.h5ad')
+atac = sc.read_h5ad('atac_1k.h5ad')
 
 gene_pos_id = pd.read_table('human_genes_pos_id.txt', names=['chr', 'tss', 'tss_1', 'gene_name', 'gene_id'])
 gene_pos_id.index = gene_pos_id['gene_id'].values
@@ -86,7 +86,7 @@ for i in range(38244):
     if i not in idx_dict.keys():
         idx_dict[i] = [] # 38244
 
-pre_seq = np.zeros([atac.X.shape)
+pre_seq = np.zeros(atac.X.shape)
 for i in range(pre_seq.shape[0]):
     exp_idx = np.where(rna.X[i]!=0)[0]
     l = []
@@ -94,7 +94,11 @@ for i in range(pre_seq.shape[0]):
         l += idx_dict[j] # maybe duplicated (it does not matter)
     pre_seq[i][l] = 1
     print('cell_'+str(i)+' done')
-    
+
+pre_seq_out = atac.copy()
+pre_seq_out.X = pre_seq
+pre_seq_out.write('atac_1k_pre_seq.h5ad')
+
 ##########################################################
 
 
