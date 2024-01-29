@@ -66,9 +66,9 @@ gene_pos_id = pd.read_table('human_genes_pos_id.txt', names=['chr', 'tss', 'tss_
 gene_pos_id.index = gene_pos_id['gene_id'].values
 
 exp_gene = gene_pos_id.loc[rna.var['gene_ids'].tolist()][['chr', 'tss', 'tss_1']]
-exp_gene['start'] = exp_gene['tss']-100000
+exp_gene['start'] = exp_gene['tss']-500000
 exp_gene['start'][exp_gene['start']<0] = 0
-exp_gene['end'] = exp_gene['tss']+100000
+exp_gene['end'] = exp_gene['tss']+500000
 exp_gene = exp_gene[['chr', 'start', 'end']]
 exp_gene['gene_idx'] = range(exp_gene.shape[0])
 
