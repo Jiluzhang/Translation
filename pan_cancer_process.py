@@ -59,16 +59,16 @@ import numpy as np
 import pandas as pd
 import pybedtools
 
-rna = sc.read_h5ad('rna_1k.h5ad')
-atac = sc.read_h5ad('atac_1k.h5ad')
+rna = sc.read_h5ad('rna_10.h5ad')
+atac = sc.read_h5ad('atac_10.h5ad')
 
 gene_pos_id = pd.read_table('human_genes_pos_id.txt', names=['chr', 'tss', 'tss_1', 'gene_name', 'gene_id'])
 gene_pos_id.index = gene_pos_id['gene_id'].values
 
 exp_gene = gene_pos_id.loc[rna.var['gene_ids'].tolist()][['chr', 'tss', 'tss_1']]
-exp_gene['start'] = exp_gene['tss']-500000
+exp_gene['start'] = exp_gene['tss']-1000000
 exp_gene['start'][exp_gene['start']<0] = 0
-exp_gene['end'] = exp_gene['tss']+500000
+exp_gene['end'] = exp_gene['tss']+1000000
 exp_gene = exp_gene[['chr', 'start', 'end']]
 exp_gene['gene_idx'] = range(exp_gene.shape[0])
 
@@ -97,7 +97,7 @@ for i in range(pre_seq.shape[0]):
 
 pre_seq_out = atac.copy()
 pre_seq_out.X = pre_seq
-pre_seq_out.write('atac_1k_pre_seq.h5ad')
+pre_seq_out.write('atac_10_pre_seq_1m.h5ad')
 
 ##########################################################
 
