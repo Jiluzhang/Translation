@@ -139,21 +139,17 @@ train_loader = torch.utils.data.DataLoader(train_dataset, **train_kwargs)
 
 
 model_1 = M2M_rna2atac(
-    dim = 64,
+    dim = 16,
     enc_num_tokens = rna_max_value + 1,
     enc_seq_len = enc_max_len,
-    enc_depth = 2,
+    enc_depth = 1,
     enc_heads = 1,
     enc_attn_window_size = attn_window_size,
     enc_dilation_growth_rate = 2,
     enc_ff_mult = 4,
-    
-    latent_len = 256, 
-    num_middle_MLP = 2, 
-    latent_dropout = 0.1,
-    
+
     dec_seq_len = dec_max_len,
-    dec_depth = 2,
+    dec_depth = 1,
     dec_heads = 1,
     dec_attn_window_size = attn_window_size,
     dec_dilation_growth_rate = 5,
@@ -161,21 +157,17 @@ model_1 = M2M_rna2atac(
 )
 
 model_2 = M2M_rna2atac(
-    dim = 64,
+    dim = 16,
     enc_num_tokens = rna_max_value + 1,
     enc_seq_len = enc_max_len,
-    enc_depth = 2,
+    enc_depth = 1,
     enc_heads = 1,
     enc_attn_window_size = attn_window_size,
     enc_dilation_growth_rate = 2,
     enc_ff_mult = 4,
     
-    latent_len = 256, 
-    num_middle_MLP = 2, 
-    latent_dropout = 0.1,
-    
     dec_seq_len = dec_max_len,
-    dec_depth = 2,
+    dec_depth = 1,
     dec_heads = 1,
     dec_attn_window_size = attn_window_size,
     dec_dilation_growth_rate = 5,
@@ -197,6 +189,7 @@ model.state_dict()['trans.model.0.0.weight']
 
 for i in model_1.state_dict():
     print(i, model_1.state_dict()[i].shape)
+    #print(i)
 
 for i in model_1.state_dict():
     if model_1.state_dict()[i].equal(model_2.state_dict()[i]):
