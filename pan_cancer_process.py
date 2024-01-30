@@ -66,9 +66,9 @@ gene_pos_id = pd.read_table('human_genes_pos_id.txt', names=['chr', 'tss', 'tss_
 gene_pos_id.index = gene_pos_id['gene_id'].values
 
 exp_gene = gene_pos_id.loc[rna.var['gene_ids'].tolist()][['chr', 'tss', 'tss_1']]
-exp_gene['start'] = exp_gene['tss']-1000000
+exp_gene['start'] = exp_gene['tss']-500000
 exp_gene['start'][exp_gene['start']<0] = 0
-exp_gene['end'] = exp_gene['tss']+1000000
+exp_gene['end'] = exp_gene['tss']+500000
 exp_gene = exp_gene[['chr', 'start', 'end']]
 exp_gene['gene_idx'] = range(exp_gene.shape[0])
 
@@ -92,12 +92,20 @@ for i in range(pre_seq.shape[0]):
     l = []
     for j in exp_idx:
         l += idx_dict[j] # maybe duplicated (it does not matter)
-    pre_seq[i][l] = 1
+    pre_seq[i][l] = 1  # pre_seq[i][l] = np.round(np.random.random((len(pre_seq[i][l]))), 3)
     print('cell_'+str(i)+' done')
 
 pre_seq_out = atac.copy()
 pre_seq_out.X = pre_seq
-pre_seq_out.write('atac_10_pre_seq_1m.h5ad')
+pre_seq_out.write('atac_10_pre_seq_500k_2.h5ad')
+
+
+predict_0 = sigmoid(predict.X[0])
+predict_0[predict_0>0.36]=1
+predict_0[predict_0<=0.36]=0
+#len(np.intersect1d(np.where(predict_0==1)[0], np.where(true_0==1)))/sum(true_0==1)
+len(np.intersect1d(np.where(predict_0==1)[0], np.where(true_0==1)))/sum(predict_0==1)
+
 
 ##########################################################
 
