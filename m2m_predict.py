@@ -139,18 +139,18 @@ train_loader = torch.utils.data.DataLoader(train_dataset, **train_kwargs)
 
 
 model_1 = M2M_rna2atac(
-    dim = 16,
+    dim = 256,
     enc_num_tokens = rna_max_value + 1,
     enc_seq_len = enc_max_len,
-    enc_depth = 1,
-    enc_heads = 1,
+    enc_depth = 2,
+    enc_heads = 8,
     enc_attn_window_size = attn_window_size,
     enc_dilation_growth_rate = 2,
     enc_ff_mult = 4,
 
     dec_seq_len = dec_max_len,
-    dec_depth = 1,
-    dec_heads = 1,
+    dec_depth = 2,
+    dec_heads = 8,
     dec_attn_window_size = attn_window_size,
     dec_dilation_growth_rate = 5,
     dec_ff_mult = 4
@@ -195,9 +195,10 @@ for i in model_1.state_dict():
     if model_1.state_dict()[i].equal(model_2.state_dict()[i]):
         print(i)
 
+param_sum = 0
 for name, param in model_1.named_parameters():
     if param.requires_grad:
-        print(param)
+        param_sum += np.prod(list(param.shape))
     
 
 ############### pseudo cell ###############
