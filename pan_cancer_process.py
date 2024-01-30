@@ -88,13 +88,20 @@ for i in range(38244):
 
 pre_seq = np.zeros(atac.X.shape)
 for i in range(pre_seq.shape[0]):
-    exp_idx = np.where(rna.X[i]!=0)[0]
+    exp_idx = np.where(rna.X[i]!=0)[0]  # exp_idx = np.where(rna.X[i]>1)[0]
     l = []
     for j in exp_idx:
         l += idx_dict[j] # maybe duplicated (it does not matter)
     pre_seq[i][l] = 1  # pre_seq[i][l] = np.round(np.random.random((len(pre_seq[i][l]))), 3)
+    
+    # idx_0 = np.where(pre_seq[i]==0)[0]
+    # pre_seq[i][np.random.choice(idx_0, int(len(idx_0)*0.2))] = 1
+    # idx_1 = np.where(pre_seq[i]==1)[0]
+    # pre_seq[i][np.random.choice(idx_1, int(len(idx_1)*0.2))] = 0
+    
     print('cell_'+str(i)+' done')
 
+# pre_seq = np.random.randint(0, 2, atac.X.shape)
 pre_seq_out = atac.copy()
 pre_seq_out.X = pre_seq
 pre_seq_out.write('atac_10_pre_seq_500k_2.h5ad')
@@ -105,6 +112,47 @@ predict_0[predict_0>0.36]=1
 predict_0[predict_0<=0.36]=0
 #len(np.intersect1d(np.where(predict_0==1)[0], np.where(true_0==1)))/sum(true_0==1)
 len(np.intersect1d(np.where(predict_0==1)[0], np.where(true_0==1)))/sum(predict_0==1)
+
+
+
+
+import torch
+import numpy
+import random
+import torch.nn.functional as F
+import torch.optim as optim
+from torchmetrics import AUROC; from torcheval.metrics.functional import binary_auprc
+ 
+x = torch.tensor(rna.X[0])
+y = torch.tensor(atac.X[0])
+
+class Net(torch.nn.Module):
+    def __init__(self,n_feature,n_hidden,n_output):
+        super(Net,self).__init__()
+        #两层感知机
+        self.hidden = torch.nn.Linear(n_feature,n_hidden)
+        self.predict = torch.nn.Linear(n_hidden,n_output)
+ 
+    def forward(self,x):
+        x = F.relu(self.hidden(x))
+        x = self.predict(x)
+        return x
+
+net = Net(38244, 1, 1033239)
+optimizer = optim.Adam(net.parameters(),lr = 0.01)
+loss_func = torch.nn.MSELoss()
+
+auroc = AUROC(task='binary')
+for t in range(200):
+    prediction = net(x)
+    loss = loss_func(torch.sigmoid(prediction),y)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    print('loss:', loss, 'auroc:', auroc(prediction, y).item())
+    #print('auprc', binary_auprc(torch.sigmoid(prediction), y, num_tasks = prediction.shape[0]).mean().item())
+
+
 
 
 ##########################################################
