@@ -200,6 +200,10 @@ for name, param in model_1.named_parameters():
     if param.requires_grad:
         param_sum += np.prod(list(param.shape))
     
+for name, param in model_1.named_parameters():
+    if name=='dec.longnet.net.layers.0.0.fn.to_v.weight':
+        print(name, param)
+
 
 ############### pseudo cell ###############
 import numpy as np
