@@ -233,9 +233,11 @@ atac.write('atac_10_pseudo_random.h5ad')
 ############################################
 
 
+device = 'cuda:1'
 src, tgt = next(iter(train_loader))
 src = src.long().to(device)
 tgt = tgt.to(device)
+model.to(device)
 
 model.eval()
 with torch.no_grad():
@@ -244,14 +246,15 @@ with torch.no_grad():
 gene_name = train_rna.var.index
 peak_name = train_atac.var.index
 
-x = gene_name[enc_attn["k_indices"]]
-y = gene_name[enc_attn["q_indices"]]
-#x = peak_name[dec_attn['self_attn']["k_indices"][0].to("cpu")]
-#y = peak_name[dec_attn['self_attn']["q_indices"][0].to("cpu")]
+#x = gene_name[enc_attn["k_indices"]]
+#y = gene_name[enc_attn["q_indices"]]
+x = peak_name[dec_attn['self_attn']["k_indices"][0].to("cpu")]
+y = peak_name[dec_attn['self_attn']["q_indices"][0].to("cpu")]
 
 # 调整图像尺寸
 fig = plt.figure(figsize=(20, 20))
-plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
+#plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
+plt.imshow(dec_attn["self_attn"]['attn'][0].to("cpu"), cmap='Reds', interpolation='nearest')
 
 # 添加刻度值
 plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
@@ -260,8 +263,8 @@ plt.yticks(ticks = list(range(len(y))), labels = y)
 # 添加颜色条
 plt.colorbar()  
 
-plt.savefig('gene_attention_tme_10k_pseudo.png')
-
+#plt.savefig('gene_attention_tmp_1.png')
+plt.savefig('peak_attention_tmp_3.png')
 
 src = torch.randint(0,255,(1,38244)).to(device)
 
