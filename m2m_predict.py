@@ -246,15 +246,15 @@ with torch.no_grad():
 gene_name = train_rna.var.index
 peak_name = train_atac.var.index
 
-#x = gene_name[enc_attn["k_indices"]]
-#y = gene_name[enc_attn["q_indices"]]
-x = peak_name[dec_attn['self_attn']["k_indices"][0].to("cpu")]
-y = peak_name[dec_attn['self_attn']["q_indices"][0].to("cpu")]
+x = gene_name[enc_attn["k_indices"]]
+y = gene_name[enc_attn["q_indices"]]
+#x = peak_name[dec_attn['self_attn']["k_indices"]]
+#y = peak_name[dec_attn['self_attn']["q_indices"]]
 
 # 调整图像尺寸
 fig = plt.figure(figsize=(20, 20))
-#plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
-plt.imshow(dec_attn["self_attn"]['attn'][0].to("cpu"), cmap='Reds', interpolation='nearest')
+plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
+#plt.imshow(dec_attn["self_attn"]['attn'][0].to("cpu"), cmap='Reds', interpolation='nearest')
 
 # 添加刻度值
 plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
@@ -264,7 +264,8 @@ plt.yticks(ticks = list(range(len(y))), labels = y)
 plt.colorbar()  
 
 #plt.savefig('gene_attention_tmp_1.png')
-plt.savefig('peak_attention_tmp_3.png')
+plt.savefig('peak_attention_10_cells_3.png')
+plt.close()
 
 src = torch.randint(0,255,(1,38244)).to(device)
 
@@ -299,3 +300,147 @@ atac.write('atac_10k.h5ad')
 
 
 
+
+import sys
+import os
+sys.path.append("M2Mmodel")
+import torch
+from M2M import M2M_rna2atac
+from utils import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+
+train_atac_file = "atac_10.h5ad"
+train_rna_file = "rna_10.h5ad"
+
+enc_max_len = 38244
+dec_max_len = 1033239
+
+batch_size = 1
+rna_max_value = 255
+attn_window_size = 2*2048
+SEED = 2023
+
+device = torch.device("cuda:1")
+
+train_atac = sc.read_h5ad(train_atac_file)
+train_rna = sc.read_h5ad(train_rna_file)
+
+# parameters for dataloader construction
+train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+cuda_kwargs = {
+    # 'pin_memory': True,  # 将加载的数据张量复制到 CUDA 设备的固定内存中，提高效率但会消耗更多内存
+    "num_workers": 4,
+    'prefetch_factor': 2
+}  
+train_kwargs.update(cuda_kwargs)
+
+train_dataset = FullLenPairDataset(train_rna.X, train_atac.X, rna_max_value)
+train_loader = torch.utils.data.DataLoader(train_dataset, **train_kwargs)
+
+model = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 1,
+            enc_heads = 1,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 64, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 1,
+            dec_heads = 1,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+#model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/10_cells/2024-02-01_None_epoch_9/pytorch_model.bin'))
+model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/100_cells/2024-02-01_None_epoch_4/pytorch_model.bin'))
+#model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/save/1k_cells/2024-02-01_None_epoch_1/pytorch_model.bin'))
+
+#src, tgt = next(iter(train_loader))
+rna = sc.read_h5ad('rna_10.h5ad')
+src = torch.from_numpy(rna.X[[1]]).long().to(device)
+#tgt = tgt.to(device)
+model.to(device)
+
+model.eval()
+with torch.no_grad():
+    enc_attn, dec_attn, logist = model(src, attn_matrix =True)
+
+gene_name = train_rna.var.index
+peak_name = train_atac.var.index
+
+x = gene_name[enc_attn["k_indices"]]
+y = gene_name[enc_attn["q_indices"]]
+
+# 调整图像尺寸
+fig = plt.figure(figsize=(20, 20))
+plt.imshow(enc_attn["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
+
+# 添加刻度值
+plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
+plt.yticks(ticks = list(range(len(y))), labels = y)
+
+# 添加颜色条
+plt.colorbar()  
+
+plt.savefig('gene_attention_100_cells_2.png')
+plt.close()
+
+
+
+x = peak_name[dec_attn['self_attn']["k_indices"]]
+y = peak_name[dec_attn['self_attn']["q_indices"]]
+
+# 调整图像尺寸
+fig = plt.figure(figsize=(20, 20))
+plt.imshow(dec_attn["self_attn"]['attn'][0].to("cpu"), cmap='Reds', interpolation='nearest')
+
+# 添加刻度值
+plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
+plt.yticks(ticks = list(range(len(y))), labels = y)
+
+# 添加颜色条
+plt.colorbar()  
+
+plt.savefig('peak_attention_100_cells_2.png')
+plt.close()
+
+
+
+x = gene_name[dec_attn['cross_attn']["k_indices"]]
+y = peak_name[dec_attn['cross_attn']["q_indices"]]
+
+# 调整图像尺寸
+fig = plt.figure(figsize=(20, 20))
+plt.imshow(dec_attn['cross_attn']["attn"][0].to("cpu"), cmap='Reds', interpolation='nearest')
+
+# 添加刻度值
+plt.xticks(ticks = list(range(len(x))), labels = x, rotation=70, ha='right')
+plt.yticks(ticks = list(range(len(y))), labels = y)
+
+# 添加颜色条
+plt.colorbar()  
+
+plt.savefig('gene_peak_attention_100_cells_2.png')
+plt.close()
+
+
+
+
+for i in range(enc_attn["attn"][0].shape[0]):
+  enc_attn['attn'][0][i][i] = 0
+
+for i in range(dec_attn["self_attn"]['attn'][0].shape[0]):
+  dec_attn["self_attn"]['attn'][0][i][i] = 0
+  
+for i in range(train_rna.X.shape[1]):
+  if sum(train_rna.X[:, i])>10:
+    print(i)
