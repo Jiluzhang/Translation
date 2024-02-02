@@ -444,3 +444,7 @@ for i in range(dec_attn["self_attn"]['attn'][0].shape[0]):
 for i in range(train_rna.X.shape[1]):
   if sum(train_rna.X[:, i])>10:
     print(i)
+
+
+## normalization
+rna.X = rna.X/(rna.X.sum(axis=1, keepdims=True))*10000
