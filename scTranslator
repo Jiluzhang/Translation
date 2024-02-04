@@ -745,6 +745,20 @@ python plot_atac_roc_pr.py --pred atac_predicted.h5ad --true atac_test_pbmc_100.
 ############################## scM2M ##############################
 conda activate /data/home/zouqihang/miniconda3/envs/m2m
 
+## scM2M_train.sh
+for i in `seq 1 50`;do
+    bf=`expr $i - 1`
+    sample=`sed -n "$i p" normal_samples_id.txt`
+    echo `date` $sample start
+    accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --atac /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/$sample\_atac.h5ad --rna /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/$sample\_rna.h5ad \
+                      --save models --name $i --load models/$bf/pytorch_model.bin
+    echo `date` $sample end
+done
+
+
+
+
+
 accelerate launch --config_file default_config.yaml m2m_pre-train.py > test.txt
 
 nohup accelerate launch --config_file default_config.yaml m2m_pre-train.py > normal_normal_1000.txt &
