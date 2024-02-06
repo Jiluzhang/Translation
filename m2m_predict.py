@@ -325,6 +325,8 @@ device = torch.device("cuda:1")
 
 train_atac = sc.read_h5ad(train_atac_file)
 train_rna = sc.read_h5ad(train_rna_file)
+train_rna.X = np.round(train_rna.X/(train_rna.X.sum(axis=1, keepdims=True))*10000)
+train_rna.X[train_rna.X>255] = 255
 
 # parameters for dataloader construction
 train_kwargs = {'batch_size': batch_size, 'shuffle': True}
@@ -342,19 +344,19 @@ model = M2M_rna2atac(
             dim = 128, #Luz 16,
             enc_num_tokens = rna_max_value + 1,
             enc_seq_len = enc_max_len,
-            enc_depth = 1,
-            enc_heads = 1,
+            enc_depth = 2,
+            enc_heads = 4,
             enc_attn_window_size = attn_window_size,
             enc_dilation_growth_rate = 2,
             enc_ff_mult = 4,
 
-            latent_len = 64, #Luz 256, 
+            latent_len = 256, #Luz 256, 
             num_middle_MLP = 1, #Luz 2, 
             latent_dropout = 0.1, #Luz 0.1,
 
             dec_seq_len = dec_max_len,
-            dec_depth = 1,
-            dec_heads = 1,
+            dec_depth = 2,
+            dec_heads = 8,
             dec_attn_window_size = attn_window_size,
             dec_dilation_growth_rate = 5,
             dec_ff_mult = 4
@@ -448,3 +450,156 @@ for i in range(train_rna.X.shape[1]):
 
 ## normalization
 rna.X = rna.X/(rna.X.sum(axis=1, keepdims=True))*10000
+
+
+
+
+#################### Evaluation ###################
+import sys
+import os
+sys.path.append("M2Mmodel")
+import torch
+from M2M import M2M_rna2atac
+from utils import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+from torchmetrics import AUROC; from torcheval.metrics.functional import binary_auprc
+
+
+
+train_atac_file = "PM1380P1-T1_atac.h5ad"
+train_rna_file = "PM1380P1-T1_rna.h5ad"
+
+enc_max_len = 38244
+dec_max_len = 1033239
+
+batch_size = 1
+rna_max_value = 255
+attn_window_size = 2*2048
+SEED = 2023
+
+device = torch.device("cuda:0")
+
+train_atac = sc.read_h5ad(train_atac_file)
+train_atac.X = train_atac.X.toarray()
+train_rna = sc.read_h5ad(train_rna_file)
+train_rna.X = train_rna.X.toarray()
+train_rna.X = np.round(train_rna.X/(train_rna.X.sum(axis=1, keepdims=True))*10000)
+train_rna.X[train_rna.X>255] = 255
+
+# parameters for dataloader construction
+train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+cuda_kwargs = {
+    # 'pin_memory': True,  # 将加载的数据张量复制到 CUDA 设备的固定内存中，提高效率但会消耗更多内存
+    "num_workers": 4,
+    'prefetch_factor': 2
+}  
+train_kwargs.update(cuda_kwargs)
+
+train_dataset = FullLenPairDataset(train_rna.X, train_atac.X, rna_max_value)
+train_loader = torch.utils.data.DataLoader(train_dataset, **train_kwargs)
+
+auroc = AUROC(task='binary')
+
+model_1 = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 2,
+            enc_heads = 4,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 256, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 2,
+            dec_heads = 8,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+model_2 = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 2,
+            enc_heads = 4,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 256, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 2,
+            dec_heads = 8,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+model_3 = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 2,
+            enc_heads = 4,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 256, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 2,
+            dec_heads = 8,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+
+src, tgt = next(iter(train_loader))
+src = src.long().to(device)
+tgt = tgt.float().to(device)
+
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models_epoch_1/4/pytorch_model.bin'))
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models_epoch_2/4/pytorch_model.bin'))
+model_3.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models/4/pytorch_model.bin'))
+
+model_1.to(device)
+model_2.to(device)
+model_3.to(device)
+model_1.eval()
+model_2.eval()
+model_3.eval()
+
+with torch.no_grad():
+  logist_1 = model_1(src)
+  logist_2 = model_2(src)
+  logist_3 = model_3(src)
+  print("Model 1 ", "AUROC:", auroc(logist_1, tgt).item(), "AUPRC:", binary_auprc(torch.sigmoid(logist_1), tgt, num_tasks = logist_1.shape[0]).mean().item())
+  print("Model 2 ", "AUROC:", auroc(logist_2, tgt).item(), "AUPRC:", binary_auprc(torch.sigmoid(logist_2), tgt, num_tasks = logist_2.shape[0]).mean().item())
+  print("Model 3 ", "AUROC:", auroc(logist_3, tgt).item(), "AUPRC:", binary_auprc(torch.sigmoid(logist_3), tgt, num_tasks = logist_3.shape[0]).mean().item())
+  
+
+model.to(device)
+
+for i in range(1, 5):
+  model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models/'+str(i)+'/pytorch_model.bin'))
+  #model.eval()
+  with torch.no_grad():
+    logist = model(src)
+  print(i, "AUROC:", auroc(logist, tgt).item(), "AUPRC:", binary_auprc(torch.sigmoid(logist), tgt, num_tasks = logist.shape[0]).mean().item())
+
+
+
