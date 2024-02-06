@@ -603,3 +603,76 @@ for i in range(1, 5):
 
 
 
+
+## combine samples
+import pandas as pd
+import scanpy as sc
+import anndata as ad
+import numpy as np
+
+samples = pd.read_table('normal_samples_id.txt', header=None)
+rna_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][0]+'_rna.h5ad')
+atac_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][0]+'_atac.h5ad')
+rna = rna_0.copy()
+atac = atac_0.copy()
+
+for i in range(1, samples.shape[0]):
+    rna_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][i]+'_rna.h5ad')
+    atac_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][i]+'_atac.h5ad')
+    rna = ad.concat([rna, rna_tmp])
+    atac = ad.concat([atac, atac_tmp])
+    print(samples[0][i], 'done')
+
+rna.var = rna_0.var
+atac.var = atac_0.var
+
+# CE336E1-S1	CEAD    CE336E1-S1     828
+# CE348E1-S1K1	CESC    CE348E1-S1K1   3702
+# CM354C2-T1Y2	CRC     CM354C2-T1     8475
+# CPT2373DU-S1	UCEC    CPT2373DU-S1   2012
+# HT181P1-T1A3	PDAC    HT181P1-T1A3   2969
+# HT263B1-S1H1	BRCA    HT263B1-S1H1   4021
+# ML123M1-Ty1	SKCM    ML123M1-Ty1    2442
+# P5504-N1	    HNSCC   P5504-N1       2336
+# PM581P1-T1N1	PDAC    PM581P1-T1     2567
+# VF034V1-T1Y1	OV      VF034V1-T1     2772
+# Total count: 32,124
+
+samples = pd.read_table('normal_samples_id.txt', header=None)
+rna_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE336E1-S1_rna.h5ad')
+rna_0.obs.index = 'CE336E1-S1-'+rna_0.obs.index  # for duplicated cell barcode
+atac_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE336E1-S1_atac.h5ad')
+atac_0.obs.index = 'CE336E1-S1-'+atac_0.obs.index
+rna = rna_0.copy()
+atac = atac_0.copy()
+
+for sample in ['CE348E1-S1K1', 'CM354C2-T1', 'CPT2373DU-S1', 'HT181P1-T1A3', 'HT263B1-S1H1',
+               'ML123M1-Ty1', 'P5504-N1', 'PM581P1-T1', 'VF034V1-T1']:
+    rna_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+sample+'_rna.h5ad')
+    rna_tmp.obs.index = sample+'-'+rna_tmp.obs.index
+    atac_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+sample+'_atac.h5ad')
+    atac_tmp.obs.index = sample+'-'+atac_tmp.obs.index
+    rna = ad.concat([rna, rna_tmp])
+    atac = ad.concat([atac, atac_tmp])
+    print(sample, 'done')
+
+rna.var = rna_0.var
+atac.var = atac_0.var
+rna.write('rna_32124.h5ad')
+atac.write('atac_32124.h5ad')
+
+np.random.seed(0)
+shuf_idx = np.arange(rna.shape[0])
+np.random.shuffle(shuf_idx)
+rna[shuf_idx, :].write('rna_32124_shuf.h5ad')
+atac[shuf_idx, :].write('atac_32124_shuf.h5ad')
+
+# rna_32124_shuf_10000.h5ad   # head 10000
+# atac_32124_shuf_10000.ha5d  # head 10000
+
+accelerate launch --config_file default_config.yaml rna2atac_pre-train_v2.py --atac atac_32124_shuf.h5ad --rna rna_32124_shuf.h5ad --save models --name 32124_cells 
+
+
+
+
+
