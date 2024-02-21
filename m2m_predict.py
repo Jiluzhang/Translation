@@ -321,7 +321,7 @@ rna_max_value = 255
 attn_window_size = 2*2048
 SEED = 2023
 
-device = torch.device("cuda:1")
+device = torch.device("cuda:0")
 
 train_atac = sc.read_h5ad(train_atac_file)
 train_rna = sc.read_h5ad(train_rna_file)
@@ -673,6 +673,10 @@ atac[shuf_idx, :].write('atac_32124_shuf.h5ad')
 accelerate launch --config_file default_config.yaml rna2atac_pre-train_v2.py --atac atac_32124_shuf.h5ad --rna rna_32124_shuf.h5ad --save models --name 32124_cells 
 
 
+# rna_32124_shuf_10000_2.h5ad   # 10000-20000
+# atac_32124_shuf_10000_2.ha5d  # 10000-20000
 
+python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_2.h5ad --rna rna_32124_shuf_10000_2.h5ad --save models --name 32124_cells \
+                                --load /fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_epoch_1/32124_cells_10000_epoch_1/pytorch_model.bin
 
 
