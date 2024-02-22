@@ -681,6 +681,11 @@ python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_2.h5ad --rna rna_32
 
 
 
+# rna_32124_shuf_10000_3.h5ad   # 20000-30000
+# atac_32124_shuf_10000_3.ha5d  # 20000-30000
+python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_3.h5ad --rna rna_32124_shuf_10000_3.h5ad --save models --name 32124_cells \
+                                --load /fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_2_epoch_1/32124_cells_epoch_1/pytorch_model.bin
+
 
 
 ## attention matrix demo ##
