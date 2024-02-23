@@ -825,3 +825,36 @@ plt.savefig('gene_peak_attention_10000_datasets2_3.png')
 plt.close()
 
 
+
+
+
+######## spatial rna & atac data (from Fan lab) ########
+
+# RNA-Seq HumanBrain_50um (GSM6206885)
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_matrix.tsv.gz
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_spatial.tar.gz
+
+# ATAC-Seq HumanBrain_50um (GSM6206884)
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_fragments.tsv.gz
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_spatial.tar.gz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
