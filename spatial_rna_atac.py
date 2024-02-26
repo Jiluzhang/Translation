@@ -1,3 +1,15 @@
+######## spatial rna & atac data (from Fan lab) ########
+
+# RNA-Seq HumanBrain_50um (GSM6206885)
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_matrix.tsv.gz
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_spatial.tar.gz
+
+# ATAC-Seq HumanBrain_50um (GSM6206884)
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_fragments.tsv.gz
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_spatial.tar.gz
+
+
+## data preprocessing
 import scanpy as sc
 import pandas as pd
 import numpy as np
@@ -64,3 +76,189 @@ atac_new.var.index = atac_new.var['gene_ids'].values  # set index
 atac_new.X = csr_matrix(m)
 
 atac_new.write('spatial_atac.h5ad')
+
+
+
+
+
+## spatial_rna_atac_eval.py
+import sys
+import os
+sys.path.append("M2Mmodel")
+import torch
+from M2M import M2M_rna2atac
+from utils import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+from torchmetrics import AUROC
+from torcheval.metrics.functional import binary_auprc
+
+test_atac_file = '/fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_atac.h5ad'
+test_rna_file = "/fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_rna.h5ad"
+
+enc_max_len = 38244
+dec_max_len = 1033239
+
+batch_size = 1
+rna_max_value = 255
+attn_window_size = 2*2048
+
+device = torch.device("cuda:0")
+
+test_atac = sc.read_h5ad(test_atac_file)
+test_atac.X = test_atac.X.toarray()
+test_rna = sc.read_h5ad(test_rna_file)
+test_rna.X = test_rna.X.toarray()
+test_rna.X = np.round(test_rna.X/(test_rna.X.sum(axis=1, keepdims=True))*10000)
+test_rna.X[test_rna.X>255] = 255
+
+# parameters for dataloader construction
+test_kwargs = {'batch_size': batch_size, 'shuffle': True}
+cuda_kwargs = {
+    # 'pin_memory': True,  # 将加载的数据张量复制到 CUDA 设备的固定内存中，提高效率但会消耗更多内存
+    "num_workers": 4,
+    'prefetch_factor': 2
+}  
+test_kwargs.update(cuda_kwargs)
+
+test_dataset = FullLenPairDataset(test_rna.X, test_atac.X, rna_max_value)
+test_loader = torch.utils.data.DataLoader(test_dataset, **test_kwargs)
+
+model = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 2,
+            enc_heads = 4,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 256, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 2,
+            dec_heads = 8,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_epoch_3/32124_cells_10000_epoch_1/pytorch_model.bin'))
+model.to(device)
+
+auroc_lst = []
+auprc_lst = []
+auroc = AUROC(task='binary')
+
+model.eval()
+with torch.no_grad():
+  data_iter = enumerate(test_loader)
+  for i, (src, tgt) in data_iter:
+    src = src.long().to(device)
+    tgt = tgt.float().to(device)
+    logist = model(src)
+    
+    logist = logist
+    tgt = tgt
+    auroc_lst.append(auroc(logist, tgt).item())
+    auprc_lst.append(binary_auprc(torch.sigmoid(logist), tgt, num_tasks = logist.shape[0]).item())
+    print('cell', i, 'done')
+
+out = pd.DataFrame({'auroc': auroc_lst, 'auprc': auprc_lst})
+out.to_csv('spatial_rna_atac_auroc_auprc.txt', index=False, sep='\t')
+
+
+
+## 2124_rna_atac_eval.py
+import sys
+import os
+sys.path.append("M2Mmodel")
+import torch
+from M2M import M2M_rna2atac
+from utils import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+from torchmetrics import AUROC
+from torcheval.metrics.functional import binary_auprc
+
+test_atac_file = 'atac_32124_shuf_4.h5ad'
+test_rna_file = "rna_32124_shuf_4.h5ad"
+
+enc_max_len = 38244
+dec_max_len = 1033239
+
+batch_size = 1
+rna_max_value = 255
+attn_window_size = 2*2048
+
+device = torch.device("cuda:0")
+
+test_atac = sc.read_h5ad(test_atac_file)
+test_atac.X = test_atac.X.toarray()
+test_rna = sc.read_h5ad(test_rna_file)
+test_rna.X = test_rna.X.toarray()
+test_rna.X = np.round(test_rna.X/(test_rna.X.sum(axis=1, keepdims=True))*10000)
+test_rna.X[test_rna.X>255] = 255
+
+# parameters for dataloader construction
+test_kwargs = {'batch_size': batch_size, 'shuffle': True}
+cuda_kwargs = {
+    # 'pin_memory': True,  # 将加载的数据张量复制到 CUDA 设备的固定内存中，提高效率但会消耗更多内存
+    "num_workers": 4,
+    'prefetch_factor': 2
+}  
+test_kwargs.update(cuda_kwargs)
+
+test_dataset = FullLenPairDataset(test_rna.X, test_atac.X, rna_max_value)
+test_loader = torch.utils.data.DataLoader(test_dataset, **test_kwargs)
+
+model = M2M_rna2atac(
+            dim = 128, #Luz 16,
+            enc_num_tokens = rna_max_value + 1,
+            enc_seq_len = enc_max_len,
+            enc_depth = 2,
+            enc_heads = 4,
+            enc_attn_window_size = attn_window_size,
+            enc_dilation_growth_rate = 2,
+            enc_ff_mult = 4,
+
+            latent_len = 256, #Luz 256, 
+            num_middle_MLP = 1, #Luz 2, 
+            latent_dropout = 0.1, #Luz 0.1,
+
+            dec_seq_len = dec_max_len,
+            dec_depth = 2,
+            dec_heads = 8,
+            dec_attn_window_size = attn_window_size,
+            dec_dilation_growth_rate = 5,
+            dec_ff_mult = 4
+)
+
+model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_epoch_3/32124_cells_10000_epoch_1/pytorch_model.bin'))
+model.to(device)
+
+auroc_lst = []
+auprc_lst = []
+auroc = AUROC(task='binary')
+
+model.eval()
+with torch.no_grad():
+  data_iter = enumerate(test_loader)
+  for i, (src, tgt) in data_iter:
+    src = src.long().to(device)
+    tgt = tgt.float().to(device)
+    logist = model(src)
+    
+    logist = logist
+    tgt = tgt
+    auroc_lst.append(auroc(logist, tgt).item())
+    auprc_lst.append(binary_auprc(torch.sigmoid(logist), tgt, num_tasks = logist.shape[0]).item())
+    print('cell', i, 'done')
+
+out = pd.DataFrame({'auroc': auroc_lst, 'auprc': auprc_lst})
+out.to_csv('2124_rna_atac_auroc_auprc.txt', index=False, sep='\t')
+
+
