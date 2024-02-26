@@ -687,6 +687,9 @@ python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_3.h5ad --rna rna_32
                                 --load /fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_2_epoch_1/32124_cells_epoch_1/pytorch_model.bin
 
 
+# rna_32124_shuf_10000_3.h5ad   # 30000-32124
+# atac_32124_shuf_10000_3.ha5d  # 30000-32124
+
 
 ## attention matrix demo ##
 import sys
@@ -828,15 +831,7 @@ plt.close()
 
 
 
-######## spatial rna & atac data (from Fan lab) ########
 
-# RNA-Seq HumanBrain_50um (GSM6206885)
-wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_matrix.tsv.gz
-wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206885/suppl/GSM6206885_HumanBrain_50um_spatial.tar.gz
-
-# ATAC-Seq HumanBrain_50um (GSM6206884)
-wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_fragments.tsv.gz
-wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6206nnn/GSM6206884/suppl/GSM6206884_HumanBrain_50um_spatial.tar.gz
 
 
 
