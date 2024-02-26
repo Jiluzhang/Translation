@@ -2,6 +2,8 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix
+import pybedtools
+from tqdm import tqdm
 
 ########## rna ##########
 rna_raw = pd.read_csv('GSM6206885_HumanBrain_50um_matrix.tsv.gz', sep='\t')
@@ -33,32 +35,32 @@ rna_new.write('spatial_rna.h5ad')
 
 
 ########## atac ##########
-atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
-atac.X = np.array(atac.X.todense())
-atac.X[atac.X>1] = 1
-atac.X[atac.X<1] = 0
+atac_raw = pd.read_csv('GSM6206884_HumanBrain_50um_fragments.tsv.gz', comment='#', header=None, sep='\t')  # 44,940,844
+atac_raw.columns = ['chr', 'start', 'end', 'barcode', 'count']
+atac_raw = atac_raw[atac_raw['chr'].isin(['chr'+str(i) for i in range(1, 23)])]  # chr1-chr22  43,668,969
+atac_raw['peak_id'] = atac_raw['chr']+':'+atac_raw['start'].astype(str)+'-'+atac_raw['end'].astype(str)
 
-peaks = pd.DataFrame({'id': atac.var_names})
-peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
-peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
-peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
-peaks.drop(columns='id', inplace=True)
-peaks['idx'] = range(peaks.shape[0])
-
-cCREs = pd.read_table('cCRE_gene/human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
 cCREs['idx'] = range(cCREs.shape[0])
 cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
-peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
-idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
-idx_map.columns = ['peaks_idx', 'cCREs_idx']
 
-m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
-for j in tqdm(range(atac.X.shape[0])):
-  m[j][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[j])]['idx'])]['cCREs_idx']] = 1
+m = np.zeros([2500, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+## ~1.5h
+for i in tqdm(range(2500)):
+  atac_tmp = atac_raw[atac_raw['barcode']==rna_new.obs.index[i]+'-1']
+  
+  peaks = atac_tmp[['chr', 'start', 'end']]
+  peaks['idx'] = range(peaks.shape[0])
+  
+  peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+  idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+  idx_map.columns = ['peaks_idx', 'cCREs_idx']
+  
+  m[i][idx_map['cCREs_idx'].values] = 1
 
 atac_new_var = pd.DataFrame({'gene_ids': cCREs['chr'] + ':' + cCREs['start'].map(str) + '-' + cCREs['end'].map(str), 'feature_types': 'Peaks'})
-atac_new = sc.AnnData(m, obs=atac.obs, var=atac_new_var)
+atac_new = sc.AnnData(m, obs=rna_new.obs, var=atac_new_var)
 atac_new.var.index = atac_new.var['gene_ids'].values  # set index
-atac_new.X = csr_matrix(atac_new.X)
+atac_new.X = csr_matrix(m)
 
-atac_new.write('normal_h5ad/'+ids[0][i]+'_atac.h5ad')
+atac_new.write('spatial_atac.h5ad')
