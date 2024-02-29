@@ -218,138 +218,101 @@ import matplotlib.pyplot as plt
 adata = sc.read_h5ad('rna_tumor_B.h5ad')  # 14566 × 38244
 
 sc.pp.filter_genes(adata, min_cells=3)  # 14566 × 20198
-adata.var['mt'] = adata.var_names.str.startswith('MT-')
-sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
+#adata.var['mt'] = adata.var_names.str.startswith('MT-')
+#sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
 sc.pp.normalize_total(adata, target_sum=1e4)
 sc.pp.log1p(adata)
 
 sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
 adata.raw = adata
 adata = adata[:, adata.var.highly_variable]
-sc.pp.regress_out(adata, ['total_counts', 'pct_counts_mt'])
-sc.pp.scale(adata, max_value=10)
+#sc.pp.regress_out(adata, ['total_counts', 'pct_counts_mt'])
+#sc.pp.scale(adata, max_value=10)
 
 sc.tl.pca(adata, svd_solver='arpack')
-sc.pl.pca_variance_ratio(adata, log=True)
+#sc.pl.pca_variance_ratio(adata, log=True)
 
-sc.pp.neighbors(adata, n_neighbors=10, n_pcs=40)
-sc.tl.umap(adata)
-sc.tl.leiden(adata)
+sc.pp.neighbors(adata)
+sc.tl.umap(adata, min_dist=0.2)
+sc.tl.leiden(adata, resolution=0.2)
 
 sc.tl.rank_genes_groups(adata, 'leiden', method='wilcoxon')
-adata.write('rna_tumor_B_res.h5ad')
 
-## umap plot
-# sc.pl.umap(adata, color='leiden', legend_fontsize='3.5', legend_loc='on data',
-#            title='', frameon=True, save='umap.pdf')
-# sc.pl.umap(adata, color='sample_groups', legend_fontsize='5', legend_loc='right margin', size=2, 
-#            title='', frameon=True, save='batch.pdf')
+sc.pl.umap(adata, color='leiden', legend_fontsize='5', legend_loc='on data',
+           title='', frameon=True, save='_min_dist_0.2_resolution_0.2.pdf')
 
-#marker_genes = ['Dcn', 'Col1a1', 'Col1a2', 'Lum',                               'Pdgfra',
-#                'Cdh5', 'Pecam1', 'Vwf',                 'Npr3', 'Fabp4',
-#                'Plp1',
-#                'Tagln', 'Mylk', 'Myh11',
-#                                                         'Pdgfrb',              'Rgs5', 'Abcc9',
-#                'Lyz2', 'Cd14', 'Mrc1', 'Cd68',          'Adgre1',              'C1qa',
-#                'Cd3d', 'Cd2', 'Klrd1', 'Nkg7', 'Il7r',  'Cd8a',
-#                'Cd79a', 'Ms4a1', 'Ighd',                'Cd19',
-#                'S100a9',
-#                'Mki67', 'Top2a']
-#sc.pl.dotplot(adata, marker_genes, groupby='leiden', dendrogram=True,
-#              save='marker_genes.pdf')
+pd.DataFrame(adata.uns['rank_genes_groups']['names']).head(10)
+#            0          1       2        3        4
+# 0      PRKCH       TCF4  SLC8A1    BANK1    FBXL7
+# 1        FYN       PAX5   RBM47  RALGPS2     SVIL
+# 2     THEMIS   ARHGAP24   LRMDA   CCSER1     NFIB
+# 3     BCL11B       AFF3    TYMP    MEF2C  PPFIBP1
+# 4     INPP4B      FCRL5   DMXL2    FCRL1      APP
+# 5      CELF2      GPM6A    DPYD   FCHSD2    ZFPM2
+# 6      CD247  LINC01320    TNS3    MS4A1    DOCK1
+# 7      MBNL1     NIBAN3   MCTP1     AFF3    MAGI1
+# 8       CBLB      FOXP1  PLXDC2    CDK14   SPTBN1
+# 9  LINC01934     RUBCNL   FMNL2   RIPOR2    RBPMS
 
-# cluster_0:Dcn,Cst3,Mfap4,Lum,Igfbp4
-# cluster_1:Cd74,mt-Rnr1,Apoe,Gm42418,Lyz2
-# cluster_2:Mgp,Eln,Col1a1,Fn1,Tm4sf1
-# cluster_3:C1qb,C1qc,C1qa,Lyz2,Ms4a7
-# cluster_4:Dcn,Mfap4,Sparc,Col3a1,Serpinf1
-# cluster_5:Ctss,Ms4a4c,Fcer1g,Fcgr1,Ly6e
-# cluster_6:Tuba1b,Mki67,Tubb5,Ube2c,Spp1
-# cluster_7:Ms4a4b,Trbc2,H2-K1,AW112020,H2-Q7
-# cluster_8:Cfh,Serping1,Gsn,Dcn,Cst3
-# cluster_9:Acta2,Tagln,Myl9,Igfbp7,Tpm2
-# cluster_10:Fth1,Ftl1,Ctsd,Prdx1,Lyz2
-# cluster_11:Mgp,Bgn,Lox,Ppic,Sparc
-# cluster_12:Pecam1,Ly6c1,Fabp4,Cdh5,Cav1
-# cluster_13:Rps24,Rps27,Trbc2,Rplp2,Rplp1
-# cluster_14:H2-Ab1,H2-Aa,Cd74,H2-Eb1,Ifi30
-# cluster_15:Il1b,Cxcl2,Srgn,S100a8,S100a9
-# cluster_16:Igkc,Ighm,Cd74,Cd79a,Rps27
-# cluster_17:Cldn5,Cavin2,Plvap,Mmrn1,Lrg1
-# cluster_18:Stmn2,Npy,Gnas,Uchl1,Tubb3
-# cluster_19:Plp1,Dbi,Prnp,Matn2,Gpm6b
-# cluster_20:Car3,Cfd,Adipoq,Gpx3,Fabp4
-# cluster_21:AW112010,Il2rb,Nkg7,Ms4a4b,Ccl5
-# cluster_22:Igkc,Jchain,Igha,Iglv1,Cd74
-# cluster_23:Sparcl1,Tpm1,Tinagl1,Myh11,Crip1
-# cluster_24:Trdc,Tcrg-C1,Cxcr6,Cd163l1,Cd3g
-# cluster_25:S100a8,S100a9,Lcn2,Camp,Ngp
-# cluster_26:Mpz,Pmp22,Mbp,Cnp,Mal
-# cluster_27:Fcer1a,Tpsb2,Mcpt4,Mrgprx2,Cpa3
+# cluster_0:PRKCH,FYN,THEMIS,BCL11B,INPP4B,CELF2,CD247,MBNL1,CBLB,LINC01934
+# cluster_1:TCF4,PAX5,ARHGAP24,AFF3,FCRL5,GPM6A,LINC01320,NIBAN3,FOXP1,RUBCNL
+# cluster_2:SLC8A1,RBM47,LRMDA,TYMP,DMXL2,DPYD,TNS3,MCTP1,PLXDC2,FMNL2
+# cluster_3:BANK1,RALGPS2,CCSER1,MEF2C,FCRL1,FCHSD2,MS4A1,AFF3,CDK14,RIPOR2
+# cluster_4:FBXL7,SVIL,NFIB,PPFIBP1,APP,ZFPM2,DOCK1,MAGI1,SPTBN1,RBPMS
 
-# cluster_0: Fibroblast
-# cluster_1: Macrophage
-# cluster_2: Fibroblast
-# cluster_3: Macrophage
-# cluster_4: Fibroblast
-# cluster_5: Monocyte
-# cluster_6: T cell
-# cluster_7: T cell
-# cluster_8: Fibroblast
-# cluster_9: Smooth muscle cell
-# cluster_10: Macrophage
-# cluster_11: Fibroblast
-# cluster_12: Endothelial cell
-# cluster_13: T cell
-# cluster_14: Dendritic cell
-# cluster_15: Macrophage
-# cluster_16: B cell
-# cluster_17: Endothelial cell
-# cluster_18: Neuron
-# cluster_19: Schwann cell
-# cluster_20: Fat cell
-# cluster_21: NK cell
-# cluster_22: Plasma cell
-# cluster_23: Smooth muscle cell
-# cluster_24: T cell
-# cluster_25: Neutrophil
-# cluster_26: Schwann cell
-# cluster_27: Mast cell
+# cluster_0: T cell
+# cluster_1: Tumor B cell
+# cluster_2: Monocyte
+# cluster_3: Normal B cell
+# cluster_4: Other
 
 ## cell type annotation tool: http://xteam.xbio.top/ACT
-cell_anno_dict = {'0':'Fibroblast', '1':'Macrophage', '2':'Fibroblast', '3':'Macrophage', '4':'Fibroblast', '5':'Monocyte',
-                  '6':'T cell', '7':'T cell', '8':'Fibroblast', '9':'Smooth muscle cell', '10':'Macrophage', '11':'Fibroblast',
-                  '12':'Endothelial cell', '13':'T cell', '14':'Dendritic cell', '15':'Macrophage', '16':'B cell',
-                  '17':'Endothelial cell', '18':'Neuron', '19':'Schwann cell', '20':'Fat cell', '21':'NK cell', '22':'Plasma cell',
-                  '23':'Smooth muscle cell', '24':'T cell', '25':'Neutrophil', '26':'Schwann cell', '27':'Mast cell'}
+## ref: https://www.nature.com/articles/s41467-023-36559-0/figures/5
+cell_anno_dict = {'0':'T cell', '1':'Tumor B cell', '2':'Monocyte', '3':'Normal B cell', '4':'Other'}
 adata.obs['cell_anno'] = adata.obs['leiden']
 adata.obs['cell_anno'].replace(cell_anno_dict, inplace=True)
 
-sc.pl.umap(adata, color='cell_anno', legend_fontsize='5', legend_loc='on data',
-           title='', frameon=True, save='umap.pdf')
-sc.pl.umap(adata, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=1,
-           title='', frameon=True, save='umap2.pdf')
-sc.pl.umap(adata, color='sample_groups', legend_fontsize='5', legend_loc='right margin', size=2, 
-           title='', frameon=True, save='batch.pdf')
+sc.pl.umap(adata, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=3,
+           title='', frameon=True, save='_cell_annotation.pdf')
 
-## output marker genes for each cluster
-pd.DataFrame(adata.uns['rank_genes_groups']['names']).head(5).to_csv('cluster_marker_genes.txt', index=False, sep='\t')
+adata.write('rna_tumor_B_res.h5ad')
 
-#marker_genes = np.array(pd.DataFrame(adata.uns['rank_genes_groups']['names']).head(5)[['0', '1', '5', '6', '9', '12', '14', '16', '18', '19', '20', '21', '22', '25', '27']].T).flatten()
-marker_genes_top5 = pd.DataFrame(adata.uns['rank_genes_groups']['names']).head(5)
-marker_genes_dict = {'Fibroblast': marker_genes_top5['0'], 'Macrophage': marker_genes_top5['1'], 'Monocyte': marker_genes_top5['5'], 'T cell': marker_genes_top5['6'],
-                     'Smooth muscle cell': marker_genes_top5['9'], 'Endothelial cell': marker_genes_top5['12'], 'Dendritic cell': marker_genes_top5['14'], 'B cell': marker_genes_top5['16'],
-                     'Neuron': marker_genes_top5['18'], 'Schwann cell': marker_genes_top5['19'], 'Fat cell': marker_genes_top5['20'], 'NK cell': marker_genes_top5['21'],
-                     'Plasma cell': marker_genes_top5['22'], 'Neutrophil': marker_genes_top5['25'], 'Mast cell': marker_genes_top5['27']}
-sc.pl.dotplot(adata, marker_genes_dict, groupby='cell_anno', 
-              categories_order=['Fibroblast', 'Macrophage', 'Monocyte', 'T cell', 'Smooth muscle cell', 'Endothelial cell', 'Dendritic cell',
-                                'B cell', 'Neuron', 'Schwann cell', 'Fat cell', 'NK cell', 'Plasma cell', 'Neutrophil', 'Mast cell'],
-              save='marker_genes.pdf')
 
-adata[adata.obs['sample_groups']=='wt-1'].obs['cell_anno'].value_counts()
-adata[adata.obs['sample_groups']=='wt-2'].obs['cell_anno'].value_counts()
-adata[adata.obs['sample_groups']=='ko-1'].obs['cell_anno'].value_counts()
-adata[adata.obs['sample_groups']=='ko-2'].obs['cell_anno'].value_counts()
+##################### scATAC-seq data processing #####################
+## https://github.com/kaizhang/SnapATAC2
+# pip install snapatac2
+# pip install ipython
+
+import snapatac2 as snap
+import polars as pl
+
+data = snap.read('atac_tumor_B.h5ad')
+data.to_memory()
+
+snap.pp.select_features(data, n_features=250000)
+snap.tl.spectral(data)
+snap.tl.umap(data)
+#snap.pl.umap(data, color='leiden', interactive=False, height=500)
+data.obs['cell_anno'] = pl.from_pandas(adata.obs['cell_anno'])
+#snap.pl.umap(data, color='cell_anno', show=False, out_file='umap_atac_true.pdf', height=500)
+
+data.write('atac_true_tumor_B_res.h5ad')
+
+atac_true = sc.read_h5ad('atac_true_tumor_B_res.h5ad')
+atac_true.obs.cell_anno = atac_true.obs.cell_anno.cat.set_categories(['T cell', 'Tumor B cell', 'Monocyte', 'Normal B cell', 'Other'])  # keep the color consistent
+
+sc.pl.umap(atac_true, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=3,
+           title='', frameon=True, save='_atac_true_cell_annotation.pdf')
+
+
+
+
+
+
+
+
+
+
 
 
 
