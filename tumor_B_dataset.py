@@ -305,8 +305,71 @@ sc.pl.umap(atac_true, color='cell_anno', legend_fontsize='7', legend_loc='on dat
            title='', frameon=True, save='_atac_true_cell_annotation.pdf')
 
 
+## prediction result evaulation
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+
+out = np.zeros([14566, 1033239])
+for i in (list(range(1000, 14566, 1000)) + [14566]):
+    m = np.load('atac_tumor_B_pred_'+str(i)+'.npy')
+    m[m>0.99]=1
+    m[m<=0.99]=0
+    if i!=14566:
+        out[(i-1000):i] = m
+    else:
+        out[(i-566):i] = m
+    print('matrix', i, 'done')
 
 
+atac_true = snap.read('atac_tumor_B.h5ad', backed=None)
+atac_pred = atac_true.copy()
+
+#out = out.astype(np.float32)
+atac_pred.X = csr_matrix(out)
+
+snap.pp.select_features(atac_pred) #snap.pp.select_features(atac_pred, n_features=250000)
+snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_atac_pred_0.99.pdf', height=500)
+
+atac_pred.write('atac_pred_tumor_B_res_cutoff_0.7.h5ad')
+
+atac_true = sc.read_h5ad('atac_true_tumor_B_res.h5ad')
+atac_true.obs.cell_anno = atac_true.obs.cell_anno.cat.set_categories(['T cell', 'Tumor B cell', 'Monocyte', 'Normal B cell', 'Other'])  # keep the color consistent
+
+sc.pl.umap(atac_true, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=3,
+           title='', frameon=True, save='_atac_true_cell_annotation.pdf')
+
+
+#### prediction is not ranked!!!!
+
+
+
+import pandas as pd
+
+def out_pred_bedgraph(cell_type='T cell'):
+    t_cell_pred = atac_pred[atac_pred.obs['cell_anno']==cell_type, :].X.toarray().mean(axis=0)
+    t_cell_df = pd.DataFrame({'chr': atac_pred.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                              'start': atac_pred.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                              'end': atac_pred.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                              'val': t_cell_pred})
+    t_cell_df.to_csv(cell_type.replace(' ', '_')+'_atac_pred.bedgraph', index=False, header=False, sep='\t')
+    print(cell_type, 'pred done')
+
+def out_true_bedgraph(cell_type='T cell'):
+    t_cell_true = atac_true[atac_true.obs['cell_anno']==cell_type, :].X.toarray().mean(axis=0)
+    t_cell_true_df = pd.DataFrame({'chr': atac_true.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                                   'start': atac_true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                                   'end': atac_true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                                   'val': t_cell_true})
+    t_cell_true_df.to_csv(cell_type.replace(' ', '_')+'_atac_true.bedgraph', index=False, header=False, sep='\t')
+    print(cell_type, 'true done')
+
+for cell_type in set(atac_pred.obs['cell_anno'].values):
+    out_pred_bedgraph(cell_type)
+    out_true_bedgraph(cell_type)
 
 
 
