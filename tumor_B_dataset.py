@@ -96,7 +96,7 @@ test_rna.X = np.round(test_rna.X/(test_rna.X.sum(axis=1, keepdims=True))*10000)
 test_rna.X[test_rna.X>255] = 255
 
 # parameters for dataloader construction
-test_kwargs = {'batch_size': batch_size, 'shuffle': True}
+test_kwargs = {'batch_size': batch_size, 'shuffle': False}  # test_kwargs = {'batch_size': batch_size, 'shuffle': True}
 cuda_kwargs = {
     # 'pin_memory': True,  # 将加载的数据张量复制到 CUDA 设备的固定内存中，提高效率但会消耗更多内存
     "num_workers": 4,
@@ -140,7 +140,6 @@ with torch.no_grad():
     src = src.long().to(device)
     logist = model(src)
     y_hat_out = torch.cat((y_hat_out, torch.sigmoid(logist)))
-    print(2*(i+1), 'cells done')
     
     if 2*(i+1)%1000==0 or 2*(i+1)==test_atac.n_obs:
       np.save('atac_tumor_B_pred_'+str(2*(i+1))+'.npy', y_hat_out.to('cpu').numpy())
