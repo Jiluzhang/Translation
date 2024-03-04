@@ -152,6 +152,31 @@ with torch.no_grad():
 #atac_res.write('atac_tumor_B_pred.h5ad')
 
 
+################ True & Pred atac files ################
+import numpy as np
+import scanpy as sc
+
+# need large memory
+# out = np.load('atac_tumor_B_pred_1000.npy')
+# for i in (list(range(2000, 14566, 1000)) + [14566]):
+#     m = np.load('atac_tumor_B_pred_'+str(i)+'.npy')
+#     out = np.vstack((out, m))
+#     print('matrix', i, 'done')
+
+# randomly select 100 cells (head 100)
+true_atac = sc.read_h5ad('atac_tumor_B.h5ad')
+true_atac[:100, :].write('atac_tumor_B_true_100.h5ad')
+pred_atac_X = np.load('atac_tumor_B_pred_1000.npy')[:100, ]
+pred_atac = sc.AnnData(pred_atac_X, obs=true_atac[:100, :].obs, var=true_atac[:100, :].var)
+pred_atac.write('atac_tumor_B_pred_100.h5ad')
+
+# randomly select 100 cells (tail 100)
+true_atac = sc.read_h5ad('atac_tumor_B.h5ad')
+true_atac[-100:, :].write('atac_tumor_B_true_tail_100.h5ad')
+pred_atac_X = np.load('atac_tumor_B_pred_14566.npy')[-100:, ]
+pred_atac = sc.AnnData(pred_atac_X, obs=true_atac[-100:, :].obs, var=true_atac[-100:, :].var)
+pred_atac.write('atac_tumor_B_pred_tail_100.h5ad')
+
 
 ########## AUROC & AUPRC ##########
 # python plot_atac_roc_pr.py --pred atac_tumor_B_pred_100.h5ad --true atac_tumor_B_true_100.h5ad
@@ -313,8 +338,8 @@ from scipy.sparse import csr_matrix
 out = np.zeros([14566, 1033239])
 for i in (list(range(1000, 14566, 1000)) + [14566]):
     m = np.load('atac_tumor_B_pred_'+str(i)+'.npy')
-    m[m>0.99]=1
-    m[m<=0.99]=0
+    m[m>0.95]=1
+    m[m<=0.95]=0
     if i!=14566:
         out[(i-1000):i] = m
     else:
@@ -331,15 +356,22 @@ atac_pred.X = csr_matrix(out)
 snap.pp.select_features(atac_pred) #snap.pp.select_features(atac_pred, n_features=250000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_atac_pred_0.99.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_atac_pred_0.95.pdf', height=500)
 
-atac_pred.write('atac_pred_tumor_B_res_cutoff_0.7.h5ad')
 
-atac_true = sc.read_h5ad('atac_true_tumor_B_res.h5ad')
-atac_true.obs.cell_anno = atac_true.obs.cell_anno.cat.set_categories(['T cell', 'Tumor B cell', 'Monocyte', 'Normal B cell', 'Other'])  # keep the color consistent
+# i = 14566
+# m = np.load('atac_tumor_B_pred_'+str(i)+'.npy')
+# np.setdiff1d(np.where(m[10]>0.95), np.where(m[9]>0.95))
+# array([802275])
 
-sc.pl.umap(atac_true, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=3,
-           title='', frameon=True, save='_atac_true_cell_annotation.pdf')
+
+atac_pred.write('atac_pred_tumor_B_res_cutoff_0.95.h5ad')
+
+atac_true_res = sc.read_h5ad('atac_true_tumor_B_res.h5ad')
+atac_pred.obs.cell_anno = atac_true_res.obs.cell_anno.cat.set_categories(['T cell', 'Tumor B cell', 'Monocyte', 'Normal B cell', 'Other'])  # keep the color consistent
+
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=3,
+           title='', frameon=True, save='_atac_pred_cell_annotation.pdf')
 
 
 #### prediction is not ranked!!!!
