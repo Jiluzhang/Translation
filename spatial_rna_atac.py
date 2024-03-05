@@ -244,6 +244,20 @@ auroc_lst = []
 auprc_lst = []
 auroc = AUROC(task='binary')
 
+
+model.eval()
+with torch.no_grad():
+  data_iter = enumerate(test_loader)
+  i, (src, tgt) = next(data_iter)
+  src = src.long().to(device)
+  tgt = tgt.float().to(device)
+  logist = model(src)
+
+sum(src[0].to('cpu').numpy()!=0)
+sum(tgt[0].to('cpu').numpy()!=0)
+sum(torch.sigmoid(logist).to('cpu').numpy()[0]>0.95)
+
+
 model.eval()
 with torch.no_grad():
   data_iter = enumerate(test_loader)
