@@ -691,6 +691,13 @@ python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_3.h5ad --rna rna_32
 # atac_32124_shuf_10000_3.ha5d  # 30000-32124
 
 
+
+
+python rna2atac_pre-train_v3.py --atac atac_32124_shuf_4.h5ad --rna rna_32124_shuf_4.h5ad --save models --name test_loss
+
+
+
+
 ## attention matrix demo ##
 import sys
 import os
