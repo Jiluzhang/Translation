@@ -238,6 +238,7 @@ model = M2M_rna2atac(
 )
 
 model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_epoch_3/32124_cells_10000_epoch_1/pytorch_model.bin'))
+model.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_v2/models/test_loss_epoch_5/pytorch_model.bin'))
 model.to(device)
 
 auroc_lst = []
@@ -247,7 +248,7 @@ auroc = AUROC(task='binary')
 
 model.eval()
 with torch.no_grad():
-  data_iter = enumerate(test_loader)
+  #data_iter = enumerate(test_loader)
   i, (src, tgt) = next(data_iter)
   src = src.long().to(device)
   tgt = tgt.float().to(device)
@@ -255,7 +256,8 @@ with torch.no_grad():
 
 sum(src[0].to('cpu').numpy()!=0)
 sum(tgt[0].to('cpu').numpy()!=0)
-sum(torch.sigmoid(logist).to('cpu').numpy()[0]>0.95)
+sum(torch.sigmoid(logist).to('cpu').numpy()[0]>0.9)
+torch.sigmoid(logist)
 
 
 model.eval()
