@@ -232,6 +232,52 @@ fig.savefig('rna2atac_auprc.pdf', dpi=600, bbox_inches="tight")
 print('plot pr curve done')
 
 
+
+# python cal_avg_atac_roc_pr.py --pred atac_tumor_B_pred_100.h5ad --true atac_tumor_B_true_100.h5ad
+
+import argparse
+import pandas as pd
+import sklearn.metrics as metrics
+import numpy as np
+import scanpy as sc
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser(description='Evaluate predicted atac peaks')
+parser.add_argument('-p', '--pred', type=str, help='prediction')
+parser.add_argument('-t', '--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred_atac = sc.read_h5ad(pred_file)
+print('read pred file done')
+true_atac = sc.read_h5ad(true_file)
+print('read true file done')
+
+def get_array(X):
+  if type(X)!=np.ndarray:
+    return X.toarray()
+  else:
+    return X
+
+pred = get_array(pred_atac.X)
+true = get_array(true_atac.X)
+
+auroc = []
+auprc = []
+for i in range(true.shape[0]):
+  fpr, tpr, _ = metrics.roc_curve(true[i], pred[i])
+  auroc.append(metrics.auc(fpr, tpr))
+  print('cell', i, 'AUROC done')
+
+  precision, recall, _thresholds = metrics.precision_recall_curve(true[i], pred[i])
+  auprc = metrics.auc(recall, precision)
+  print('cell', i, 'AUPRC done')
+
+print('AUROC:', np.mean(auroc))
+print('AUPRC:', np.mean(auprc))
+
+
 ############ Cell annotation ############
 import numpy as np
 import pandas as pd
