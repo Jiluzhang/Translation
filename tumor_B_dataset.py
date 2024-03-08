@@ -82,7 +82,7 @@ test_rna_file = '/fs/home/jiluzhang/10x_tumor_B/rna_tumor_B.h5ad'
 enc_max_len = 38244
 dec_max_len = 1033239
 
-batch_size = 2
+batch_size = 1
 rna_max_value = 255
 attn_window_size = 2*2048
 
