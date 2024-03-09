@@ -667,14 +667,20 @@ np.random.shuffle(shuf_idx)
 rna[shuf_idx, :].write('rna_32124_shuf.h5ad')
 atac[shuf_idx, :].write('atac_32124_shuf.h5ad')
 
-# rna_32124_shuf_10000.h5ad   # head 10000
-# atac_32124_shuf_10000.ha5d  # head 10000
+# rna_32124_shuf_10000_1.h5ad   # head 10000
+# atac_32124_shuf_10000_1.ha5d  # head 10000
+rna[shuf_idx[:10000], :].write('rna_32124_shuf_10000_1.h5ad')
+atac[shuf_idx[:10000], :].write('atac_32124_shuf_10000_1.h5ad')
+
 
 accelerate launch --config_file default_config.yaml rna2atac_pre-train_v2.py --atac atac_32124_shuf.h5ad --rna rna_32124_shuf.h5ad --save models --name 32124_cells 
 
 
 # rna_32124_shuf_10000_2.h5ad   # 10000-20000
 # atac_32124_shuf_10000_2.ha5d  # 10000-20000
+rna[shuf_idx[10000:20000], :].write('rna_32124_shuf_10000_2.h5ad')
+atac[shuf_idx[10000:20000], :].write('atac_32124_shuf_10000_2.h5ad')
+
 
 python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_2.h5ad --rna rna_32124_shuf_10000_2.h5ad --save models --name 32124_cells \
                                 --load /fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_epoch_1/32124_cells_10000_epoch_1/pytorch_model.bin
@@ -683,13 +689,17 @@ python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_2.h5ad --rna rna_32
 
 # rna_32124_shuf_10000_3.h5ad   # 20000-30000
 # atac_32124_shuf_10000_3.ha5d  # 20000-30000
+
+rna[shuf_idx[20000:30000], :].write('rna_32124_shuf_10000_3.h5ad')
+atac[shuf_idx[20000:30000], :].write('atac_32124_shuf_10000_3.h5ad')
 python rna2atac_pre-train_v2.py --atac atac_32124_shuf_10000_3.h5ad --rna rna_32124_shuf_10000_3.h5ad --save models --name 32124_cells \
                                 --load /fs/home/jiluzhang/scM2M_v2/models_32124_lr_0.00001_2_epoch_1/32124_cells_epoch_1/pytorch_model.bin
 
 
-# rna_32124_shuf_10000_3.h5ad   # 30000-32124
-# atac_32124_shuf_10000_3.ha5d  # 30000-32124
-
+# rna_32124_shuf_10000_4.h5ad   # 30000-32124
+# atac_32124_shuf_10000_4.ha5d  # 30000-32124
+rna[shuf_idx[30000:], :].write('rna_32124_shuf_10000_4.h5ad')
+atac[shuf_idx[30000:], :].write('atac_32124_shuf_10000_4.h5ad')
 
 
 
