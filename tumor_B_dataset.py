@@ -1,5 +1,7 @@
 # attention.py: std=0.01 -> std=0.1 !!!!!!!!!!!!!!
 
+# batch_size & dropout
+
 ## Flash-Frozen Lymph Node with B Cell Lymphoma
 
 # wget -c https://cf.10xgenomics.com/samples/cell-arc/2.0.0/lymph_node_lymphoma_14k/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5
