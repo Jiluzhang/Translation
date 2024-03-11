@@ -275,7 +275,7 @@ for i in range(true.shape[0]):
   print('cell', i, 'AUROC done')
 
   precision, recall, _thresholds = metrics.precision_recall_curve(true[i], pred[i])
-  auprc = metrics.auc(recall, precision)
+  auprc.append(metrics.auc(recall, precision))
   print('cell', i, 'AUPRC done')
 
 print('AUROC:', np.mean(auroc))
