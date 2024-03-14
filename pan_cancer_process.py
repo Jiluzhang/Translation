@@ -155,6 +155,82 @@ for t in range(200):
 
 
 
+import torch
+import numpy as np
+import random
+import torch.nn.functional as F
+import torch.optim as optim
+from torchmetrics import AUROC; from torcheval.metrics.functional import binary_auroc, binary_auprc
+from torch.utils.data import DataLoader, TensorDataset
+import scanpy as sc
+
+device = 'cuda:7'
+rna = sc.read_h5ad('rna_32124.h5ad')
+atac = sc.read_h5ad('atac_32124.h5ad')
+x = torch.tensor(rna.X[:10000].toarray()).to(device)
+y = torch.tensor(atac.X[:10000].toarray()).to(device)
+
+dataset = TensorDataset(x, y)
+dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
+
+class Net(torch.nn.Module):
+    def __init__(self,n_feature,n_hidden,n_output):
+        super(Net,self).__init__()
+        #两层感知机
+        self.hidden = torch.nn.Linear(n_feature,n_hidden)
+        self.predict = torch.nn.Linear(n_hidden,n_output)
+ 
+    def forward(self,x):
+        x = F.relu(self.hidden(x))
+        x = self.predict(x)
+        return x
+
+
+net = Net(38244, 1024, 1033239).to(device)
+#optimizer = optim.Adam(net.parameters(),lr = 0.002)
+loss_func = torch.nn.MSELoss()
+
+lr_init = 0.001
+for t in range(30):
+    optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(1, t+1))
+    epoch_loss = 0
+    for batch_idx, (X, Y) in enumerate(dataloader):
+        prediction = net(X)
+        weight = Y.clone()
+        #weight[weight==0]=1
+        #atac_cnt = Y.sum(axis=1)
+        #for i in range(10):
+        #    weight[i] = 1/atac_cnt[i]*10000
+        weight[weight==1]=50
+        weight[weight<1]=1
+        loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, weight, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+    #print('lr:', optimizer.state_dict()['param_groups'][0]['lr'])
+        #if batch_idx % 1000 ==0:
+        #  print(batch_idx)
+    #print(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]))
+    print('epoch:', t,
+          'loss:', round(epoch_loss/(batch_idx+1)*100, 4),
+          'auroc:', round(binary_auroc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4),
+          'auprc', round(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4))
+
+
+param_sum = 0
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        param_sum += np.prod(list(param.shape))
+
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        print(param.shape)
+
+print(param_sum)
+
+
+
 ##########################################################
 
 
