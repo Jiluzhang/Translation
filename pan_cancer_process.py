@@ -155,6 +155,10 @@ for t in range(200):
 
 
 
+
+
+
+
 import torch
 import numpy as np
 import random
@@ -167,8 +171,15 @@ import scanpy as sc
 device = 'cuda:7'
 rna = sc.read_h5ad('rna_32124.h5ad')
 atac = sc.read_h5ad('atac_32124.h5ad')
-x = torch.tensor(rna.X[:10000].toarray()).to(device)
-y = torch.tensor(atac.X[:10000].toarray()).to(device)
+
+
+rna_idx = np.where(np.count_nonzero(rna.X[:10000].toarray(), axis=1)>2000)[0]
+atac_idx = np.where(np.count_nonzero(atac.X[:10000].toarray(), axis=1)>10000)[0]
+idx = np.intersect1d(rna_idx, atac_idx)
+
+
+x = torch.tensor(rna.X[idx].toarray()).to(device)
+y = torch.tensor(atac.X[idx].toarray()).to(device)
 
 dataset = TensorDataset(x, y)
 dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
@@ -186,24 +197,25 @@ class Net(torch.nn.Module):
         return x
 
 
-net = Net(38244, 1024, 1033239).to(device)
+net = Net(38244, 64, 1033239).to(device)
 #optimizer = optim.Adam(net.parameters(),lr = 0.002)
-loss_func = torch.nn.MSELoss()
+#loss_func = torch.nn.MSELoss()
 
 lr_init = 0.001
-for t in range(30):
-    optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(1, t+1))
+for t in range(100):
+    optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(0.9, t+1))
     epoch_loss = 0
     for batch_idx, (X, Y) in enumerate(dataloader):
         prediction = net(X)
-        weight = Y.clone()
+        #weight = Y.clone()
         #weight[weight==0]=1
         #atac_cnt = Y.sum(axis=1)
         #for i in range(10):
         #    weight[i] = 1/atac_cnt[i]*10000
-        weight[weight==1]=50
-        weight[weight<1]=1
-        loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, weight, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
+        #weight[weight==1]=50
+        #weight[weight<1]=1
+        loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
+        #loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, weight, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
