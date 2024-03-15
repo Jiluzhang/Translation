@@ -168,20 +168,36 @@ from torchmetrics import AUROC; from torcheval.metrics.functional import binary_
 from torch.utils.data import DataLoader, TensorDataset
 import scanpy as sc
 
-device = 'cuda:7'
-rna = sc.read_h5ad('rna_32124.h5ad')
-atac = sc.read_h5ad('atac_32124.h5ad')
+device = 'cuda:1'
+rna = sc.read_h5ad('rna_1k.h5ad')
+atac = sc.read_h5ad('atac_1k.h5ad')
+pre_atac = sc.read_h5ad('atac_1k_pre_seq_500k.h5ad')
+x = torch.tensor(rna.X).to(device)
+y = torch.tensor(atac.X).to(device)
+pre_y = torch.tensor(pre_atac.X).to(device)
+
+rna_shuf = rna.X.copy()
+atac_shuf = atac.X.copy()
+for i in range(5):
+    idx = list(range(1000))
+    np.random.shuffle(idx)
+    rna_shuf = rna_shuf + rna.X[idx]
+    atac_shuf = atac_shuf + atac.X[idx]
+    atac_shuf[atac_shuf>0] = 1
+
+x = torch.tensor(rna_shuf).to(device)
+y = torch.tensor(atac_shuf).to(device)
 
 
-rna_idx = np.where(np.count_nonzero(rna.X[:10000].toarray(), axis=1)>2000)[0]
-atac_idx = np.where(np.count_nonzero(atac.X[:10000].toarray(), axis=1)>10000)[0]
-idx = np.intersect1d(rna_idx, atac_idx)
+#rna_idx = np.where(np.count_nonzero(rna.X[:10000].toarray(), axis=1)>2000)[0]
+#atac_idx = np.where(np.count_nonzero(atac.X[:10000].toarray(), axis=1)>10000)[0]
+#idx = np.intersect1d(rna_idx, atac_idx)
 
 
-x = torch.tensor(rna.X[idx].toarray()).to(device)
-y = torch.tensor(atac.X[idx].toarray()).to(device)
+#x = torch.tensor(rna.X[idx].toarray()).to(device)
+#y = torch.tensor(atac.X[idx].toarray()).to(device)
 
-dataset = TensorDataset(x, y)
+dataset = TensorDataset(x, y, pre_y)
 dataloader = DataLoader(dataset, batch_size=10, shuffle=False)
 
 class Net(torch.nn.Module):
@@ -189,24 +205,34 @@ class Net(torch.nn.Module):
         super(Net,self).__init__()
         #两层感知机
         self.hidden = torch.nn.Linear(n_feature,n_hidden)
+        #self.hidden_2 = torch.nn.Linear(n_output, n_hidden)
         self.predict = torch.nn.Linear(n_hidden,n_output)
  
-    def forward(self,x):
+    def forward(self, x):
         x = F.relu(self.hidden(x))
         x = self.predict(x)
         return x
+    
+    #def forward(self,x, pre_y):
+    #    x = F.relu(self.hidden(x))
+    #    #y = F.relu(self.hidden_2(pre_y))
+    #    x = self.predict(x)+pre_y
+    #    return x
 
-
-net = Net(38244, 64, 1033239).to(device)
+net = Net(1033239, 64, 1033239).to(device)
+#net = Net(38244, 64, 1033239).to(device)
 #optimizer = optim.Adam(net.parameters(),lr = 0.002)
 #loss_func = torch.nn.MSELoss()
 
-lr_init = 0.001
+lr_init = 0.002
 for t in range(100):
-    optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(0.9, t+1))
+    optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(1, t+1))
     epoch_loss = 0
-    for batch_idx, (X, Y) in enumerate(dataloader):
-        prediction = net(X)
+    for batch_idx, (X, Y, Pre_Y) in enumerate(dataloader):
+        #Pre_Y = Y.clone()
+        #Pre_Y[:] = 0
+        prediction = net(Pre_Y.float())
+        #prediction = net(X, Pre_Y.float())
         #weight = Y.clone()
         #weight[weight==0]=1
         #atac_cnt = Y.sum(axis=1)
@@ -214,6 +240,7 @@ for t in range(100):
         #    weight[i] = 1/atac_cnt[i]*10000
         #weight[weight==1]=50
         #weight[weight<1]=1
+        #loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y.double(), reduction = "mean")
         loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
         #loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, weight, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
         optimizer.zero_grad()
@@ -228,6 +255,21 @@ for t in range(100):
           'loss:', round(epoch_loss/(batch_idx+1)*100, 4),
           'auroc:', round(binary_auroc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4),
           'auprc', round(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4))
+
+with torch.no_grad():
+    for batch_idx, (X, Y, Pre_Y) in enumerate(dataloader):
+        Pre_Y = Y.clone()
+        Pre_Y[:] = 0
+        prediction = net(X, Pre_Y.float())
+        print('auroc:', round(binary_auroc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4),
+              'auprc', round(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4))
+
+
+# single->single: 0.9623   0.1353
+# meta->meta:     0.9693   0.527
+# meta-> single:  ~0.96    ~0.13 
+# single->meta:   ~0.97    ~0.52
+
 
 
 param_sum = 0
