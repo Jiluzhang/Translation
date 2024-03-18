@@ -168,7 +168,7 @@ from torchmetrics import AUROC; from torcheval.metrics.functional import binary_
 from torch.utils.data import DataLoader, TensorDataset
 import scanpy as sc
 
-device = 'cuda:1'
+device = 'cuda:7'
 rna = sc.read_h5ad('rna_1k.h5ad')
 atac = sc.read_h5ad('atac_1k.h5ad')
 pre_atac = sc.read_h5ad('atac_1k_pre_seq_500k.h5ad')
@@ -219,7 +219,7 @@ class Net(torch.nn.Module):
     #    x = self.predict(x)+pre_y
     #    return x
 
-net = Net(1033239, 64, 1033239).to(device)
+net = Net(38244, 64, 1033239).to(device)
 #net = Net(38244, 64, 1033239).to(device)
 #optimizer = optim.Adam(net.parameters(),lr = 0.002)
 #loss_func = torch.nn.MSELoss()
@@ -231,7 +231,7 @@ for t in range(100):
     for batch_idx, (X, Y, Pre_Y) in enumerate(dataloader):
         #Pre_Y = Y.clone()
         #Pre_Y[:] = 0
-        prediction = net(Pre_Y.float())
+        prediction = net(X)
         #prediction = net(X, Pre_Y.float())
         #weight = Y.clone()
         #weight[weight==0]=1
@@ -255,6 +255,40 @@ for t in range(100):
           'loss:', round(epoch_loss/(batch_idx+1)*100, 4),
           'auroc:', round(binary_auroc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4),
           'auprc', round(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]).mean().item(), 4))
+
+
+lr_init = 0.002
+for t in range(100):
+     optimizer = optim.Adam(net.parameters(),lr = lr_init*pow(1, t+1))
+     epoch_loss = 0
+     for batch_idx, (X, Y, Pre_Y) in enumerate(dataloader):
+         #Pre_Y = Y.clone()
+         #Pre_Y[:] = 0
+         prediction = net(X)
+         #prediction = net(X, Pre_Y.float())
+         #weight = Y.clone()
+         #weight[weight==0]=1
+         #atac_cnt = Y.sum(axis=1)
+         #for i in range(10):
+         #    weight[i] = 1/atac_cnt[i]*10000
+         #weight[weight==1]=50
+         #weight[weight<1]=1
+         #loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y.double(), reduction = "mean")
+         loss = F.binary_cross_entropy(torch.sigmoid(prediction), Pre_Y.float(), reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
+         #loss = F.binary_cross_entropy(torch.sigmoid(prediction), Y, weight, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),Y)
+         optimizer.zero_grad()
+         loss.backward()
+         optimizer.step()
+         epoch_loss += loss.item()
+     #print('lr:', optimizer.state_dict()['param_groups'][0]['lr'])
+         #if batch_idx % 1000 ==0:
+         #  print(batch_idx)
+     #print(binary_auprc(torch.sigmoid(prediction), Y, num_tasks = prediction.shape[0]))
+     print('epoch:', t,
+           'loss:', round(epoch_loss/(batch_idx+1)*100, 4),
+           'auroc:', round(binary_auroc(torch.sigmoid(prediction), Pre_Y, num_tasks = prediction.shape[0]).mean().item(), 4),
+           'auprc', round(binary_auprc(torch.sigmoid(prediction), Pre_Y, num_tasks = prediction.shape[0]).mean().item(), 4))
+
 
 with torch.no_grad():
     for batch_idx, (X, Y, Pre_Y) in enumerate(dataloader):
