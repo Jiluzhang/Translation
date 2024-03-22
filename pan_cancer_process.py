@@ -1,25 +1,3 @@
-import scanpy as sc
-import numpy as np
-
-dat = sc.read_10x_mtx('.', gex_only=False)
-
-rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
-sc.pp.filter_cells(rna, min_genes=1000)
-sc.pp.filter_cells(rna, max_genes=10000)
-
-atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
-sc.pp.filter_cells(atac, min_genes=1000)
-sc.pp.filter_cells(atac, max_genes=50000)
-
-idx = np.intersect1d(rna.obs.index, atac.obs.index)
-rna[idx, :].write('rna_filtered.h5ad')
-atac[idx, :].write('atac_filtered.h5ad')
-
-
-
-
-
-
 # mkdir normal_h5ad
 
 # cCREs: wget -c https://downloads.wenglab.org/V3/GRCh38-cCREs.bed
