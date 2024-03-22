@@ -92,12 +92,51 @@ for i in range(len(ids)):
     print(i, sample_id, 'done')
 
 
+## merge_filter_genes_peaks.py
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import anndata as ad
+
+ids = pd.read_table('../files_all.txt', header=None)
+
+for i in range(len(ids)):
+    sample_id = ids.iloc[i, 0]
+    if i==0:
+        rna = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        rna.obs.index = sample_id+'-'+rna.obs.index
+        atac = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')
+        atac.obs.index = sample_id+'-'+atac.obs.index
+    else:
+        rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        rna_tmp.obs.index = sample_id+'-'+rna_tmp.obs.index
+        rna = ad.concat([rna, rna_tmp])
+        atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')
+        atac_tmp.obs.index = sample_id+'-'+atac_tmp.obs.index
+        atac = ad.concat([atac, atac_tmp])
+    print(i, sample_id, 'done')
+
+rna.var = rna_tmp.var
+atac.var = atac_tmp.var
+
+sc.pp.filter_genes(rna, min_cells=1)
+sc.pp.filter_genes(atac, min_cells=1)
+
+np.random.seed(0)
+shuf_idx = np.arange(rna.shape[0])
+np.random.shuffle(shuf_idx)
+rna[shuf_idx[:10000], :].write('pan_cancer_rna_train_shuf.h5ad')     # 69577 × 23502
+atac[shuf_idx[:10000], :].write('pan_cancer_atac_train_shuf.h5ad')   # 69577 × 539927
+rna[shuf_idx[-10000:], :].write('pan_cancer_rna_test_shuf.h5ad')
+atac[shuf_idx[-10000:], :].write('pan_cancer_atac_test_shuf.h5ad')
 
 
 
+accelerate launch --config_file default_config.yaml rna2atac_pre-train_v2.py --atac atac_32124_shuf.h5ad --rna rna_32124_shuf.h5ad --save models --name 32124_cells 
 
+python rna2atac_pre-train_v3.py --atac pan_cancer_atac_train_shuf.h5ad --rna pan_cancer_rna_train_shuf.h5ad --save models --name pan_cancer \
+                                --enc_max_len 23502 --dec_max_len 539927 --batch_size 5 --lr 0.001
 
-
-
-
+python rna2atac_pre-train_v3.py --atac pan_cancer_atac_train_shuf.h5ad --rna pan_cancer_rna_train_shuf.h5ad --save models --name pan_cancer \
+                                --enc_max_len 23502 --dec_max_len 539927 --batch_size 5 --lr 0.0001 --load models/pan_cancer_epoch_1_iter_159/pytorch_model.bin
 
