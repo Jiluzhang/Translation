@@ -125,7 +125,7 @@ sc.pp.filter_genes(atac, min_cells=1)
 np.random.seed(0)
 shuf_idx = np.arange(rna.shape[0])
 np.random.shuffle(shuf_idx)
-rna[shuf_idx[:10000], :].write('pan_cancer_rna_train_shuf.h5ad')     # 69577 × 23502
+rna[shuf_idx[:10000], :].write('pan_cancer_rna_train_shuf.h5ad')     # 69577 × 23502 (head 20 samples)
 atac[shuf_idx[:10000], :].write('pan_cancer_atac_train_shuf.h5ad')   # 69577 × 539927
 rna[shuf_idx[-10000:], :].write('pan_cancer_rna_test_shuf.h5ad')
 atac[shuf_idx[-10000:], :].write('pan_cancer_atac_test_shuf.h5ad')
