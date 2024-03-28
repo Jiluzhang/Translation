@@ -98,7 +98,7 @@ import pandas as pd
 import numpy as np
 import anndata as ad
 
-ids = pd.read_table('../files_all.txt', header=None)
+ids = pd.read_table('../files_all.txt', header=None)[:20]
 
 for i in range(len(ids)):
     sample_id = ids.iloc[i, 0]
@@ -119,6 +119,9 @@ for i in range(len(ids)):
 rna.var = rna_tmp.var
 atac.var = atac_tmp.var
 
+rna.write('pan_cancer_rna_head_20_samples.h5ad')
+atac.write('pan_cancer_atac_head_20_samples.h5ad')
+
 sc.pp.filter_genes(rna, min_cells=1)
 sc.pp.filter_genes(atac, min_cells=1)
 
@@ -132,6 +135,31 @@ atac[shuf_idx[-10000:], :].write('pan_cancer_atac_test_shuf.h5ad')
 
 
 
+sc.pp.filter_genes(rna, min_cells=100)
+sc.pp.filter_genes(atac, min_cells=100)
+
+np.random.seed(0)
+shuf_idx = np.arange(rna.shape[0])
+np.random.shuffle(shuf_idx)
+rna[shuf_idx[:10000], :].write('pan_cancer_rna_train_shuf_2.h5ad')     # 69577 × 19546 (head 20 samples)
+atac[shuf_idx[:10000], :].write('pan_cancer_atac_train_shuf_2.h5ad')   # 69577 × 471457
+rna[shuf_idx[-10000:], :].write('pan_cancer_rna_test_shuf_2.h5ad')
+atac[shuf_idx[-10000:], :].write('pan_cancer_atac_test_shuf_2.h5ad')
+
+
+sc.pp.filter_genes(rna, min_cells=1)
+sc.pp.filter_genes(atac, min_cells=100)
+
+np.random.seed(0)
+shuf_idx = np.arange(rna.shape[0])
+np.random.shuffle(shuf_idx)
+rna[shuf_idx[:10000], :].write('pan_cancer_rna_train_shuf_3.h5ad')     # 69577 × 23502 (head 20 samples)
+atac[shuf_idx[:10000], :].write('pan_cancer_atac_train_shuf_3.h5ad')   # 69577 × 471457
+rna[shuf_idx[-10000:], :].write('pan_cancer_rna_test_shuf_3.h5ad')
+atac[shuf_idx[-10000:], :].write('pan_cancer_atac_test_shuf_3.h5ad')
+
+
+
 accelerate launch --config_file default_config.yaml rna2atac_pre-train_v2.py --atac atac_32124_shuf.h5ad --rna rna_32124_shuf.h5ad --save models --name 32124_cells 
 
 python rna2atac_pre-train_v3.py --atac pan_cancer_atac_train_shuf.h5ad --rna pan_cancer_rna_train_shuf.h5ad --save models --name pan_cancer \
@@ -140,3 +168,12 @@ python rna2atac_pre-train_v3.py --atac pan_cancer_atac_train_shuf.h5ad --rna pan
 python rna2atac_pre-train_v3.py --atac pan_cancer_atac_train_shuf.h5ad --rna pan_cancer_rna_train_shuf.h5ad --save models --name pan_cancer \
                                 --enc_max_len 23502 --dec_max_len 539927 --batch_size 5 --lr 0.0001 --load models/pan_cancer_epoch_1_iter_159/pytorch_model.bin
 
+accelerate launch --main_process_port 29501 --config_file default_config.yaml rna2atac_pre-train_v3.py \
+                  --atac pan_cancer_atac_train_shuf_2.h5ad --rna pan_cancer_rna_train_shuf_2.h5ad \
+                  --save models --name pan_cancer --enc_max_len 19546 --dec_max_len 471457 --batch_size 10 --lr 0.001
+
+nohup accelerate launch --main_process_port 29501 --config_file default_config.yaml rna2atac_pre-train_v3.py \
+                        --atac pan_cancer_atac_train_shuf_3.h5ad --rna pan_cancer_rna_train_shuf_3.h5ad \
+                        --save models --name pan_cancer --enc_max_len 23502 --dec_max_len 471457 --batch_size 10 --lr 0.001 > training_20240328_3.log &
+
+#latent_len: 32
