@@ -98,7 +98,92 @@ import pandas as pd
 import numpy as np
 import anndata as ad
 
-ids = pd.read_table('../files_all.txt', header=None)[:20]
+ids = pd.read_table('../files_all.txt', header=None)
+
+## count for genes & peaks (time-consuming)
+for i in range(len(ids)):
+    sample_id = ids.iloc[i, 0]
+    if i==0:
+        rna_init = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        rna_cnt = np.count_nonzero(rna_init.X.toarray(), axis=0)
+        atac_init = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')
+        atac_cnt = np.count_nonzero(atac_init.X.toarray(), axis=0)
+    else:
+        rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        rna_cnt = rna_cnt + np.count_nonzero(rna_tmp.X.toarray(), axis=0)
+        atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')
+        atac_cnt = atac_cnt + np.count_nonzero(atac_tmp.X.toarray(), axis=0)
+    print(i, sample_id, 'done')
+
+np.save('rna_cnt_stats.npy', rna_cnt)
+np.save('atac_cnt_stats.npy', atac_cnt)
+
+## count cells
+for i in range(len(ids)):
+    sample_id = ids.iloc[i, 0]
+    if i==0:
+        rna_init = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        cell_cnt = rna_init.n_obs
+    else:
+        rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')
+        cell_cnt = cell_cnt + rna_tmp.n_obs
+    print(i, sample_id, 'done')
+
+# cell_cnt 481,024
+
+gene_idx = rna_cnt>481024*0.001   # 20,539
+peak_idx = atac_cnt>481024*0.001  # 542,369
+
+
+for sample_id in ['CE336E1-S1', 'CE348E1-S1K1', 'CPT2373DU-S1', 'HT181P1-T1A3', 'HT263B1-S1H1',
+                  'ML123M1-Ty1', 'P5504-N1', 'PM581P1-T1', 'VF034V1-T1', 'GBML018G1-M1']:
+    if sample_id=='CE336E1-S1':
+        rna = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[:, gene_idx]
+        rna.obs.index = sample_id+'-'+rna.obs.index
+        atac = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[:, peak_idx]
+        atac.obs.index = sample_id+'-'+atac.obs.index
+    else:
+        rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[:, gene_idx]
+        rna_tmp.obs.index = sample_id+'-'+rna_tmp.obs.index
+        rna = ad.concat([rna, rna_tmp])
+        atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[:, peak_idx]
+        atac_tmp.obs.index = sample_id+'-'+atac_tmp.obs.index
+        atac = ad.concat([atac, atac_tmp])
+    print(sample_id, 'done')
+
+rna.var = rna_tmp.var    # 27845 × 20539
+atac.var = atac_tmp.var  # 27845 × 542369
+
+np.random.seed(0)
+shuf_idx = np.arange(rna.shape[0])
+np.random.shuffle(shuf_idx)
+rna[shuf_idx[:25000], :].write('pan_cancer_rna_train_25000.h5ad')
+atac[shuf_idx[:25000], :].write('pan_cancer_atac_train_25000.h5ad')
+rna[shuf_idx[25000:], :].write('pan_cancer_rna_test_2845.h5ad')
+atac[shuf_idx[25000:], :].write('pan_cancer_atac_test_2845.h5ad')
+
+
+rna_cnt = np.load('rna_cnt_stats.npy')
+atac_cnt = np.load('atac_cnt_stats.npy')
+gene_idx = rna_cnt>481024*0.001  
+peak_idx = atac_cnt>481024*0.001
+crc_rna = sc.read_h5ad('CM354C2-T1_rna_aligned.h5ad')[:, gene_idx]
+crc_rna.obs.index = 'CM354C2-T1-'+crc_rna.obs.index
+crc_rna.write('pan_cancer_rna_test_crc.h5ad')
+crc_atac = sc.read_h5ad('CM354C2-T1_atac_aligned.h5ad')[:, peak_idx]
+crc_atac.obs.index = 'CM354C2-T1-'+crc_atac.obs.index
+crc_atac.write('pan_cancer_atac_test_crc.h5ad')
+
+
+# scM2M_v2_pro
+accelerate launch --main_process_port 29501 --config_file default_config.yaml rna2atac_pre-train.py \
+                  --atac pan_cancer_atac_train_25000.h5ad --rna pan_cancer_rna_train_25000.h5ad \
+                  --save models --name pan_cancer --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001
+
+
+## https://humantumoratlas.org/
+
+
 
 for i in range(len(ids)):
     sample_id = ids.iloc[i, 0]
