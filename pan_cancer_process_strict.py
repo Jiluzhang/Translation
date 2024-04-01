@@ -181,9 +181,12 @@ accelerate launch --main_process_port 29501 --config_file default_config.yaml rn
                   --save models --name pan_cancer --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001
 
 
+##################################################################################################
 ## https://humantumoratlas.org/
-
-
+library(Seurat)
+dat <- readRDS('CE337E1-S1N1.rds')
+dat@meta.data$cell_type
+##################################################################################################
 
 for i in range(len(ids)):
     sample_id = ids.iloc[i, 0]
