@@ -231,14 +231,28 @@ for i in range(25):
     print(i, 'output h5ad done')
 
 
-nohup accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 1 \
-                        --rna pan_cancer_rna_dataset_0.h5ad --atac pan_cancer_atac_dataset_0.h5ad \               
-                        --save models --name dataset_0_p1 --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_0_p1.h5ad &
+## ./train_datasets.sh
+accelerate launch --config_file default_config.yaml rna2atac_pre-train_p1.py --SEED 0 --epoch 1 \
+                  --rna pan_cancer_rna_dataset_0.h5ad --atac pan_cancer_atac_dataset_0.h5ad \
+                  --save models --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_0_p1.log
+
+accelerate launch --config_file default_config.yaml rna2atac_pre-train_p2.py --load models/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna pan_cancer_rna_dataset_0.h5ad --atac pan_cancer_atac_dataset_0.h5ad \
+                  --save models --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_0_p2.log
+
+for i in `seq 1 24`;do
+    accelerate launch --config_file default_config.yaml rna2atac_pre-train_p1.py --load models/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                      --rna pan_cancer_rna_dataset_$i.h5ad --atac pan_cancer_atac_dataset_$i.h5ad \
+                      --save models --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_$i\_p1.log
+    
+    accelerate launch --config_file default_config.yaml rna2atac_pre-train_p2.py --load models/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                      --rna pan_cancer_rna_dataset_$i.h5ad --atac pan_cancer_atac_dataset_$i.h5ad \
+                      --save models --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_$i\_p2.log
+done
 
 
-
-
-
+nohup ./train_datasets.sh > train_datasets.log &
+# 2050491
 
 
 ##################################################################################################
