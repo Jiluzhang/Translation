@@ -181,7 +181,7 @@ accelerate launch --main_process_port 29501 --config_file default_config.yaml rn
                   --save models --name pan_cancer --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001
 
 
-## merge h5ad based on cancer type
+## output h5ad files (5 samples per group)
 import scanpy as sc
 import pandas as pd
 import numpy as np
@@ -193,36 +193,51 @@ atac_cnt = np.load('atac_cnt_stats.npy')
 gene_idx = rna_cnt>481024*0.001   # 20,539
 peak_idx = atac_cnt>481024*0.001  # 542,369
 
-ids_type = pd.read_table('../files_all_cancer_type.txt', header=None, names=['id', 'cancer_type'])
-
-def merge_h5ad(cancer_type='CEAD'):
-    ids = ids_type[ids_type['cancer_type']==cancer_type]['id'].values
-    for i in range(ids.shape[0]):
-        sample_id = ids[i]
-        if i==0:
-            rna = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[:, gene_idx]
-            rna.obs.index = sample_id+'-'+rna.obs.index
-            atac = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[:, peak_idx]
-            atac.obs.index = sample_id+'-'+atac.obs.index
-        else:
-            rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[:, gene_idx]
-            rna_tmp.obs.index = sample_id+'-'+rna_tmp.obs.index
-            rna = ad.concat([rna, rna_tmp])
-            atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[:, peak_idx]
-            atac_tmp.obs.index = sample_id+'-'+atac_tmp.obs.index
-            atac = ad.concat([atac, atac_tmp])
-        print(cancer_type, i, sample_id, 'done')
+sample_shuf = pd.read_table('sample_id_shuf.txt', header=None)
+for i in range(25):
+    rna_0 = sc.read_h5ad(sample_shuf[0][i*5]+'_rna_aligned.h5ad')[:, gene_idx]
+    rna_0.obs.index = sample_shuf[0][i*5]+'-'+rna_0.obs.index
+    rna_1 = sc.read_h5ad(sample_shuf[0][i*5+1]+'_rna_aligned.h5ad')[:, gene_idx]
+    rna_1.obs.index = sample_shuf[0][i*5+1]+'-'+rna_1.obs.index
+    rna_2 = sc.read_h5ad(sample_shuf[0][i*5+2]+'_rna_aligned.h5ad')[:, gene_idx]
+    rna_2.obs.index = sample_shuf[0][i*5+2]+'-'+rna_2.obs.index
+    rna_3 = sc.read_h5ad(sample_shuf[0][i*5+3]+'_rna_aligned.h5ad')[:, gene_idx]
+    rna_3.obs.index = sample_shuf[0][i*5+3]+'-'+rna_3.obs.index
+    rna_4 = sc.read_h5ad(sample_shuf[0][i*5+4]+'_rna_aligned.h5ad')[:, gene_idx]
+    rna_4.obs.index = sample_shuf[0][i*5+4]+'-'+rna_4.obs.index
+    rna = ad.concat([rna_0, rna_1, rna_2, rna_3, rna_4])
+    rna.var = rna_0.var 
+    print(i, 'merge rna done')
     
-    rna.var = rna_tmp.var
-    atac.var = atac_tmp.var
+    atac_0 = sc.read_h5ad(sample_shuf[0][i*5]+'_atac_aligned.h5ad')[:, peak_idx]
+    atac_0.obs.index = sample_shuf[0][i*5]+'-'+atac_0.obs.index
+    atac_1 = sc.read_h5ad(sample_shuf[0][i*5+1]+'_atac_aligned.h5ad')[:, peak_idx]
+    atac_1.obs.index = sample_shuf[0][i*5+1]+'-'+atac_1.obs.index
+    atac_2 = sc.read_h5ad(sample_shuf[0][i*5+2]+'_atac_aligned.h5ad')[:, peak_idx]
+    atac_2.obs.index = sample_shuf[0][i*5+2]+'-'+atac_2.obs.index
+    atac_3 = sc.read_h5ad(sample_shuf[0][i*5+3]+'_atac_aligned.h5ad')[:, peak_idx]
+    atac_3.obs.index = sample_shuf[0][i*5+3]+'-'+atac_3.obs.index
+    atac_4 = sc.read_h5ad(sample_shuf[0][i*5+4]+'_atac_aligned.h5ad')[:, peak_idx]
+    atac_4.obs.index = sample_shuf[0][i*5+4]+'-'+atac_4.obs.index
+    atac = ad.concat([atac_0, atac_1, atac_2, atac_3, atac_4])
+    atac.var = atac_0.var
+    print(i, 'merge atac done')
     
     np.random.seed(0)
     shuf_idx = np.arange(rna.shape[0])
     np.random.shuffle(shuf_idx)
-    rna[shuf_idx, :].write('rna_'+cancer_type+'.h5ad')
-    atac[shuf_idx, :].write('atac_'+cancer_type+'.h5ad')
-    
-    print('sample number:', ids.shape[0], 'cell number:', rna.n_obs)
+    rna[shuf_idx, :].write('pan_cancer_rna_dataset_'+str(i)+'.h5ad')
+    atac[shuf_idx, :].write('pan_cancer_atac_dataset_'+str(i)+'.h5ad')
+    print(i, 'output h5ad done')
+
+
+nohup accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 1 \
+                        --rna pan_cancer_rna_dataset_0.h5ad --atac pan_cancer_atac_dataset_0.h5ad \               
+                        --save models --name dataset_0_p1 --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_0_p1.h5ad &
+
+
+
+
 
 
 
