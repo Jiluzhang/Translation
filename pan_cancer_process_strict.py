@@ -230,6 +230,11 @@ for i in range(25):
     atac[shuf_idx, :].write('pan_cancer_atac_dataset_'+str(i)+'.h5ad')
     print(i, 'output h5ad done')
 
+## count cell
+for sample_id in sample_shuf[0].values:
+    print(sample_id, sc.read_h5ad(sample_id+'_rna_aligned.h5ad').n_obs)
+
+
 
 ## ./train_datasets.sh
 accelerate launch --config_file default_config.yaml rna2atac_pre-train_p1.py --SEED 0 --epoch 1 \
@@ -253,6 +258,14 @@ done
 
 nohup ./train_datasets.sh > train_datasets.log &
 # 2050491
+
+
+accelerate launch --config_file default_config.yaml rna2atac_pre-train_p2.py --load models/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna pan_cancer_rna_dataset_12.h5ad --atac pan_cancer_atac_dataset_12.h5ad \
+                  --save models --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_12_p2.log
+
+
+
 
 
 ##################################################################################################
