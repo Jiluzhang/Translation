@@ -266,6 +266,72 @@ accelerate launch --config_file default_config.yaml rna2atac_pre-train_p2.py --l
 
 
 
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import anndata as ad
+
+rna_cnt = np.load('rna_cnt_stats.npy')
+atac_cnt = np.load('atac_cnt_stats.npy')
+
+gene_idx = rna_cnt>481024*0.001   # 20,539
+peak_idx = atac_cnt>481024*0.001  # 542,369
+
+samples = pd.read_table('../files_all_cancer_type.txt', header=None, names=['sample_id', 'cancer_type'])
+samples = samples[samples['cancer_type']!='UCEC']
+samples.index = range(len(samples))
+
+sample_id_lst = []
+for i in range(len(samples['sample_id'])):
+    sample_id_lst += list(samples['sample_id'][i]+'_'+samples['cancer_type'][i]+'_'+sc.read_h5ad(samples['sample_id'][i]+'_rna_aligned.h5ad').obs.index.values)
+    print(i, samples['sample_id'][i], 'done')
+
+np.random.seed(0)
+shuf_idx = np.arange(len(sample_id_lst))
+np.random.shuffle(shuf_idx)
+
+p1 = sorted(np.array(sample_id_lst)[shuf_idx[:5000]])
+
+for i in range(5000):
+    if i==0:
+        sample_id = p1[i].split('_')[0]
+        cancer_type = p1[i].split('_')[1]
+        bc_lst = [p1[i].split('_')[2]]
+    elif i!=4999:
+        if p1[i].split('_')[0]==sample_id:
+            bc_lst.append(p1[i].split('_')[2])
+        else:
+            if 'rna_out' in locals():
+                rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                rna_out = ad.concat([rna_out, rna_tmp])
+            else:
+                rna_out = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                rna_out.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+            sample_id = p1[i].split('_')[0]
+            cancer_type = p1[i].split('_')[1]
+            bc_lst = [p1[i].split('_')[2]]
+    else:
+        if p1[i].split('_')[0]==sample_id:
+            bc_lst.append(p1[i].split('_')[2])
+            rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+            rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+            rna_out = ad.concat([rna_out, rna_tmp])
+        else:
+            bc_lst = [p1[i].split('_')[2]]
+            cancer_type = p1[i].split('_')[1]
+            rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+            rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+            rna_out = ad.concat([rna_out, rna_tmp])
+
+rna_out.var = rna_tmp.var
+rna_out[p1, :].write('pan_cancer_rna_dataset_1.h5ad')
+
+list(rna_out.obs.index.values)==p1
+
+for i in range(100):
+    if list(rna_out.obs.index.values)[i]!=p1[i]:
+        print(i)
 
 
 ##################################################################################################
