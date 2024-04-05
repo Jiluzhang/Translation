@@ -290,48 +290,111 @@ np.random.seed(0)
 shuf_idx = np.arange(len(sample_id_lst))
 np.random.shuffle(shuf_idx)
 
-p1 = sorted(np.array(sample_id_lst)[shuf_idx[:5000]])
-
-for i in range(5000):
-    if i==0:
-        sample_id = p1[i].split('_')[0]
-        cancer_type = p1[i].split('_')[1]
-        bc_lst = [p1[i].split('_')[2]]
-    elif i!=4999:
-        if p1[i].split('_')[0]==sample_id:
-            bc_lst.append(p1[i].split('_')[2])
+def out_rna(p=sample_id_lst[:5000], cell_cnt=5000, dataset_idx=0):
+    p1 = sorted(p)
+    for i in range(cell_cnt):
+        if i==0:
+            sample_id = p1[i].split('_')[0]
+            cancer_type = p1[i].split('_')[1]
+            bc_lst = [p1[i].split('_')[2]]
+        elif i!=(cell_cnt-1):
+            if p1[i].split('_')[0]==sample_id:
+                bc_lst.append(p1[i].split('_')[2])
+            else:
+                if 'rna_out' in locals():
+                    rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                    rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                    rna_out = ad.concat([rna_out, rna_tmp])
+                else:
+                    rna_out = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                    rna_out.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                sample_id = p1[i].split('_')[0]
+                cancer_type = p1[i].split('_')[1]
+                bc_lst = [p1[i].split('_')[2]]
         else:
-            if 'rna_out' in locals():
+            if p1[i].split('_')[0]==sample_id:
+                bc_lst.append(p1[i].split('_')[2])
                 rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
                 rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
                 rna_out = ad.concat([rna_out, rna_tmp])
             else:
-                rna_out = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
-                rna_out.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                # output the last one
+                rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                rna_out = ad.concat([rna_out, rna_tmp])
+                # output the current one
+                sample_id = p1[i].split('_')[0]
+                bc_lst = [p1[i].split('_')[2]]
+                cancer_type = p1[i].split('_')[1]
+                rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
+                rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                rna_out = ad.concat([rna_out, rna_tmp])
+    
+    rna_out.var = rna_tmp.var
+    rna_out[p, :].write('pan_cancer_rna_dataset_'+str(dataset_idx)+'.h5ad')
+
+
+# 460187=5000*92+187
+for i in range(93):
+    if i!=92:
+        out_rna(p=np.array(sample_id_lst)[shuf_idx[(5000*i):(5000*i+5000)]], cell_cnt=5000, dataset_idx=i)
+        print(i, '*5000 cells done')
+    else:
+        out_rna(p=np.array(sample_id_lst)[shuf_idx[(5000*i):]], cell_cnt=187, dataset_idx=i)
+        print('all cells done')
+
+
+def out_atac(p=sample_id_lst[:5000], cell_cnt=5000, dataset_idx=0):
+    p1 = sorted(p)
+    for i in range(cell_cnt):
+        if i==0:
             sample_id = p1[i].split('_')[0]
             cancer_type = p1[i].split('_')[1]
             bc_lst = [p1[i].split('_')[2]]
-    else:
-        if p1[i].split('_')[0]==sample_id:
-            bc_lst.append(p1[i].split('_')[2])
-            rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
-            rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
-            rna_out = ad.concat([rna_out, rna_tmp])
+        elif i!=(cell_cnt-1):
+            if p1[i].split('_')[0]==sample_id:
+                bc_lst.append(p1[i].split('_')[2])
+            else:
+                if 'atac_out' in locals():
+                    atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[bc_lst, peak_idx].copy()
+                    atac_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                    atac_out = ad.concat([atac_out, atac_tmp])
+                else:
+                    atac_out = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[bc_lst, peak_idx].copy()
+                    atac_out.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                sample_id = p1[i].split('_')[0]
+                cancer_type = p1[i].split('_')[1]
+                bc_lst = [p1[i].split('_')[2]]
         else:
-            bc_lst = [p1[i].split('_')[2]]
-            cancer_type = p1[i].split('_')[1]
-            rna_tmp = sc.read_h5ad(sample_id+'_rna_aligned.h5ad')[bc_lst, gene_idx].copy()
-            rna_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
-            rna_out = ad.concat([rna_out, rna_tmp])
+            if p1[i].split('_')[0]==sample_id:
+                bc_lst.append(p1[i].split('_')[2])
+                atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[bc_lst, peak_idx].copy()
+                atac_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                atac_out = ad.concat([atac_out, atac_tmp])
+            else:
+                # output the last one
+                atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[bc_lst, peak_idx].copy()
+                atac_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                atac_out = ad.concat([atac_out, atac_tmp])
+                # output the current one
+                sample_id = p1[i].split('_')[0]
+                bc_lst = [p1[i].split('_')[2]]
+                cancer_type = p1[i].split('_')[1]
+                atac_tmp = sc.read_h5ad(sample_id+'_atac_aligned.h5ad')[bc_lst, peak_idx].copy()
+                atac_tmp.obs.index = [sample_id+'_'+cancer_type+'_'+bc for bc in bc_lst]
+                atac_out = ad.concat([atac_out, atac_tmp])
+    
+    atac_out.var = atac_tmp.var
+    atac_out[p, :].write('pan_cancer_atac_dataset_'+str(dataset_idx)+'.h5ad')
 
-rna_out.var = rna_tmp.var
-rna_out[p1, :].write('pan_cancer_rna_dataset_1.h5ad')
-
-list(rna_out.obs.index.values)==p1
-
-for i in range(100):
-    if list(rna_out.obs.index.values)[i]!=p1[i]:
-        print(i)
+# ~5 min per 5000 cells (time consuming)
+for i in range(93):
+    if i!=92:
+        out_atac(p=np.array(sample_id_lst)[shuf_idx[(5000*i):(5000*i+5000)]], cell_cnt=5000, dataset_idx=i)
+        print(i, '*5000 cells done')
+    else:
+        out_atac(p=np.array(sample_id_lst)[shuf_idx[(5000*i):]], cell_cnt=187, dataset_idx=i)
+        print('all cells done')
 
 
 ##################################################################################################
