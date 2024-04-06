@@ -401,7 +401,7 @@ for i in `seq 0 92`;do
     if [ $i = 0 ];then
         accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 1 \
                           --rna pan_cancer_rna_dataset_$i.h5ad --atac pan_cancer_atac_dataset_$i.h5ad \
-                          --save model_$i --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001 > train_dataset_$i.log
+                          --save model_$i --name datasets --enc_max_len 20539 --dec_max_len 542369 --batch_size 5 --lr 0.001 > train_dataset_$i.log
     else
         j=`expr $i - 1`
         accelerate launch --config_file default_config.yaml rna2atac_pre-train.py --load model_$j/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
