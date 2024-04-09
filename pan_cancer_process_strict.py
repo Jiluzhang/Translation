@@ -534,12 +534,46 @@ with torch.no_grad():
         print(precision)
 
 
+
 for i in `seq 0 92`;do
     echo -n $i' ' >> eval_stats.txt
     accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_test.py --load model_$i/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
                       --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
                       --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 >> eval_stats.txt
 done
+
+
+
+accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_predict.py --load model_92/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                  --enc_max_len 20539 --dec_max_len 542369 --batch_size 10
+
+
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+
+m = np.load('pan_cancer_atac_ucec_predict.npy')
+m[m>0.2]=1
+m[m<=0.2]=0
+
+atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
+atac_pred = atac_true[:2500, :].copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred, n_features=15000) #snap.pp.select_features(atac_pred, n_features=250000)
+snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, show=False, out_file='umap_tmp.pdf', height=500)
+
+
+#atac_pred.write('atac_pred_tumor_B_res_cutoff_0.9_new.h5ad')
+
+atac_pred.obs.cell_anno = atac_true.obs.cell_anno.cat.set_categories(['T cell', 'Tumor B cell', 'Monocyte', 'Normal B cell', 'Other'])  # keep the color consistent
+
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin',
+           size=3, title='', frameon=True, save='_atac_pred_cell_annotation_0.96.pdf')
 
 
 
