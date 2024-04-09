@@ -534,10 +534,12 @@ with torch.no_grad():
         print(precision)
 
 
-
-accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_test.py --load model_0/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
-                          --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
-                          --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 > eval_0.log
+for i in `seq 0 92`;do
+    echo -n $i' ' >> eval_stats.txt
+    accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_test.py --load model_$i/datasets_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                      --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                      --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 >> eval_stats.txt
+done
 
 
 
