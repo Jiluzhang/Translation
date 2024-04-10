@@ -549,23 +549,74 @@ accelerate launch --main_process_port 29506 --config_file default_config_test.ya
                   --enc_max_len 20539 --dec_max_len 542369 --batch_size 10
 
 
+##################################################################################################
+## https://humantumoratlas.org/
+library(Seurat)
+dat <- readRDS('CPT1541DU-T1.rds')
+write.table(dat@meta.data['cell_type'], 'UCEC_cell_type.txt', row.names=TRUE, col.names=FALSE, quote=FALSE, sep='\t')
+##################################################################################################
+
+
 import numpy as np
 import scanpy as sc
 import snapatac2 as snap
 from scipy.sparse import csr_matrix
+import pandas as pd
 
-m = np.load('pan_cancer_atac_ucec_predict.npy')
-m[m>0.2]=1
-m[m<=0.2]=0
+m_raw = np.load('pan_cancer_atac_ucec_predict_1000.npy')
+#m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
-atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
-atac_pred = atac_true[:2500, :].copy()
+m = m_raw.copy()
+m[m>0.3]=1
+m[m<=0.3]=0
+
+#atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
+atac_pred = atac_true[:1000, :].copy()
 atac_pred.X = csr_matrix(m)
 
-snap.pp.select_features(atac_pred, n_features=15000) #snap.pp.select_features(atac_pred, n_features=250000)
+cell_anno = pd.read_table('UCEC_cell_type.txt', names=['cell_id', 'cell_type'])
+cell_anno.index = ['CPT1541DU-T1_UCEC_'+x.split('_')[2] for x in cell_anno['cell_id']]
+cell_anno.drop(['cell_id'], axis=1, inplace=True)
+
+cell_anno_lst = []
+for i in range(atac_pred.n_obs):
+    if atac_pred.obs.index[i] in cell_anno.index:
+        cell_anno_lst.append(cell_anno.loc[atac_pred.obs.index[i], 'cell_type'])
+    else:
+        cell_anno_lst.append('Unknown')
+
+atac_pred.obs['cell_anno'] = cell_anno_lst
+
+snap.pp.select_features(atac_pred, n_features=2000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, show=False, out_file='umap_tmp.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_cutoff_mean_nf_2000_color.pdf', height=500)
+
+#snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_true_173630_color.pdf', height=500)
+
+
+
+
+true_0 = atac_true.X[1].toarray()[0]
+for i in np.arange(0.1, 0.6, 0.1):
+    pred_0 = m_raw[1].copy()
+    pred_0[pred_0>i]=1
+    pred_0[pred_0<i]=0
+    print(i, sum(pred_0==1), sum(true_0[pred_0==1]==1)/sum(pred_0==1))
+
+
+
+atac_pred = atac_true[:1000, :].copy()
+atac_pred.obs['cell_anno'] = cell_anno_lst
+
+from sklearn.metrics import precision_recall_curve, auc
+
+for i in range(100):
+    true_0 = atac_pred.X[i].toarray()[0]
+    pred_0 = m_raw[i].copy()
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    print(i, atac_pred.obs['cell_anno'][i], auc(recall, precision))
+
 
 
 #atac_pred.write('atac_pred_tumor_B_res_cutoff_0.9_new.h5ad')
@@ -577,12 +628,7 @@ sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right 
 
 
 
-##################################################################################################
-## https://humantumoratlas.org/
-library(Seurat)
-dat <- readRDS('CE337E1-S1N1.rds')
-dat@meta.data$cell_type
-##################################################################################################
+
 
 for i in range(len(ids)):
     sample_id = ids.iloc[i, 0]
