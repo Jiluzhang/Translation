@@ -570,7 +570,7 @@ m = m_raw.copy()
 m[m>0.3]=1
 m[m<=0.3]=0
 
-#atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
+atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
 atac_pred = atac_true[:1000, :].copy()
 atac_pred.X = csr_matrix(m)
 
@@ -587,14 +587,16 @@ for i in range(atac_pred.n_obs):
 
 atac_pred.obs['cell_anno'] = cell_anno_lst
 
-snap.pp.select_features(atac_pred, n_features=2000)
+snap.pp.select_features(atac_pred, n_features=10000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_cutoff_mean_nf_2000_color.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tmp.pdf', height=500)
+#snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_cutoff_mean_nf_2000_color.pdf', height=500)
 
 #snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_true_173630_color.pdf', height=500)
 
 
+m_raw[0]>np.sort(m_raw[0])[-10000]
 
 
 true_0 = atac_true.X[1].toarray()[0]
