@@ -557,18 +557,38 @@ write.table(dat@meta.data['cell_type'], 'UCEC_cell_type.txt', row.names=TRUE, co
 ##################################################################################################
 
 
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 3 \
+                  --load model_92/datasets_epoch_1/pytorch_model.bin --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                  --save model_ucec --name ucec --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.0001
+
+accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_predict.py --load model_ucec/ucec_epoch_3/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                  --enc_max_len 20539 --dec_max_len 542369 --batch_size 10
+
+
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 3 \
+                  --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                  --save model_ucec_from_scratch --name ucec --enc_max_len 20539 --dec_max_len 542369 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29506 --config_file default_config_test.yaml rna2atac_predict.py --load model_ucec_from_scratch/ucec_epoch_4/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna pan_cancer_ucec_rna.h5ad --atac pan_cancer_ucec_atac.h5ad \
+                  --enc_max_len 20539 --dec_max_len 542369 --batch_size 10
+
+
+
+
 import numpy as np
 import scanpy as sc
 import snapatac2 as snap
 from scipy.sparse import csr_matrix
 import pandas as pd
 
-m_raw = np.load('pan_cancer_atac_ucec_predict_1000.npy')
+m_raw = np.load('pan_cancer_atac_ucec_predict_5000_6000.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
 m = m_raw.copy()
-m[m>0.3]=1
-m[m<=0.3]=0
+m[m>0.2]=1
+m[m<=0.2]=0
 
 atac_true = snap.read('pan_cancer_ucec_atac.h5ad', backed=None)
 atac_pred = atac_true[:1000, :].copy()
@@ -587,13 +607,13 @@ for i in range(atac_pred.n_obs):
 
 atac_pred.obs['cell_anno'] = cell_anno_lst
 
-snap.pp.select_features(atac_pred, n_features=10000)
+snap.pp.select_features(atac_pred, n_features=5000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
 snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tmp.pdf', height=500)
-#snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_cutoff_mean_nf_2000_color.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_cutoff_0.1_nf_30000_color.pdf', height=500)
 
-#snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_true_173630_color.pdf', height=500)
+#snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_true_1000_color.pdf', height=500)
 
 
 m_raw[0]>np.sort(m_raw[0])[-10000]
@@ -627,6 +647,13 @@ atac_pred.obs.cell_anno = atac_true.obs.cell_anno.cat.set_categories(['T cell', 
 
 sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin',
            size=3, title='', frameon=True, save='_atac_pred_cell_annotation_0.96.pdf')
+
+
+
+
+
+
+
 
 
 
