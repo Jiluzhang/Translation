@@ -593,14 +593,59 @@ atac_test = sc.read_h5ad('atac_tumor_B_test.h5ad')
 atac_test[:, atac_train.var.index].write('atac_tumor_B_test_filtered.h5ad')
 
 
+import anndata as ad
+
+atac_train = sc.read_h5ad('atac_tumor_B_train_filtered.h5ad')
+atac_train_1 = atac_train[atac_train.obs['cell_anno']=='T cell', :][:100, :].copy()
+atac_train_2 = atac_train[atac_train.obs['cell_anno']=='Tumor B cell', :][:100, :].copy()
+atac_train_3 = atac_train[atac_train.obs['cell_anno']=='Monocyte', :][:100, :].copy()
+atac_train_4 = atac_train[atac_train.obs['cell_anno']=='Normal B cell', :][:100, :].copy()
+atac = ad.concat([atac_train_1, atac_train_2, atac_train_3, atac_train_4])
+atac.write('atac_tumor_B_train_400.h5ad')
+
+sc.read_h5ad('rna_tumor_B_train_filtered.h5ad')[atac.obs.index, :].write('rna_tumor_B_train_400.h5ad')
+
+atac_test = sc.read_h5ad('atac_tumor_B_train_filtered.h5ad')
+atac_test_1 = atac_test[atac_test.obs['cell_anno']=='T cell', :][100:200, :].copy()
+atac_test_2 = atac_test[atac_test.obs['cell_anno']=='Tumor B cell', :][100:200, :].copy()
+atac_test_3 = atac_test[atac_test.obs['cell_anno']=='Monocyte', :][100:200, :].copy()
+atac_test_4 = atac_test[atac_test.obs['cell_anno']=='Normal B cell', :][100:200, :].copy()
+atac = ad.concat([atac_test_1, atac_test_2, atac_test_3, atac_test_4])
+atac.write('atac_tumor_B_test_400.h5ad')
+
+sc.read_h5ad('rna_tumor_B_train_filtered.h5ad')[atac.obs.index, :].write('rna_tumor_B_test_400.h5ad')
+
+
+
+
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
+                  --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
+                  --save tumor_B_model --name tumor_B --enc_max_len 16428 --dec_max_len 181038 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_19/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_19/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_test_400.h5ad --atac atac_tumor_B_test_400.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_19/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_test_filtered.h5ad --atac atac_tumor_B_test_filtered.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+
+
 accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 3 \
                   --rna rna_tumor_B_train_filtered.h5ad --atac atac_tumor_B_train_filtered.h5ad \
                   --save tumor_B_model --name tumor_B --enc_max_len 16428 --dec_max_len 181038 --batch_size 10 --lr 0.001
 
-accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_3/pytorch_model.bin --SEED 0 --epoch 1 \
                   --rna rna_tumor_B_test_filtered.h5ad --atac atac_tumor_B_test_filtered.h5ad \
                   --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
 
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_3/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_filtered.h5ad --atac atac_tumor_B_train_filtered.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
 
 import numpy as np
 import scanpy as sc
@@ -612,19 +657,32 @@ m_raw = np.load('tumor_B_atac_predict_1000.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
 m = m_raw.copy()
-m[m>0.2]=1
-m[m<=0.2]=0
+m[m>0.1]=1
+m[m<=0.1]=0
 
-atac_true = snap.read('atac_tumor_B_test_filtered.h5ad', backed=None)
-atac_pred = atac_true[:1000, :].copy()
+atac_true = snap.read('atac_tumor_B_test_400.h5ad', backed=None)
+atac_pred = atac_true.copy()
 atac_pred.X = csr_matrix(m)
+#atac_pred = atac_pred[atac_pred.obs['cell_anno'].isin(['T cell', 'Tumor B cell']), :].copy()
 
-snap.pp.select_features(atac_pred, n_features=10000)
+snap.pp.select_features(atac_pred, n_features=37000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
 snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict.pdf', height=500)
-snap.pl.umap(atac_true[:1000, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
+snap.pl.umap(atac_true[:, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
 
+
+from sklearn.metrics import precision_recall_curve, auc
+
+auprc_lst = []
+for i in range(100):
+    true_0 = atac_true.X[i].toarray()[0]
+    pred_0 = atac_pred.X[i]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+    #print(i, atac_pred.obs['cell_anno'][i], auc(recall, precision))
+
+np.mean(auprc_lst)
 
 
 ############################################################################################################
