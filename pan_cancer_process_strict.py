@@ -575,6 +575,60 @@ accelerate launch --main_process_port 29506 --config_file default_config_test.ya
                   --enc_max_len 20539 --dec_max_len 542369 --batch_size 10
 
 
+## filter genes & peaks
+import scanpy as sc
+
+rna_train = sc.read_h5ad('rna_tumor_B_train.h5ad') # 7283 × 38244
+sc.pp.filter_genes(rna_train, min_cells=10)        # 7283 × 16428
+rna_train.write('rna_tumor_B_train_filtered.h5ad')
+
+rna_test = sc.read_h5ad('rna_tumor_B_test.h5ad')
+rna_test[:, rna_train.var.index].write('rna_tumor_B_test_filtered.h5ad')
+
+atac_train = sc.read_h5ad('atac_tumor_B_train.h5ad') # 7283 × 1033239
+sc.pp.filter_genes(atac_train, min_cells=10)         # 7283 × 181038
+atac_train.write('atac_tumor_B_train_filtered.h5ad')
+
+atac_test = sc.read_h5ad('atac_tumor_B_test.h5ad')
+atac_test[:, atac_train.var.index].write('atac_tumor_B_test_filtered.h5ad')
+
+
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 3 \
+                  --rna rna_tumor_B_train_filtered.h5ad --atac atac_tumor_B_train_filtered.h5ad \
+                  --save tumor_B_model --name tumor_B --enc_max_len 16428 --dec_max_len 181038 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_1/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_test_filtered.h5ad --atac atac_tumor_B_test_filtered.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+
+
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+
+m_raw = np.load('tumor_B_atac_predict_1000.npy')
+#m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
+
+m = m_raw.copy()
+m[m>0.2]=1
+m[m<=0.2]=0
+
+atac_true = snap.read('atac_tumor_B_test_filtered.h5ad', backed=None)
+atac_pred = atac_true[:1000, :].copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred, n_features=10000)
+snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict.pdf', height=500)
+snap.pl.umap(atac_true[:1000, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
+
+
+
+############################################################################################################
+
 
 
 import numpy as np
