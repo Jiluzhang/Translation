@@ -778,23 +778,30 @@ import snapatac2 as snap
 from scipy.sparse import csr_matrix
 import pandas as pd
 
-m_raw = np.load('tumor_B_atac_predict_1000.npy')
+m_raw = np.load('tumor_B_atac_predict_2_cell_types.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
 m = m_raw.copy()
 m[m>0.1]=1
 m[m<=0.1]=0
 
-atac_true = snap.read('atac_tumor_B_train_800.h5ad', backed=None)
-atac_pred = atac_true[:400, :].copy()
+atac_true = snap.read('atac_tumor_B_train_2_cell_types.h5ad', backed=None)
+del atac_true.obsm['X_spectral']
+del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
 atac_pred.X = csr_matrix(m)
 #atac_pred = atac_pred[atac_pred.obs['cell_anno'].isin(['T cell', 'Tumor B cell']), :].copy()
 
 snap.pp.select_features(atac_pred)#, n_features=8000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict.pdf', height=500)
-snap.pl.umap(atac_true[:400, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types.pdf', height=500)
+
+snap.pp.select_features(atac_true)#, n_features=8000)
+snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_true)
+snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_true_2_cell_types.pdf', height=500)
 
 
 from sklearn.metrics import precision_recall_curve, auc
