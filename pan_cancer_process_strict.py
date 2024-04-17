@@ -616,11 +616,107 @@ atac.write('atac_tumor_B_test_400.h5ad')
 sc.read_h5ad('rna_tumor_B_train_filtered.h5ad')[atac.obs.index, :].write('rna_tumor_B_test_400.h5ad')
 
 
+import scanpy as sc
+import anndata as ad
+import numpy as np
+
+atac_train = sc.read_h5ad('atac_tumor_B_train_filtered.h5ad')
+# T cell           4525
+# Tumor B cell     1532
+# Monocyte          886
+# Normal B cell     299
+# Other              41
+
+rna_train = sc.read_h5ad('rna_tumor_B_train_filtered.h5ad')
+
+atac_train_t = atac_train[atac_train.obs['cell_anno']=='T cell', :].copy()
+rna_train_t = rna_train[atac_train_t.obs.index, :].copy()
+
+for i in range(3):
+    if i==0:
+        atac_train_tumor_b = atac_train[atac_train.obs['cell_anno']=='Tumor B cell', :].copy()
+        rna_train_tumor_b = rna_train[atac_train_tumor_b.obs.index, :].copy()
+        atac_train_tumor_b.obs.index = atac_train_tumor_b.obs.index+'_rep1'
+        rna_train_tumor_b.obs.index = atac_train_tumor_b.obs.index
+    else:
+        atac_train_tumor_b_tmp = atac_train[atac_train.obs['cell_anno']=='Tumor B cell', :].copy()
+        rna_train_tumor_b_tmp = rna_train[atac_train_tumor_b_tmp.obs.index, :].copy()
+        atac_train_tumor_b_tmp.obs.index = atac_train_tumor_b_tmp.obs.index+'_rep'+str(i+1)
+        rna_train_tumor_b_tmp.obs.index = atac_train_tumor_b_tmp.obs.index
+        atac_train_tumor_b = ad.concat([atac_train_tumor_b, atac_train_tumor_b_tmp])
+        rna_train_tumor_b = ad.concat([rna_train_tumor_b, rna_train_tumor_b_tmp])
+    print('rep', i, 'done')
+
+for i in range(5):
+    if i==0:
+        atac_train_mono = atac_train[atac_train.obs['cell_anno']=='Monocyte', :].copy()
+        rna_train_mono = rna_train[atac_train_mono.obs.index, :].copy()
+        atac_train_mono.obs.index = atac_train_mono.obs.index+'_rep1'
+        rna_train_mono.obs.index = atac_train_mono.obs.index
+    else:
+        atac_train_mono_tmp = atac_train[atac_train.obs['cell_anno']=='Monocyte', :].copy()
+        rna_train_mono_tmp = rna_train[atac_train_mono_tmp.obs.index, :].copy()
+        atac_train_mono_tmp.obs.index = atac_train_mono_tmp.obs.index+'_rep'+str(i+1)
+        rna_train_mono_tmp.obs.index = atac_train_mono_tmp.obs.index
+        atac_train_mono = ad.concat([atac_train_mono, atac_train_mono_tmp])
+        rna_train_mono = ad.concat([rna_train_mono, rna_train_mono_tmp])
+    print('rep', i, 'done')
+
+for i in range(15):
+    if i==0:
+        atac_train_normal_b = atac_train[atac_train.obs['cell_anno']=='Normal B cell', :].copy()
+        rna_train_normal_b = rna_train[atac_train_normal_b.obs.index, :].copy()
+        atac_train_normal_b.obs.index = atac_train_normal_b.obs.index+'_rep1'
+        rna_train_normal_b.obs.index = atac_train_normal_b.obs.index
+    else:
+        atac_train_normal_b_tmp = atac_train[atac_train.obs['cell_anno']=='Normal B cell', :].copy()
+        rna_train_normal_b_tmp = rna_train[atac_train_normal_b_tmp.obs.index, :].copy()
+        atac_train_normal_b_tmp.obs.index = atac_train_normal_b_tmp.obs.index+'_rep'+str(i+1)
+        rna_train_normal_b_tmp.obs.index = atac_train_normal_b_tmp.obs.index
+        atac_train_normal_b = ad.concat([atac_train_normal_b, atac_train_normal_b_tmp])
+        rna_train_normal_b = ad.concat([rna_train_normal_b, rna_train_normal_b_tmp])
+    print('rep', i, 'done')
+
+for i in range(100):
+    if i==0:
+        atac_train_other = atac_train[atac_train.obs['cell_anno']=='Other', :].copy()
+        rna_train_other = rna_train[atac_train_other.obs.index, :].copy()
+        atac_train_other.obs.index = atac_train_other.obs.index+'_rep1'
+        rna_train_other.obs.index = atac_train_other.obs.index
+    else:
+        atac_train_other_tmp = atac_train[atac_train.obs['cell_anno']=='Other', :].copy()
+        rna_train_other_tmp = rna_train[atac_train_other_tmp.obs.index, :].copy()
+        atac_train_other_tmp.obs.index = atac_train_other_tmp.obs.index+'_rep'+str(i+1)
+        rna_train_other_tmp.obs.index = atac_train_other_tmp.obs.index
+        atac_train_other = ad.concat([atac_train_other, atac_train_other_tmp])
+        rna_train_other = ad.concat([rna_train_other, rna_train_other_tmp])
+    print('rep', i, 'done')
+
+atac_train_out = ad.concat([atac_train_t, atac_train_tumor_b, atac_train_mono, atac_train_normal_b, atac_train_other])
+atac_train_out.var = atac_train.var
+rna_train_out = ad.concat([rna_train_t, rna_train_tumor_b, rna_train_mono, rna_train_normal_b, rna_train_other])
+rna_train_out.var = rna_train.var
+
+np.random.seed(0)
+shuf_idx = np.arange(atac_train_out.shape[0])
+np.random.shuffle(shuf_idx)
+atac_train_out[shuf_idx[:10000], :].write('atac_tumor_B_train_balance_10000.h5ad')  
+rna_train_out[shuf_idx[:10000], :].write('rna_tumor_B_train_balance_10000.h5ad')  
+
+
+
 
 
 accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
-                  --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
+                  --rna rna_tumor_B_train_800.h5ad --atac atac_tumor_B_train_800.h5ad \
                   --save tumor_B_model --name tumor_B --enc_max_len 16428 --dec_max_len 181038 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_5/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_800.h5ad --atac atac_tumor_B_train_800.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+
+
+
 
 accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_19/pytorch_model.bin --SEED 0 --epoch 1 \
                   --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
@@ -647,6 +743,35 @@ accelerate launch --main_process_port 29507 --config_file default_config_test.ya
                   --rna rna_tumor_B_train_filtered.h5ad --atac atac_tumor_B_train_filtered.h5ad \
                   --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
 
+
+for i in `seq 20`;do
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
+                  --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
+mv tumor_B_atac_predict_1000.npy tumor_B_atac_predict_1000_$i.npy
+echo $i done
+done
+
+
+for i in range(15, 21):
+    m_raw = np.load('tumor_B_atac_predict_1000_'+str(i)+'.npy')    
+    m = m_raw.copy()
+    m[m>0.1]=1
+    m[m<=0.1]=0
+    
+    #atac_true = snap.read('atac_tumor_B_train_400.h5ad', backed=None)
+    atac_pred = atac_true[:400, :].copy()
+    atac_pred.X = csr_matrix(m)
+    
+    snap.pp.select_features(atac_pred)#, n_features=8000)
+    snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+    snap.tl.umap(atac_pred)
+    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_'+str(i)+'.pdf', height=500)
+    
+    print(i, 'done')
+
+
+
 import numpy as np
 import scanpy as sc
 import snapatac2 as snap
@@ -660,16 +785,16 @@ m = m_raw.copy()
 m[m>0.1]=1
 m[m<=0.1]=0
 
-atac_true = snap.read('atac_tumor_B_test_400.h5ad', backed=None)
-atac_pred = atac_true.copy()
+atac_true = snap.read('atac_tumor_B_train_800.h5ad', backed=None)
+atac_pred = atac_true[:400, :].copy()
 atac_pred.X = csr_matrix(m)
 #atac_pred = atac_pred[atac_pred.obs['cell_anno'].isin(['T cell', 'Tumor B cell']), :].copy()
 
-snap.pp.select_features(atac_pred, n_features=37000)
+snap.pp.select_features(atac_pred)#, n_features=8000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
 snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict.pdf', height=500)
-snap.pl.umap(atac_true[:, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
+snap.pl.umap(atac_true[:400, :], color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', height=500)
 
 
 from sklearn.metrics import precision_recall_curve, auc
