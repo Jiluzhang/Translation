@@ -745,21 +745,22 @@ accelerate launch --main_process_port 29507 --config_file default_config_test.ya
 
 
 for i in `seq 20`;do
-accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model_2_cell_types/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py \
+                   --load tumor_B_model_2_cell_types_lr_0.01_weight/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
                   --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
                   --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
-mv tumor_B_atac_predict_2_cell_types.npy tumor_B_atac_predict_2_cell_types_$i.npy
+mv tumor_B_atac_predict_2_cell_types.npy tumor_B_atac_predict_2_cell_types_lr_0.01_weight_$i.npy
 echo $i done
 done
 
 import time
 time.sleep(600)
 
-for i in range(5, 101, 5):
-    m_raw = np.load('tumor_B_atac_predict_2_cell_types_mlp_'+str(i)+'.npy')    
+for i in range(8, 9, 1):
+    m_raw = np.load('tumor_B_atac_predict_2_cell_types_lr_0.01_weight_'+str(i)+'.npy')    
     m = m_raw.copy()
-    m[m>0.1]=1
-    m[m<=0.1]=0
+    m[m>0.95]=1
+    m[m<=0.95]=0
     
     atac_true = snap.read('atac_tumor_B_train_2_cell_types.h5ad', backed=None)
     del atac_true.obsm['X_spectral']
@@ -771,9 +772,10 @@ for i in range(5, 101, 5):
     snap.pp.select_features(atac_pred)#, n_features=8000)
     snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
     snap.tl.umap(atac_pred)
-    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_mlp_'+str(i)+'.pdf', height=500)
+    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_lr_0.01_weight_'+str(i)+'.pdf', height=500)
     
     print(i, 'done')
+    #time.sleep(15)
 
 
 import torch
