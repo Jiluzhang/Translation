@@ -745,31 +745,79 @@ accelerate launch --main_process_port 29507 --config_file default_config_test.ya
 
 
 for i in `seq 20`;do
-accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
-                  --rna rna_tumor_B_train_400.h5ad --atac atac_tumor_B_train_400.h5ad \
+accelerate launch --main_process_port 29507 --config_file default_config_test.yaml rna2atac_predict.py --load tumor_B_model_2_cell_types/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
                   --enc_max_len 16428 --dec_max_len 181038 --batch_size 10
-mv tumor_B_atac_predict_1000.npy tumor_B_atac_predict_1000_$i.npy
+mv tumor_B_atac_predict_2_cell_types.npy tumor_B_atac_predict_2_cell_types_$i.npy
 echo $i done
 done
 
+import time
+time.sleep(600)
 
-for i in range(15, 21):
-    m_raw = np.load('tumor_B_atac_predict_1000_'+str(i)+'.npy')    
+for i in range(5, 101, 5):
+    m_raw = np.load('tumor_B_atac_predict_2_cell_types_mlp_'+str(i)+'.npy')    
     m = m_raw.copy()
     m[m>0.1]=1
     m[m<=0.1]=0
     
-    #atac_true = snap.read('atac_tumor_B_train_400.h5ad', backed=None)
-    atac_pred = atac_true[:400, :].copy()
+    atac_true = snap.read('atac_tumor_B_train_2_cell_types.h5ad', backed=None)
+    del atac_true.obsm['X_spectral']
+    del atac_true.obsm['X_umap']
+    
+    atac_pred = atac_true.copy()
     atac_pred.X = csr_matrix(m)
     
     snap.pp.select_features(atac_pred)#, n_features=8000)
     snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
     snap.tl.umap(atac_pred)
-    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_'+str(i)+'.pdf', height=500)
+    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_mlp_'+str(i)+'.pdf', height=500)
     
     print(i, 'done')
 
+
+import torch
+import numpy
+import random
+import torch.nn.functional as F
+import torch.optim as optim
+from torcheval.metrics.functional import binary_auprc, binary_auroc
+import scanpy as sc
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+x = torch.tensor(sc.read_h5ad('rna_tumor_B_train_2_cell_types.h5ad').X.toarray())
+y = torch.tensor(sc.read_h5ad('atac_tumor_B_train_2_cell_types.h5ad').X.toarray())
+
+class Net(torch.nn.Module):
+    def __init__(self,n_feature,n_hidden,n_output):
+        super(Net,self).__init__()
+        #两层感知机
+        self.hidden = torch.nn.Linear(n_feature,n_hidden)
+        self.predict = torch.nn.Linear(n_hidden,n_output)
+ 
+    def forward(self,x):
+        x = self.hidden(x) #x = F.relu(self.hidden(x))
+        x = self.predict(x)
+        return x
+
+net = Net(16428, 16, 181038)
+optimizer = optim.Adam(net.parameters(),lr = 0.01)
+#loss_func = torch.nn.MSELoss()
+
+for e in range(100):
+    logist = net(x)
+    loss = F.binary_cross_entropy(torch.sigmoid(logist), y, reduction = "mean") #loss = loss_func(torch.sigmoid(prediction),y)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    print('epoch:', e+1,
+          'loss:', round(loss.item(), 4),
+          'auroc:', round(binary_auroc(torch.sigmoid(logist), y, num_tasks = logist.shape[0]).mean().item(), 4),
+          'auprc:', round(binary_auprc(torch.sigmoid(logist), y, num_tasks = logist.shape[0]).mean().item(), 4))
+    if (e+1)%5==0:
+        np.save('tumor_B_atac_predict_2_cell_types_mlp_'+str(e+1)+'.npy', torch.sigmoid(logist).detach().numpy())
 
 
 import numpy as np
@@ -778,7 +826,8 @@ import snapatac2 as snap
 from scipy.sparse import csr_matrix
 import pandas as pd
 
-m_raw = np.load('tumor_B_atac_predict_2_cell_types.npy')
+################################################################################################################################
+m_raw = np.load('tumor_B_atac_predict_2_cell_types_mlp.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
 m = m_raw.copy()
@@ -793,10 +842,11 @@ atac_pred = atac_true.copy()
 atac_pred.X = csr_matrix(m)
 #atac_pred = atac_pred[atac_pred.obs['cell_anno'].isin(['T cell', 'Tumor B cell']), :].copy()
 
-snap.pp.select_features(atac_pred)#, n_features=8000)
+snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_mlp.pdf', height=500)
+################################################################################################################################
 
 snap.pp.select_features(atac_true)#, n_features=8000)
 snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
