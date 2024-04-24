@@ -705,6 +705,14 @@ rna_train_out[shuf_idx[:10000], :].write('rna_tumor_B_train_balance_10000.h5ad')
 
 
 
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
+                  --save tumor_B_200_model --name tumor_B --enc_max_len 16428 --dec_max_len 5120 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29507 --config_file default_config_predict.yaml rna2atac_predict.py --load tumor_B_200_model/tumor_B_epoch_5/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
+                  --enc_max_len 16428 --dec_max_len 5120 --batch_size 10
+
 
 
 accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
@@ -829,7 +837,7 @@ from scipy.sparse import csr_matrix
 import pandas as pd
 
 ################################################################################################################################
-m_raw = np.load('tumor_B_atac_predict_2_cell_types_mlp.npy')
+m_raw = np.load('tumor_B_atac_predict_2_cell_types.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
 m = m_raw.copy()
