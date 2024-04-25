@@ -870,7 +870,7 @@ done
 import time
 time.sleep(600)
 
-for i in range(10, 11, 1):
+for i in range(1, 21, 1):
     m_raw = np.load('tumor_B_atac_predict_2_cell_types_'+str(i)+'.npy')    
     m = m_raw.copy()
     m[m>0.1]=1
