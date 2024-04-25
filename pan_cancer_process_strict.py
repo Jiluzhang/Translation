@@ -890,6 +890,24 @@ for i in range(1, 21, 1):
     
     print(i, 'done')
     #time.sleep(30)
+
+
+cnt=0
+for i in `seq 10`;do
+    cnt_tmp=`shuf human_genes_pos_id.txt | head -n 3000 | \
+                                           awk '{if($2-500000>0) print($1 "\t" $2-500000 "\t" $2+500000);else print($1 "\t" 1 "\t" $2+500000)}' | \
+                                           bedtools intersect -a stdin -b human_cCREs.bed -wa -wb | cut -f 4-6 | sort | uniq | wc -l`
+    cnt=`expr $cnt + $cnt_tmp`
+    echo $i
+done
+echo `expr $cnt / 10`
+
+
+./3000_500kb.sh && ./2000_500kb.sh && ./1000_500kb.sh && ./500_500kb.sh && ./3000_250kb.sh && ./3000_100kb.sh 
+
+
+
+
 ################################################################################################################################
 
 snap.pp.select_features(atac_true)#, n_features=8000)
