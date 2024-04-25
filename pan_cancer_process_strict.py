@@ -704,17 +704,6 @@ atac_train_out[shuf_idx[:10000], :].write('atac_tumor_B_train_balance_10000.h5ad
 rna_train_out[shuf_idx[:10000], :].write('rna_tumor_B_train_balance_10000.h5ad')  
 
 
-
-accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
-                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
-                  --save tumor_B_200_model --name tumor_B --enc_max_len 16428 --dec_max_len 5120 --batch_size 10 --lr 0.001
-
-accelerate launch --main_process_port 29507 --config_file default_config_predict.yaml rna2atac_predict.py --load tumor_B_200_model/tumor_B_epoch_5/pytorch_model.bin --SEED 0 --epoch 1 \
-                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
-                  --enc_max_len 16428 --dec_max_len 5120 --batch_size 10
-
-
-
 accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
                   --rna rna_tumor_B_train_800.h5ad --atac atac_tumor_B_train_800.h5ad \
                   --save tumor_B_model --name tumor_B --enc_max_len 16428 --dec_max_len 181038 --batch_size 10 --lr 0.001
@@ -830,13 +819,24 @@ for e in range(100):
         np.save('tumor_B_atac_predict_2_cell_types_mlp_'+str(e+1)+'.npy', torch.sigmoid(logist).detach().numpy())
 
 
+
+
+################################################################################################################################
+
+accelerate launch --main_process_port 29506 --config_file default_config.yaml rna2atac_pre-train.py --SEED 0 --epoch 20 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
+                  --save tumor_B_200_model --name tumor_B --enc_max_len 16428 --dec_max_len 5120 --batch_size 10 --lr 0.001
+
+accelerate launch --main_process_port 29507 --config_file default_config_predict.yaml rna2atac_predict.py --load tumor_B_200_model/tumor_B_epoch_5/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
+                  --enc_max_len 16428 --dec_max_len 5120 --batch_size 10
+
 import numpy as np
 import scanpy as sc
 import snapatac2 as snap
 from scipy.sparse import csr_matrix
 import pandas as pd
 
-################################################################################################################################
 m_raw = np.load('tumor_B_atac_predict_2_cell_types.npy')
 #m = ((m_raw.T > m_raw.T.mean(axis=0)).T) & (m_raw>m_raw.mean(axis=0)).astype(int)
 
@@ -855,7 +855,41 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_mlp.pdf', height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_mlp.pdf', marker_size=2.5, height=500)
+
+
+for i in `seq 20`;do
+accelerate launch --main_process_port 29507 --config_file default_config_predict.yaml rna2atac_predict.py \
+                  --load tumor_B_200_model/tumor_B_epoch_$i/pytorch_model.bin --SEED 0 --epoch 1 \
+                  --rna rna_tumor_B_train_2_cell_types.h5ad --atac atac_tumor_B_train_2_cell_types.h5ad \
+                  --enc_max_len 16428 --dec_max_len 5120 --batch_size 10
+mv tumor_B_atac_predict_2_cell_types.npy tumor_B_atac_predict_2_cell_types_$i.npy
+echo $i done
+done
+
+import time
+time.sleep(600)
+
+for i in range(10, 11, 1):
+    m_raw = np.load('tumor_B_atac_predict_2_cell_types_'+str(i)+'.npy')    
+    m = m_raw.copy()
+    m[m>0.1]=1
+    m[m<=0.1]=0
+    
+    atac_true = snap.read('atac_tumor_B_train_2_cell_types.h5ad', backed=None)
+    del atac_true.obsm['X_spectral']
+    del atac_true.obsm['X_umap']
+    
+    atac_pred = atac_true.copy()
+    atac_pred.X = csr_matrix(m)
+    
+    snap.pp.select_features(atac_pred)#, n_features=8000)
+    snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+    snap.tl.umap(atac_pred)
+    snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_2_cell_types_'+str(i)+'.pdf', marker_size=2.5, height=500)
+    
+    print(i, 'done')
+    #time.sleep(30)
 ################################################################################################################################
 
 snap.pp.select_features(atac_true)#, n_features=8000)
