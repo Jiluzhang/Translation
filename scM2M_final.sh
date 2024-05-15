@@ -101,3 +101,104 @@ np.mean(auroc_lst)
 # epoch=60    0.6270619083846645
 # epoch=80    0.6702170733195197
 # epoch=100   0.6885955191454858
+
+
+############# Tumor B datasets ###############
+import scanpy as sc
+
+rna_train = sc.read_h5ad('rna_tumor_B_train.h5ad')  # 7283 × 38244
+sc.pp.filter_genes(rna_train, min_cells=10)         # 7283 × 16428
+rna_train.write('rna_tumor_B_train_filtered.h5ad')
+rna_test = sc.read_h5ad('rna_tumor_B_test.h5ad')
+rna_test[:, rna_train.var.index].write('rna_tumor_B_test_filtered.h5ad')
+
+atac_train = sc.read_h5ad('atac_tumor_B_train.h5ad')  # 7283 × 1033239
+sc.pp.filter_genes(atac_train, min_cells=10)          # 7283 × 181038
+atac_train.write('atac_tumor_B_train_filtered.h5ad')
+atac_test = sc.read_h5ad('atac_tumor_B_test.h5ad')
+atac_test[:, atac_train.var.index].write('atac_tumor_B_test_filtered.h5ad')
+
+
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml # ~ 30 min
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml -d ./preprocessed_data -n rna2atac_tumor_B
+
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml  # 500 cells in 3 min
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole -l save/2024-05-15_rna2atac_tumor_B_1/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole -l save/2024-05-15_rna2atac_tumor_B_2/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+# accelerator.gather() need same batch size for each GPU!!!
+
+
+
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+
+m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_12.npy')
+
+m = m_raw.copy()
+m[m>0.5]=1
+m[m<=0.5]=0
+
+atac_true = snap.read('atac_tumor_B_train_filtered_500_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+del atac_true.obsm['X_spectral']
+del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+#atac_pred = atac_pred[atac_pred.obs['cell_anno'].isin(['T cell', 'Tumor B cell']), :].copy()
+
+snap.pp.select_features(atac_pred)#, n_features=50000)
+snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_train_epoch_12.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
+
+# snap.pp.select_features(atac_true)#, n_features=50000)
+# snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
+# snap.tl.umap(atac_true)
+# snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', marker_size=2.5, height=500)
+
+
+
+atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_12.npy')
+atac_true = snap.read('atac_tumor_B_train_filtered_500_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+
+auprc_lst = []
+for i in range(500):
+    true_0 = atac_true.X[i].toarray()[0]
+    pred_0 = atac_pred[i]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+    #print(i, atac_pred.obs['cell_anno'][i], auc(recall, precision))
+
+np.mean(auprc_lst)
+
+auroc_lst = []
+for i in range(500):
+    true_0 = atac_true.X[i].toarray()[0]
+    pred_0 = atac_pred[i]
+    fpr, tpr, _ = roc_curve(true_0, pred_0)
+    auroc_lst.append(auc(fpr, tpr))
+
+np.mean(auroc_lst)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
