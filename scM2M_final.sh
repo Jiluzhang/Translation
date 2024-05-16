@@ -141,13 +141,13 @@ from scipy.sparse import csr_matrix
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 
-m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict.npy')
+m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_14.npy')
 
 m = m_raw.copy()
 m[m>0.5]=1
 m[m<=0.5]=0
 
-atac_true = snap.read('atac_tumor_B_train_filtered_500_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 del atac_true.obsm['X_spectral']
 del atac_true.obsm['X_umap']
 
@@ -158,17 +158,17 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_train_epoch_12.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_epoch_14.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
 
 # snap.pp.select_features(atac_true)#, n_features=50000)
 # snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
 # snap.tl.umap(atac_true)
-# snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_true.pdf', marker_size=2.5, height=500)
+# snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_test_true.pdf', marker_size=2.5, height=500)
 
 
 
-atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict.npy')
-atac_true = snap.read('atac_tumor_B_train_filtered_500_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_14.npy')
+atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 
 auprc_lst = []
 for i in range(500):
@@ -202,8 +202,10 @@ accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --c
 python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole -l save/2024-05-16_rna2atac_tumor_B_9/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole -l save/2024-05-16_rna2atac_tumor_B_39/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
+# np.delete(atac_pred.obsm['X_umap'], -3, axis=1)
 
 
 
