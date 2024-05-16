@@ -130,6 +130,8 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
 
 # accelerator.gather() need same batch size for each GPU!!!
 
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_test -l save/2024-05-15_rna2atac_tumor_B_6/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
 
 
 import numpy as np
@@ -139,7 +141,7 @@ from scipy.sparse import csr_matrix
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 
-m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_12.npy')
+m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict.npy')
 
 m = m_raw.copy()
 m[m>0.5]=1
@@ -165,7 +167,7 @@ snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_tr
 
 
 
-atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_12.npy')
+atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict.npy')
 atac_true = snap.read('atac_tumor_B_train_filtered_500_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 
 auprc_lst = []
@@ -188,12 +190,17 @@ for i in range(500):
 np.mean(auroc_lst)
 
 
+############### enc_len_2048_dec_len_2048 ###############
+# enc_max_len: 2048
+# dec_max_len: 2048
+# mutiple_rate: 10
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml -d ./preprocessed_data -n rna2atac_tumor_B
 
 
-
-
-
-
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole -l save/2024-05-16_rna2atac_tumor_B_9/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
 
