@@ -140,14 +140,15 @@ import snapatac2 as snap
 from scipy.sparse import csr_matrix
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
+from tqdm import tqdm
 
-m_raw = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_14.npy')
+m_raw = np.load('predict.npy')
 
 m = m_raw.copy()
 m[m>0.5]=1
 m[m<=0.5]=0
 
-atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 del atac_true.obsm['X_spectral']
 del atac_true.obsm['X_umap']
 
@@ -158,7 +159,7 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_epoch_14.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
 
 # snap.pp.select_features(atac_true)#, n_features=50000)
 # snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
@@ -167,27 +168,35 @@ snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_te
 
 
 
-atac_pred = np.load('tumor_B_pretrain_data_0_1.ptprecict_epoch_14.npy')
-atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+atac_pred = np.load('predict.npy')
+atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
+
+## maybe sampling is a better choice
+import random
+
+random.seed(0)
+idx = list(range(atac_true.n_obs))
+random.shuffle(idx)
+idx = idx[:500]
 
 auprc_lst = []
-for i in range(500):
+for i in tqdm(range(500)):
     true_0 = atac_true.X[i].toarray()[0]
     pred_0 = atac_pred[i]
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
-    #print(i, atac_pred.obs['cell_anno'][i], auc(recall, precision))
 
-np.mean(auprc_lst)
+np.mean(auprc_lst)  # 0.19324982160086668
 
 auroc_lst = []
-for i in range(500):
+for i in tqdm(range(500)):
     true_0 = atac_true.X[i].toarray()[0]
     pred_0 = atac_pred[i]
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)
+np.mean(auroc_lst)  # 0.7992866943383289
+
 
 
 ############### enc_len_2048_dec_len_2048 ###############
@@ -206,6 +215,26 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
 
 
 # np.delete(atac_pred.obsm['X_umap'], -3, axis=1)
+
+
+########## seperate h5ad files ##########
+import scanpy as sc
+
+rna = sc.read_h5ad('rna_tumor_B_test_filtered_0.h5ad')
+atac = sc.read_h5ad('atac_tumor_B_test_filtered_0.h5ad')
+
+cnt = rna.n_obs//1000+1
+for i in range(cnt):
+    if i!=cnt:
+        rna[i*1000:(i+1)*1000, :].write('rna_tumor_B_test_filtered_'+str(i)+'_0.h5ad')
+        atac[i*1000:(i+1)*1000, :].write('atac_tumor_B_test_filtered_'+str(i)+'_0.h5ad')
+    else:
+        rna[i*1000:, :].write('rna_tumor_B_test_filtered_'+str(i)+'_0.h5ad')
+        atac[i*1000:, :].write('atac_tumor_B_test_filtered_'+str(i)+'_0.h5ad')
+    print((i+1)*1000, 'cells done')
+
+
+
 
 
 
