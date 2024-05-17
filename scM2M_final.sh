@@ -235,8 +235,47 @@ for i in range(cnt):
 
 
 
+##################### h5ad to h5 (for both scRNA-seq and scATAC-seq)#############################
+## h5ad_to_h5.py
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+
+rna  = h5py.File('rna_tumor_B_train_filtered_0.h5ad', 'r')
+atac = h5py.File('atac_tumor_B_train_filtered_0.h5ad', 'r')
+out  = h5py.File('rna_atac_tumor_B_train_filtered_0.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+g.create_dataset('data', data=np.append(rna['X']['data'][:], atac['X']['data'][:]))
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['_index'].shape[0], [b'Peaks']*atac['var']['_index'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['_index'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))        # gene names for ENSMBLE ID????
+g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))  # genes for scRNA-seq????
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+## https://blog.csdn.net/m0_64204369/article/details/123035598
+## https://blog.csdn.net/HHTNAN/article/details/79790370
+## matrix: cell*feature  shape: [feature, cell]  # confused!!!
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['index'].shape[0], atac['var']['_index'].shape[0]])))
+
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+out.close()
 
 
-
-
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/Preprocessing.py --data rna_atac_tumor_B_train_filtered_0.h5 --outdir scMOG_tumor_B_train --nofilter  # ~4.5 min
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/train.py --outdir training_out  # ~6.5 min   # modify the train.py to not plot
+cp ../../rna_tumor_B_test_filtered_0.h5ad truth_rna.h5ad
+cp ../../atac_tumor_B_test_filtered_0.h5ad truth_atac.h5ad
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/predict-atac.py --outdir predict_atac_out     ## maybe predict 1000 cells per step!!!!!!!!!!!!!!!!!!
 
