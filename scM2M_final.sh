@@ -277,5 +277,61 @@ time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/Preprocessing.py --data rna_
 time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/train.py --outdir training_out  # ~6.5 min   # modify the train.py to not plot
 cp ../../rna_tumor_B_test_filtered_0.h5ad truth_rna.h5ad
 cp ../../atac_tumor_B_test_filtered_0.h5ad truth_atac.h5ad
-time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/predict-atac.py --outdir predict_atac_out     ## maybe predict 1000 cells per step!!!!!!!!!!!!!!!!!!
+time python /fs/home/jiluzhang/scMOG/scMOG_code/bin/predict-atac.py --outdir predict_atac_out  # ~8.5 min   ## maybe predict 1000 cells per step!!!!!!!!!!!!!!!!!!
+
+
+
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+from tqdm import tqdm
+import random
+
+atac_pred = snap.read('rna_atac_adata_final.h5ad', backed=None)
+atac_true = snap.read('../truth_atac.h5ad', backed=None) 
+
+random.seed(0)
+idx = list(range(atac_true.n_obs))
+random.shuffle(idx)
+idx = idx[:500]
+
+auprc_lst = []
+for i in tqdm(range(500)):
+    true_0 = atac_true.X[i].toarray()[0]
+    pred_0 = atac_pred.X[i].toarray()[0]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+
+np.mean(auprc_lst)  # 0.2068811721876922
+
+auroc_lst = []
+for i in tqdm(range(500)):
+    true_0 = atac_true.X[i].toarray()[0]
+    pred_0 = atac_pred.X[i].toarray()[0]
+    fpr, tpr, _ = roc_curve(true_0, pred_0)
+    auroc_lst.append(auc(fpr, tpr))
+
+np.mean(auroc_lst)  # 0.7994037927008248
+
+
+m_raw = snap.read('rna_atac_adata_final.h5ad', backed=None).X.toarray()
+m = m_raw.copy()
+m[m>0.5]=1
+m[m<=0.5]=0
+
+atac_true = snap.read('../truth_atac.h5ad', backed=None)
+del atac_true.obsm['X_spectral']
+del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)#, n_features=50000)
+snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)  # time-consuming
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict_scmog.pdf', marker_size=2.5, height=500)
+
 
