@@ -141,12 +141,15 @@ from scipy.sparse import csr_matrix
 import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 from tqdm import tqdm
+import random
+from sklearn import metrics
 
 m_raw = np.load('predict.npy')
 
 m = m_raw.copy()
-m[m>0.5]=1
-m[m<=0.5]=0
+# [sum(m_raw[i]>0.7) for i in range(5)]   [13446, 9937, 8868, 14362, 11070]
+m[m>0.7]=1
+m[m<=0.7]=0
 
 atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None)  # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 del atac_true.obsm['X_spectral']
@@ -159,21 +162,36 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict.pdf', marker_size=2.5, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict_0.7.pdf', marker_size=2.0, height=500) # snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_predict_epoch_10.pdf', marker_size=2.5, height=500)
+snap.pp.knn(atac_pred)
+snap.tl.leiden(atac_pred)
+ARI = metrics.adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+AMI = metrics.adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+NMI = metrics.normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+HOM = metrics.homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+print(ARI, AMI, NMI, HOM)
+# 0.17911352210172168 0.4008356259524111 0.4017551710754636 0.6430320591974056
+atac_pred.write('atac_tumor_B_test_filtered_0_scm2m.h5ad')
 
-# snap.pp.select_features(atac_true)#, n_features=50000)
-# snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
-# snap.tl.umap(atac_true)
-# snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_test_true.pdf', marker_size=2.5, height=500)
-
+snap.pp.select_features(atac_true)#, n_features=50000)
+snap.tl.spectral(atac_true) #snap.tl.spectral(atac_pred, n_comps=50)
+snap.tl.umap(atac_true)
+snap.pl.umap(atac_true, color='cell_anno', show=False, out_file='umap_tumor_B_test_true.pdf', marker_size=2.0, height=500)
+snap.pp.knn(atac_true)
+snap.tl.leiden(atac_true)
+ARI = metrics.adjusted_rand_score(atac_true.obs['cell_anno'], atac_true.obs['leiden'])
+AMI = metrics.adjusted_mutual_info_score(atac_true.obs['cell_anno'], atac_true.obs['leiden'])
+NMI = metrics.normalized_mutual_info_score(atac_true.obs['cell_anno'], atac_true.obs['leiden'])
+HOM = metrics.homogeneity_score(atac_true.obs['cell_anno'], atac_true.obs['leiden'])
+print(ARI, AMI, NMI, HOM)
+# 0.31085714396263286 0.5311110081584016 0.5317297992626187 0.770295425885568
+atac_true.write('atac_tumor_B_test_filtered_0_processed.h5ad')
 
 
 atac_pred = np.load('predict.npy')
 atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None) # atac_true = snap.read('atac_tumor_B_test_filtered_500_0.h5ad', backed=None)
 
 ## maybe sampling is a better choice
-import random
-
 random.seed(0)
 idx = list(range(atac_true.n_obs))
 random.shuffle(idx)
@@ -181,21 +199,21 @@ idx = idx[:500]
 
 auprc_lst = []
 for i in tqdm(range(500)):
-    true_0 = atac_true.X[i].toarray()[0]
-    pred_0 = atac_pred[i]
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
 
-np.mean(auprc_lst)  # 0.19324982160086668
+np.mean(auprc_lst)  # 0.19416483373492507
 
 auroc_lst = []
 for i in tqdm(range(500)):
-    true_0 = atac_true.X[i].toarray()[0]
-    pred_0 = atac_pred[i]
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)  # 0.7992866943383289
+np.mean(auroc_lst)  # 0.7954613133117091
 
 
 
@@ -289,6 +307,7 @@ import pandas as pd
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 from tqdm import tqdm
 import random
+from sklearn import metrics
 
 atac_pred = snap.read('rna_atac_adata_final.h5ad', backed=None)
 atac_true = snap.read('../truth_atac.h5ad', backed=None) 
@@ -300,27 +319,28 @@ idx = idx[:500]
 
 auprc_lst = []
 for i in tqdm(range(500)):
-    true_0 = atac_true.X[i].toarray()[0]
-    pred_0 = atac_pred.X[i]
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred.X[idx[i]]
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
 
-np.mean(auprc_lst)  # 0.2068811721876922
+np.mean(auprc_lst)  # 0.20521846330200294
 
 auroc_lst = []
 for i in tqdm(range(500)):
-    true_0 = atac_true.X[i].toarray()[0]
-    pred_0 = atac_pred.X[i]
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred.X[idx[i]]
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)  # 0.7994037927008248
+np.mean(auroc_lst)  # 0.7951432043697237
 
 
 m_raw = snap.read('rna_atac_adata_final.h5ad', backed=None).X
+# [sum(m_raw[i]>0.7) for i in range(5)]   [10, 114627, 26879, 8333, 31838]
 m = m_raw.copy()
-m[m>0.5]=1
-m[m<=0.5]=0
+m[m>0.7]=1
+m[m<=0.7]=0
 
 atac_true = snap.read('../truth_atac.h5ad', backed=None)
 del atac_true.obsm['X_spectral']
@@ -332,6 +352,33 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)#, n_features=50000)
 snap.tl.spectral(atac_pred) #snap.tl.spectral(atac_pred, n_comps=50)  # time-consuming
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict_scmog_2.pdf', marker_size=2.5, height=500)
+snap.pl.umap(atac_pred, color='cell_anno', show=False, out_file='umap_tumor_B_test_predict_scmog.pdf', marker_size=2.0, height=500)
+snap.pp.knn(atac_pred)
+snap.tl.leiden(atac_pred)
+ARI = metrics.adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+AMI = metrics.adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+NMI = metrics.normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+HOM = metrics.homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+print(ARI, AMI, NMI, HOM)
+# 0.0992703358136857 0.12174162903285979 0.12411650867559945 0.21776862222843424
+atac_pred.write('atac_tumor_B_test_filtered_0_scmog.h5ad')
+
+
+
 
 # atac.X.astype(np.float16)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
