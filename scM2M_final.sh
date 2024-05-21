@@ -373,24 +373,27 @@ from plotnine import *
 import pandas as pd
 import numpy as np
 
-## RAW
+## ARI & AMI & NMI & HOM
 raw = pd.read_table('ari_ami_nmi_hom.txt', index_col=0)
 dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
 dat['alg'] = ['Raw']*4 + ['scM2M']*4 + ['scMOG']*4
 dat['evl'] = ['ARI', 'AMI', 'NMI', 'HOM']*3
 
-dat.columns = ['count']
-dat['idx'] = 'RAW'
-np.median(dat['count'])  # 710663.0
-p = ggplot(dat, aes(x='idx', y='count')) + geom_bar(width=0.5, color='black', fill='brown', outlier_shape='') + xlab('') + \
-                                           scale_y_continuous(limits=[600000, 800000], breaks=range(600000, 800000+1, 50000)) + theme_bw()
-p.save(filename='cells_all.pdf', dpi=600, height=5, width=4)
+p = ggplot(dat, aes(x='factor(evl)', y='val', fill='alg')) + geom_bar(stat='identity', position=position_dodge()) + xlab('') + ylab('') +\
+                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='ari_ami_nmi_hom.pdf', dpi=600, height=4, width=5)
 
-q5 = (ggplot(ToothGrowth_summary, aes(x='factor(dose)', y='len', fill='supp')) + geom_bar(stat="identity", position=position_dodge()) +theme_classic()+
-geom_errorbar(ToothGrowth_summary,aes(ymin='ymin', ymax='ymax'), width=.2, position=position_dodge(.9))+
-theme(legend_position=(0.3,0.8))+theme(axis_text=element_text(size=14,color='black',family='sans-serif'),axis_title=element_text(size=14,color='black',family='sans-serif'),legend_text= element_text(size=14,color='black',family='sans-serif'))+labs(x='dose (mg)',y='length (cm)',fill='')+theme(legend_background=element_rect(alpha=0))+scale_y_continuous(expand=(0, 0, .1, 0))+labs(fill='')+scale_fill_manual(values=['#D45E1A', '#0F73B0'])
-)
-q5.save('Tooth_boxploterrorbar.pdf',width=4, height=5.5)
+## AUROC & AUPRC
+raw = pd.read_table('auroc_auprc.txt', index_col=0)
+dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
+dat['alg'] = ['scM2M']*2 + ['scMOG']*2
+dat['evl'] = ['AUROC', 'AUPRC']*2
+
+p = ggplot(dat, aes(x='factor(evl)', y='val', fill='alg')) + geom_bar(width=0.5, stat='identity', position=position_dodge()) + xlab('') + ylab('') +\
+                                                             geom_text(aes(label='val'), stat='identity', position=position_dodge2(width=0.5), size=8, va='bottom') +\
+                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='auroc_auprc.pdf', dpi=600, height=4, width=5)
+
 
 
 
