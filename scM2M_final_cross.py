@@ -1,2 +1,4 @@
-# ML123M1-Ty1	SKCM    ML123M1-Ty1    2442
-# P5504-N1	    HNSCC   P5504-N1       2336
+# ML123M1-Ty1	  SKCM    ML123M1-Ty1    2442
+
+# Tumor B         ->  Tumor B
+# Tumor B + SKCM  ->  SKCM
