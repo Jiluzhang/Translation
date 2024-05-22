@@ -137,4 +137,81 @@ p.save(filename='auroc_auprc_crc.pdf', dpi=600, height=4, width=5)
 
 
 
+## TFDP1 as a modulator of global chromatin accessibility
+import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('rna_tumor_B_test_filtered_0.h5ad')
+max(rna[:, 'TFDP1'].X.toarray())  # 13
+np.where(rna[:, 'TFDP1'].X.toarray()==13)  # 2508
+rna[2508, :].write('TFDP1_13_rna_0.h5ad')
+
+atac = sc.read_h5ad('atac_tumor_B_test_filtered_0.h5ad')
+atac[2508, :].write('TFDP1_13_atac_0.h5ad')
+
+rna_tfdp1 = sc.read_h5ad('TFDP1_13_rna_0.h5ad')
+rna_tfdp1[:, 'TFDP1'].X = 0
+rna_tfdp1.write('TFDP1_13_rna_ko_0.h5ad')
+
+## for wt
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_TFDP1 -l save_tumor_B/2024-05-16_rna2atac_tumor_B_20/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+## for ko
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_TFDP1_ko -l save_tumor_B/2024-05-16_rna2atac_tumor_B_20/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+
+import scanpy as sc
+import numpy as np
+import random
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+
+## wt vs. true
+atac_pred_wt = np.load('TFDP1_13_predict.npy')
+atac_true = sc.read_h5ad('TFDP1_13_atac_0.h5ad')
+
+true_0 = atac_true.X.toarray()[0]
+pred_0 = atac_pred_wt[0]
+precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+print(auc(recall, precision))   # 0.6888713079340169
+
+true_0 = atac_true.X.toarray()[0]
+pred_0 = atac_pred_wt[0]
+fpr, tpr, _ = roc_curve(true_0, pred_0)
+print(auc(fpr, tpr))  # 0.7706938643616125
+
+
+## ko vs. true
+atac_pred_ko = np.load('TFDP1_13_ko_predict.npy')
+
+true_0 = atac_true.X.toarray()[0]
+pred_0 = atac_pred_ko[0]
+precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+print(auc(recall, precision))   # 0.6877390955590554
+
+true_0 = atac_true.X.toarray()[0]
+pred_0 = atac_pred_ko[0]
+fpr, tpr, _ = roc_curve(true_0, pred_0)
+print(auc(fpr, tpr))  # 0.7693186238770752
+
+
+## wt vs. ko
+plot scatter!!!!!
+from plotnine import *
+import scanpy as sc
+import pandas as pd
+import numpy as np
+
+atac_pred_wt = np.load('TFDP1_13_predict.npy')
+atac_pred_ko = np.load('TFDP1_13_ko_predict.npy')
+
+dat = pd.DataFrame({'wt': atac_pred_wt[0], 'ko': atac_pred_ko[0]})
+
+p = ggplot(dat, aes(x='wt', y='ko')) + geom_point(size=0.02) + theme_bw()
+p.save(filename='TFDP1_wt_ko_scatter.png', dpi=100, height=4, width=5)
+
+
+
+
 
