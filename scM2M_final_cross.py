@@ -108,4 +108,33 @@ np.mean(auroc_lst)  # 0.7667124840123922
 
 
 
+## Barplot for benchmark
+from plotnine import *
+import pandas as pd
+import numpy as np
+
+## ARI & AMI & NMI & HOM
+raw = pd.read_table('ari_ami_nmi_hom_crc.txt', index_col=0)
+dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
+dat['dataset'] = ['tumor_B']*4 + ['tumor_B_CRC']*4
+dat['evl'] = ['ARI', 'AMI', 'NMI', 'HOM']*2
+
+p = ggplot(dat, aes(x='factor(evl)', y='val', fill='dataset')) + geom_bar(stat='identity', position=position_dodge()) + xlab('') + ylab('') +\
+                                                                 scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='ari_ami_nmi_hom_crc.pdf', dpi=600, height=4, width=5)
+
+## AUROC & AUPRC
+raw = pd.read_table('auroc_auprc_crc.txt', index_col=0)
+dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
+dat['dataset'] = ['tumor_B']*2 + ['tumor_B_CRC']*2
+dat['evl'] = ['AUROC', 'AUPRC']*2
+
+p = ggplot(dat, aes(x='factor(evl)', y='val', fill='dataset')) + geom_bar(width=0.5, stat='identity', position=position_dodge()) + xlab('') + ylab('') +\
+                                                                 geom_text(aes(label='val'), stat='identity', position=position_dodge2(width=0.5), size=8, va='bottom') +\
+                                                                 scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='auroc_auprc_crc.pdf', dpi=600, height=4, width=5)
+
+
+
+
 
