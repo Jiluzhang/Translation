@@ -197,7 +197,6 @@ print(auc(fpr, tpr))  # 0.7693186238770752
 
 
 ## wt vs. ko
-plot scatter!!!!!
 from plotnine import *
 import scanpy as sc
 import pandas as pd
@@ -209,7 +208,21 @@ atac_pred_ko = np.load('TFDP1_13_ko_predict.npy')
 dat = pd.DataFrame({'wt': atac_pred_wt[0], 'ko': atac_pred_ko[0]})
 
 p = ggplot(dat, aes(x='wt', y='ko')) + geom_point(size=0.02) + theme_bw()
-p.save(filename='TFDP1_wt_ko_scatter.png', dpi=100, height=4, width=5)
+p.save(filename='TFDP1_wt_ko_scatter.png', dpi=100, height=4, width=4)
+
+
+## plot box
+df = pd.DataFrame(dat.values.flatten(), columns=['val'])
+df['type'] = ['wt', 'ko']*dat.shape[0]
+
+p = ggplot(df,aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False) + theme_bw()
+p.save(filename='TFDP1_more_1_wt_ko_box.png', dpi=100, height=4, width=4)
+
+stats.ttest_rel(dat['wt'], dat['ko'])
+dat['wt'].mean()  # 0.37247285
+dat['ko'].mean()  # 0.36820325
+
+
 
 
 ##### select more cell to do in-silico perturbation
@@ -241,8 +254,38 @@ python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yam
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_TFDP1_more_1_ko -l save_tumor_B/2024-05-16_rna2atac_tumor_B_20/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
+## wt vs. ko
+from plotnine import *
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+atac_pred_wt = np.load('TFDP1_more_1_predict.npy')
+atac_pred_ko = np.load('TFDP1_more_1_ko_predict.npy')
+
+dat = pd.DataFrame({'wt': atac_pred_wt.mean(axis=0), 'ko': atac_pred_ko.mean(axis=0)})
+# dat = pd.DataFrame({'wt': atac_pred_wt[13], 'ko': atac_pred_ko[13]})
+
+p = ggplot(dat, aes(x='wt', y='ko')) + geom_point(size=0.02) + theme_bw()
+p.save(filename='TFDP1_more_1_wt_ko_scatter.png', dpi=100, height=4, width=4)
 
 
+## plot box
+dat = pd.DataFrame({'wt': atac_pred_wt.mean(axis=0), 'ko': atac_pred_ko.mean(axis=0)})
+df = pd.DataFrame(dat.values.flatten(), columns=['val'])
+df['type'] = ['wt', 'ko']*dat.shape[0]
+
+p = ggplot(df,aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False) + theme_bw()
+p.save(filename='TFDP1_more_1_wt_ko_more_1_box.png', dpi=100, height=4, width=4)
+
+stats.ttest_rel(dat['wt'], dat['ko'])
+dat['wt'].mean()  # 0.33196306
+dat['ko'].mean()  # 0.33137012
+
+
+
+## ReMap2022: https://remap.univ-amu.fr/
 
 
 
