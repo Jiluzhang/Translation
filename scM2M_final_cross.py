@@ -289,9 +289,13 @@ dat['ko'].mean()  # 0.33137012
 
 
 
-
-
-
+############ scButterfly ############
+## Github: https://github.com/BioX-NKU/scButterfly
+## Tutorial: https://scbutterfly.readthedocs.io/en/latest/
+conda create -n scButterfly python==3.9
+conda activate scButterfly
+pip install scButterfly -i https://pypi.tuna.tsinghua.edu.cn/simple
+conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia
 
 
 
