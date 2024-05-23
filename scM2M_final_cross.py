@@ -212,6 +212,50 @@ p = ggplot(dat, aes(x='wt', y='ko')) + geom_point(size=0.02) + theme_bw()
 p.save(filename='TFDP1_wt_ko_scatter.png', dpi=100, height=4, width=5)
 
 
+##### select more cell to do in-silico perturbation
+import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('rna_tumor_B_test_filtered_0.h5ad')
+np.unique(rna[:, 'TFDP1'].X.toarray(), return_counts=True)
+# array([ 0.,  1.,  2.,  3.,  4.,  5.,  6.,  7.,  8.,  9., 12., 13.])
+# array([6202,  808,  181,   46,   21,   10,    5,    2,    3,    3,    1, 1])
+# 7283-6202-808=273
+idx = np.where(rna[:, 'TFDP1'].X.toarray()>1)[0]
+rna[idx, :].write('TFDP1_more_1_rna_0.h5ad')
+
+atac = sc.read_h5ad('atac_tumor_B_test_filtered_0.h5ad')
+atac[idx, :].write('TFDP1_more_1_atac_0.h5ad')
+
+rna_tfdp1 = sc.read_h5ad('TFDP1_more_1_rna_0.h5ad')
+rna_tfdp1[:, 'TFDP1'].X = 0
+rna_tfdp1.write('TFDP1_more_1_rna_ko_0.h5ad')
+
+
+## for wt
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_TFDP1_more_1 -l save_tumor_B/2024-05-16_rna2atac_tumor_B_20/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+## for ko
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_whole_TFDP1_more_1_ko -l save_tumor_B/2024-05-16_rna2atac_tumor_B_20/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
