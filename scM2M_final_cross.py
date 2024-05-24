@@ -334,10 +334,17 @@ python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_
 # https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py  copy this py file to the current fold
 #Luz torch.save(model.state_dict(), self.path)
 
-import os
-os.__file__
 
 # https://github.com/huggingface/accelerate/blob/main/src/accelerate/accelerator.py
+conda create -n scM2M_clone --clone /data/home/zouqihang/miniconda3/envs/m2m
+# import accelerate
+# accelerate.__file__ 
+# '/fs/home/jiluzhang/softwares/miniconda3/envs/scM2M_clone/lib/python3.10/site-packages/accelerate/__init__.py'
+# add code to accelerate.py
+# # Set a flag tensor for early stopping and other breakpoints
+# self.flag_tensor = None
+# def set_trigger(self): ...
+# def check_trigger(self): ...
 
 accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
