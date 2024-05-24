@@ -300,7 +300,41 @@ conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=
 
 
 
+########## pan-cancer datasets ##########
+# 1. check attention setting                      √
+# 2. modify RNA encoder (similar to ATAC)         √
+# 3. use validation dataset to tune parameters 
 
+
+## split train & val dataset
+# python split_train_val.py
+
+import scanpy as sc
+import random
+
+rna = sc.read_h5ad('TFDP1_more_1_rna_0.h5ad')
+atac = sc.read_h5ad('TFDP1_more_1_atac_0.h5ad')
+
+random.seed(0)
+idx = list(range(rna.n_obs))
+random.shuffle(idx)
+train_idx = idx[:int(len(idx)*0.8)]
+val_idx = idx[int(len(idx)*0.8):]
+
+rna[train_idx, :].write('TFDP1_more_1_rna_train_0.h5ad')
+rna[val_idx, :].write('TFDP1_more_1_rna_val_0.h5ad')
+atac[train_idx, :].write('TFDP1_more_1_atac_train_0.h5ad')
+atac[val_idx, :].write('TFDP1_more_1_atac_val_0.h5ad')
+
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type val
+# https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py  copy this py file to the current fold
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml -d ./preprocessed_data_train -n rna2atac_train
+
+
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_tmp_whole -l save/2024-05-24_rna2atac_tmp_31/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
 
