@@ -329,8 +329,17 @@ atac[val_idx, :].write('TFDP1_more_1_atac_val_0.h5ad')
 
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type val
+
+# Early stopping: https://blog.csdn.net/qq_37430422/article/details/103638681
 # https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py  copy this py file to the current fold
-accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml -d ./preprocessed_data_train -n rna2atac_train
+#Luz torch.save(model.state_dict(), self.path)
+
+import os
+os.__file__
+
+# https://github.com/huggingface/accelerate/blob/main/src/accelerate/accelerator.py
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 
 python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
