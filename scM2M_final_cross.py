@@ -303,7 +303,7 @@ conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=
 ########## pan-cancer datasets ##########
 # 1. check attention setting                      √
 # 2. modify RNA encoder (similar to ATAC)         √
-# 3. use validation dataset to tune parameters 
+# 3. use validation dataset to tune parameters    √
 
 
 ## split train & val dataset
@@ -351,6 +351,62 @@ accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --c
 
 python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_tmp_whole -l save/2024-05-24_rna2atac_tmp_31/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+
+
+############ pan-cancer datasets testing (only normal cells) ############
+# ML123M1-Ty1   SKCM    2,442
+# P5504-N1      HNSCC   2,336
+# PM581P1-T1N1  PDAC    2,567
+
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/ML123M1-Ty1_*.h5ad .
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/P5504-N1_*.h5ad .
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/PM581P1-T1_*.h5ad .
+
+## filter genes & peaks
+import scanpy as sc
+import anndata as ad
+
+## RNA
+rna_skcm = sc.read_h5ad('ML123M1-Ty1_rna.h5ad')     # 2442 × 38244
+rna_skcm.obs.index = 'ML123M1-Ty1_' + rna_skcm.obs.index
+rna_hnscc = sc.read_h5ad('P5504-N1_rna.h5ad')       # 2336 × 38244
+rna_hnscc.obs.index = 'P5504-N1_' + rna_hnscc.obs.index
+
+rna = ad.concat([rna_skcm, rna_hnscc], axis=0)   # 4778 × 38244
+rna.var = rna_skcm.var
+sc.pp.filter_genes(rna, min_cells=10)            # 4778 × 15730
+rna.write('skcm_hnscc_rna.h5ad')
+
+rna_pdac = sc.read_h5ad('PM581P1-T1_rna.h5ad')      # 2567 × 38244
+rna_pdac.obs.index = 'PM581P1-T1_' + rna_pdac.obs.index
+rna_pdac[:, rna.var.index].write('pdac_rna.h5ad')
+
+## ATAC
+atac_skcm = sc.read_h5ad('ML123M1-Ty1_atac.h5ad')     # 2442 × 1033239
+atac_skcm.obs.index = 'ML123M1-Ty1_' + atac_skcm.obs.index
+atac_hnscc = sc.read_h5ad('P5504-N1_atac.h5ad')       # 2336 × 1033239
+atac_hnscc.obs.index = 'P5504-N1_' + atac_hnscc.obs.index
+
+atac = ad.concat([atac_skcm, atac_hnscc], axis=0)   # 4778 × 1033239
+atac.var = atac_skcm.var
+sc.pp.filter_genes(atac, min_cells=10)              # 4778 × 229254
+atac.write('skcm_hnscc_atac.h5ad')
+
+atac_pdac = sc.read_h5ad('PM581P1-T1_atac.h5ad')      # 2567 × 1033239
+atac_pdac.obs.index = 'PM581P1-T1_' + atac_pdac.obs.index
+atac_pdac[:, atac.var.index].write('pdac_atac.h5ad')
+
+
+python split_train_val.py --RNA skcm_hnscc_rna.h5ad --ATAC skcm_hnscc_atac.h5ad
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
+
+
+
+
+
+
 
 
 
