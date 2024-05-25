@@ -407,7 +407,106 @@ nohup accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.
 # 2760530
 
 
+## split testing dataset (modify 10000 to 1000 in 'rna2atac_data_preprocess_whole.py'!!!!!!!!!!)
+# python split_testing.py --RNA pdac_rna.h5ad --ATAC pdac_atac.h5ad
+# import scanpy as sc
+# import argparse
 
+# parser = argparse.ArgumentParser(description='Split testing dataset every 1000 cells')
+# parser.add_argument('--RNA', type=str, help='RNA h5ad file')
+# parser.add_argument('--ATAC', type=str, help='ATAC h5ad file')
+
+# args = parser.parse_args()
+# rna_file = args.RNA
+# atac_file = args.ATAC
+
+# rna = sc.read_h5ad(rna_file)
+# atac = sc.read_h5ad(atac_file)
+
+# for i in range(rna.n_obs//1000+1):
+#     rna[i*1000:(i+1)*1000, :].write(rna_file.replace('.h5ad', '')+'_'+str(i)+'_0.h5ad')
+#     atac[i*1000:(i+1)*1000, :].write(atac_file.replace('.h5ad', '')+'_'+str(i)+'_0.h5ad')
+
+
+mv pdac_atac.h5ad pdac_atac_0.h5ad
+mv pdac_rna.h5ad pdac_rna_0.h5ad
+
+python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml  # ~14 min
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test -l save/2024-05-25_rna2atac_train_8/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+
+
+## calculate metrics
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+from tqdm import tqdm
+import random
+from sklearn import metrics
+
+m_raw = np.load('pdac_predict.npy')
+
+m = m_raw.copy()
+# [sum(m_raw[i]>0.7) for i in range(5)]   [10467, 12286, 12222, 10728, 10362]
+m[m>0.7]=1
+m[m<=0.7]=0
+
+atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
+snap.pp.select_features(atac_true)
+snap.tl.spectral(atac_true)
+snap.tl.umap(atac_true)
+snap.pp.knn(atac_true)
+snap.tl.leiden(atac_true)
+snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_pdac_true.pdf', marker_size=2.0, height=500)
+
+# del atac_true.obsm['X_spectral']
+# del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+snap.pp.knn(atac_pred)
+snap.tl.leiden(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_tumor_B_crc_test_predict_0.7.pdf', marker_size=2.0, height=500)
+ARI = metrics.adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+AMI = metrics.adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+NMI = metrics.normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+HOM = metrics.homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+print(ARI, AMI, NMI, HOM)
+# 0.12570701571524157 0.2603323443875042 0.26147564931848244 0.41597569847177773
+atac_pred.write('atac_tumor_B_test_crc_filtered_0_scm2m.h5ad')
+
+atac_pred = np.load('precict_from_tumor_B_crc.npy')
+atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None)
+
+random.seed(0)
+idx = list(range(atac_true.n_obs))
+random.shuffle(idx)
+idx = idx[:500]
+
+auprc_lst = []
+for i in tqdm(range(500)):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+
+np.mean(auprc_lst)  # 0.1815552462891631
+
+auroc_lst = []
+for i in tqdm(range(500)):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    fpr, tpr, _ = roc_curve(true_0, pred_0)
+    auroc_lst.append(auc(fpr, tpr))
+
+np.mean(auroc_lst)  # 0.7667124840123922
 
 
 
