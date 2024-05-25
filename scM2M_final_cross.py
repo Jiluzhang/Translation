@@ -450,7 +450,7 @@ from sklearn import metrics
 m_raw = np.load('pdac_predict.npy')
 
 m = m_raw.copy()
-# [sum(m_raw[i]>0.7) for i in range(5)]   [10467, 12286, 12222, 10728, 10362]
+# [sum(m_raw[i]>0.7) for i in range(5)]   [48433, 48523, 48475, 48525, 48429]
 m[m>0.7]=1
 m[m<=0.7]=0
 
@@ -471,9 +471,10 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)
 snap.tl.spectral(atac_pred)
 snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_predict.pdf', marker_size=2.0, height=500)
+
 snap.pp.knn(atac_pred)
 snap.tl.leiden(atac_pred)
-snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_tumor_B_crc_test_predict_0.7.pdf', marker_size=2.0, height=500)
 ARI = metrics.adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
 AMI = metrics.adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
 NMI = metrics.normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
@@ -482,8 +483,8 @@ print(ARI, AMI, NMI, HOM)
 # 0.12570701571524157 0.2603323443875042 0.26147564931848244 0.41597569847177773
 atac_pred.write('atac_tumor_B_test_crc_filtered_0_scm2m.h5ad')
 
-atac_pred = np.load('precict_from_tumor_B_crc.npy')
-atac_true = snap.read('atac_tumor_B_test_filtered_0.h5ad', backed=None)
+atac_pred = np.load('pdac_predict.npy')
+atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
 
 random.seed(0)
 idx = list(range(atac_true.n_obs))
@@ -497,7 +498,7 @@ for i in tqdm(range(500)):
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
 
-np.mean(auprc_lst)  # 0.1815552462891631
+np.mean(auprc_lst)  # 0.13025709432426058
 
 auroc_lst = []
 for i in tqdm(range(500)):
@@ -506,8 +507,25 @@ for i in tqdm(range(500)):
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)  # 0.7667124840123922
+np.mean(auroc_lst)  # 0.7910410804765408
 
 
+## check the rank of loading data file!!!
 
+def load_data_path(files_dir, endwith="", greed=False, without=None):
+    def finding(files_dir, endwith, greed):
+        data_paths = []
+        items = os.listdir(files_dir)
+        dirs = [item for item in items if os.path.isdir(os.path.join(files_dir, item))]
+        files = [item for item in items if not os.path.isdir(os.path.join(files_dir, item))]
+        
+        for file in files:
+            if file.endswith(endwith):
+                data_paths.append(os.path.join(files_dir, file))
+                if not greed:
+                    return data_paths
+        
+        for dir in dirs:
+            data_paths += finding(os.path.join(files_dir, dir), endwith, greed)
+        return data_paths
 
