@@ -400,11 +400,11 @@ atac_pdac[:, atac.var.index].write('pdac_atac.h5ad')
 
 python split_train_val.py --RNA skcm_hnscc_rna.h5ad --ATAC skcm_hnscc_atac.h5ad
 
-python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train  # ~7 min
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type val    # ~7 min
 
-
-
-
+nohup accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > training_20240525.log &
+# 2760530
 
 
 
