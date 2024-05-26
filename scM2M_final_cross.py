@@ -510,22 +510,11 @@ for i in tqdm(range(500)):
 np.mean(auroc_lst)  # 0.7910410804765408
 
 
-## check the rank of loading data file!!!
+## check the rank of loading data file!!!  (sort by the created date of files)
 
-def load_data_path(files_dir, endwith="", greed=False, without=None):
-    def finding(files_dir, endwith, greed):
-        data_paths = []
-        items = os.listdir(files_dir)
-        dirs = [item for item in items if os.path.isdir(os.path.join(files_dir, item))]
-        files = [item for item in items if not os.path.isdir(os.path.join(files_dir, item))]
-        
-        for file in files:
-            if file.endswith(endwith):
-                data_paths.append(os.path.join(files_dir, file))
-                if not greed:
-                    return data_paths
-        
-        for dir in dirs:
-            data_paths += finding(os.path.join(files_dir, dir), endwith, greed)
-        return data_paths
+nohup accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > training_20240526.log &
+# 3150059
+
+
+
 
