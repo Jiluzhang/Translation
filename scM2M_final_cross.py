@@ -435,6 +435,18 @@ python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yam
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test -l save/2024-05-25_rna2atac_train_8/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
+## check the rank of loading data file!!!  (sort by the created date of files)
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+# model saved when epoch=10
+
+#python rna2atac_data_preprocess_whole.py --config_file rna2atac_config_whole.yaml  # for validating dataset
+#accelerate launch --config_file accelerator_config.yaml rna2atac_evaluate.py -d ./preprocessed_data_val_whole -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+## modify auroc & auprc calculation
+
 
 ## calculate metrics
 import numpy as np
@@ -447,44 +459,9 @@ from tqdm import tqdm
 import random
 from sklearn import metrics
 
-m_raw = np.load('pdac_predict.npy')
-
-m = m_raw.copy()
-# [sum(m_raw[i]>0.7) for i in range(5)]   [48433, 48523, 48475, 48525, 48429]
-m[m>0.7]=1
-m[m<=0.7]=0
-
-atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
-snap.pp.select_features(atac_true)
-snap.tl.spectral(atac_true)
-snap.tl.umap(atac_true)
-snap.pp.knn(atac_true)
-snap.tl.leiden(atac_true)
-snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_pdac_true.pdf', marker_size=2.0, height=500)
-
-# del atac_true.obsm['X_spectral']
-# del atac_true.obsm['X_umap']
-
-atac_pred = atac_true.copy()
-atac_pred.X = csr_matrix(m)
-
-snap.pp.select_features(atac_pred)
-snap.tl.spectral(atac_pred)
-snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_predict.pdf', marker_size=2.0, height=500)
-
-snap.pp.knn(atac_pred)
-snap.tl.leiden(atac_pred)
-ARI = metrics.adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
-AMI = metrics.adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
-NMI = metrics.normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
-HOM = metrics.homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
-print(ARI, AMI, NMI, HOM)
-# 0.12570701571524157 0.2603323443875042 0.26147564931848244 0.41597569847177773
-atac_pred.write('atac_tumor_B_test_crc_filtered_0_scm2m.h5ad')
-
 atac_pred = np.load('pdac_predict.npy')
 atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
+#atac_true = snap.read('skcm_hnscc_atac_val_0.h5ad', backed=None)
 
 random.seed(0)
 idx = list(range(atac_true.n_obs))
@@ -498,7 +475,7 @@ for i in tqdm(range(500)):
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
 
-np.mean(auprc_lst)  # 0.13025709432426058
+np.mean(auprc_lst)  # 0.12893682502338247    0.24912467268751765
 
 auroc_lst = []
 for i in tqdm(range(500)):
@@ -507,14 +484,231 @@ for i in tqdm(range(500)):
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)  # 0.7910410804765408
+np.mean(auroc_lst)  # 0.7912304696962561   0.8581207375432429
 
 
-## check the rank of loading data file!!!  (sort by the created date of files)
+m_raw = np.load('pdac_predict.npy')
 
-nohup accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > training_20240526.log &
-# 3150059
+m = m_raw.copy()
+# [sum(m_raw[i]>0.9) for i in range(5)]   [19319, 19152, 19920, 19106, 19248]   [19050, 19304, 18912, 19339, 19206]
+m[m>0.9]=1
+m[m<=0.9]=0
 
+# atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
+# snap.pp.select_features(atac_true)
+# snap.tl.spectral(atac_true)
+# snap.tl.umap(atac_true)
+# snap.pp.knn(atac_true)
+# snap.tl.leiden(atac_true)
+# snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_pdac_true.pdf', marker_size=2.0, height=500)
+# atac_true.write('pdac_atac_0_res.h5ad')
+
+atac_true = snap.read('pdac_atac_0_res.h5ad', backed=None)
+
+# del atac_true.obsm['X_spectral']
+# del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_predict.pdf', marker_size=2.0, height=500)
+
+
+### multiple rate increase from 20 to 100
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train        # ~17 min
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val    # ~3 min
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type test   # 
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val_whole -n rna2atac_train
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val_whole \
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml
+
+## calculate metrics
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+from tqdm import tqdm
+import random
+from sklearn import metrics
+
+atac_pred = np.load('pdac_predict.npy')
+atac_true = snap.read('skcm_hnscc_atac_test_0.h5ad', backed=None)
+
+random.seed(0)
+idx = list(range(atac_true.n_obs))
+random.shuffle(idx)
+idx = idx[:500]
+
+auprc_lst = []
+for i in tqdm(range(500), ncols=80):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+
+np.mean(auprc_lst)  # 0.11361651223101643    0.2180344549328154
+
+auroc_lst = []
+for i in tqdm(range(500), ncols=80):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    fpr, tpr, _ = roc_curve(true_0, pred_0)
+    auroc_lst.append(auc(fpr, tpr))
+
+np.mean(auroc_lst)  # 0.7706932865002787   0.8316141877071057
+
+
+m_raw = np.load('pdac_predict.npy')
+
+m = m_raw.copy()
+# [sum(m_raw[i]>0.9) for i in range(5)]   [[11001, 10505, 9748, 10063, 11315]]   [9047, 9580, 10143, 9107, 8674]
+m[m>0.9]=1
+m[m<=0.9]=0
+
+# atac_true = snap.read('pdac_atac_0.h5ad', backed=None)
+# snap.pp.select_features(atac_true)
+# snap.tl.spectral(atac_true)
+# snap.tl.umap(atac_true)
+# snap.pp.knn(atac_true)
+# snap.tl.leiden(atac_true)
+# snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_pdac_true.pdf', marker_size=2.0, height=500)
+# atac_true.write('pdac_atac_0_res.h5ad')
+
+atac_true = snap.read('pdac_atac_0_res.h5ad', backed=None)
+
+# del atac_true.obsm['X_spectral']
+# del atac_true.obsm['X_umap']
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_predict.pdf', marker_size=2.0, height=500)
+
+
+## only for pdac dataset
+
+## split_train_val_test.py 
+import scanpy as sc
+import random
+import argparse
+
+parser = argparse.ArgumentParser(description='Split dataset into training and validating')
+parser.add_argument('--RNA', type=str, help='RNA h5ad file')
+parser.add_argument('--ATAC', type=str, help='ATAC h5ad file')
+
+args = parser.parse_args()
+rna_file = args.RNA
+atac_file = args.ATAC
+
+rna = sc.read_h5ad(rna_file)
+atac = sc.read_h5ad(atac_file)
+
+random.seed(0)
+idx = list(range(rna.n_obs))
+random.shuffle(idx)
+train_idx = idx[:int(len(idx)*0.8)]
+val_idx = idx[int(len(idx)*0.8):(int(len(idx)*0.8)+int(len(idx)*0.1))]
+test_idx = idx[(int(len(idx)*0.8)+int(len(idx)*0.1)):]
+
+rna[train_idx, :].write(rna_file.replace('.h5ad', '')+'_train_0.h5ad')
+rna[val_idx, :].write(rna_file.replace('.h5ad', '')+'_val_0.h5ad')
+rna[test_idx, :].write(rna_file.replace('.h5ad', '')+'_test_0.h5ad')
+atac[train_idx, :].write(atac_file.replace('.h5ad', '')+'_train_0.h5ad')
+atac[val_idx, :].write(atac_file.replace('.h5ad', '')+'_val_0.h5ad')
+atac[test_idx, :].write(atac_file.replace('.h5ad', '')+'_test_0.h5ad')
+
+
+python split_train_val_test.py --RNA pdac_rna.h5ad --ATAC pdac_atac.h5ad
+
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train        # ~17 min
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val    # ~1 min
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type test   # 
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val \
+                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml
+
+## calculate metrics
+import numpy as np
+import scanpy as sc
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+from tqdm import tqdm
+import random
+from sklearn import metrics
+
+atac_pred = np.load('pdac_val_predict.npy')
+atac_true = snap.read('pdac_atac_val_0.h5ad', backed=None)
+
+random.seed(0)
+idx = list(range(atac_true.n_obs))
+random.shuffle(idx)
+idx = idx[:200]
+
+auprc_lst = []
+for i in tqdm(range(200), ncols=80):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
+    auprc_lst.append(auc(recall, precision))
+
+np.mean(auprc_lst)  # 0.14306974992581242    0.1352068694976256  (testing  &  validating)
+
+auroc_lst = []
+for i in tqdm(range(200), ncols=80):
+    true_0 = atac_true.X[idx[i]].toarray()[0]
+    pred_0 = atac_pred[idx[i]]
+    fpr, tpr, _ = roc_curve(true_0, pred_0)
+    auroc_lst.append(auc(fpr, tpr))
+
+np.mean(auroc_lst)  # 0.8708621300163608   0.8661574656566279
+
+
+m_raw = np.load('pdac_val_predict.npy')
+
+m = m_raw.copy()
+# [sum(m_raw[i]>0.7) for i in range(5)]   [13921, 14144, 13997, 14110, 13900]   [13769, 14156, 14024, 14276, 13962]
+m[m>0.7]=1
+m[m<=0.7]=0
+
+# atac_true = snap.read('pdac_atac_val_0.h5ad', backed=None)
+# snap.pp.select_features(atac_true)
+# snap.tl.spectral(atac_true)
+# snap.tl.umap(atac_true)
+# snap.pp.knn(atac_true)
+# snap.tl.leiden(atac_true)
+# snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_pdac_val_true.pdf', marker_size=2.0, height=500)
+# atac_true.write('pdac_atac_val_0_res.h5ad')
+
+atac_true = snap.read('pdac_atac_val_0_res.h5ad', backed=None)
+
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_val_predict.pdf', marker_size=2.0, height=500)
 
 
 
