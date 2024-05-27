@@ -642,9 +642,9 @@ accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --c
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val \
-                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 ## calculate metrics
 import numpy as np
@@ -672,7 +672,7 @@ for i in tqdm(range(200), ncols=80):
     precision, recall, thresholds = precision_recall_curve(true_0, pred_0)
     auprc_lst.append(auc(recall, precision))
 
-np.mean(auprc_lst)  # 0.14306974992581242    0.1352068694976256  (testing  &  validating)
+np.mean(auprc_lst)  # 0.14860952593008026    0.1402930976618024  (testing  &  validating)
 
 auroc_lst = []
 for i in tqdm(range(200), ncols=80):
@@ -681,13 +681,13 @@ for i in tqdm(range(200), ncols=80):
     fpr, tpr, _ = roc_curve(true_0, pred_0)
     auroc_lst.append(auc(fpr, tpr))
 
-np.mean(auroc_lst)  # 0.8708621300163608   0.8661574656566279
+np.mean(auroc_lst)  # 0.877459947751612   0.8731499471152157
 
 
 m_raw = np.load('pdac_val_predict.npy')
 
 m = m_raw.copy()
-# [sum(m_raw[i]>0.7) for i in range(5)]   [13921, 14144, 13997, 14110, 13900]   [13769, 14156, 14024, 14276, 13962]
+# [sum(m_raw[i]>0.7) for i in range(5)]   [7982, 8545, 8720, 8625, 8648]   [8093, 8312, 8517, 7726, 8401]
 m[m>0.7]=1
 m[m<=0.7]=0
 
@@ -711,4 +711,18 @@ snap.tl.umap(atac_pred)
 snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pdac_val_predict.pdf', marker_size=2.0, height=500)
 
 
+### PDAC for all RNA input
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train        # ~7 min
+#python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val
+#python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type test 
+
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val \
+                  -l save/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+##### 2048 -> 2048 #####
 
