@@ -720,7 +720,7 @@ accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --c
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val \
-                  -l save/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
