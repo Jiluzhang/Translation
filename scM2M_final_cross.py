@@ -727,7 +727,7 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
 
 ##### 2048 -> 2048 #####
 
-python split_train_val_test.py --RNA hnscc_rna.h5ad --ATAC hnscc_atac.h5ad
+python split_train_val_test.py --RNA tumor_B_rna.h5ad --ATAC tumor_B_atac.h5ad
 
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type val
@@ -738,7 +738,7 @@ accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --c
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val_whole \
-                  -l save/pytorch_model_epoch_3.bin --config_file rna2atac_config_whole.yaml && mv hnscc_predict.npy hnscc_val_predict.npy
+                  -l save/pytorch_model_epoch_37.bin --config_file rna2atac_config_whole.yaml && mv tumor_B_predict.npy tumor_B_val_predict.npy
 
 
 import numpy as np
@@ -751,8 +751,8 @@ from tqdm import tqdm
 import random
 from sklearn import metrics
 
-atac_pred = np.load('hnscc_val_predict.npy')
-atac_true = snap.read('hnscc_atac_val_0.h5ad', backed=None)
+atac_pred = np.load('crc_val_predict.npy')
+atac_true = snap.read('crc_atac_val_0.h5ad', backed=None)
 
 random.seed(0)
 idx = list(range(atac_true.n_obs))
@@ -778,24 +778,23 @@ for i in tqdm(range(200), ncols=80):
 np.mean(auroc_lst)  # 0.877459947751612   0.8731499471152157
 
 
-m_raw = np.load('hnscc_train_predict.npy')
+m_raw = np.load('tumor_B_val_predict.npy')
 
 m = m_raw.copy()
 # [sum(m_raw[i]>0.7) for i in range(5)]   [7982, 8545, 8720, 8625, 8648]   [8093, 8312, 8517, 7726, 8401]
 m[m>0.7]=1
 m[m<=0.7]=0
 
-# atac_true = snap.read('hnscc_atac_filtered_train_0.h5ad', backed=None)
+# atac_true = snap.read('tumor_B_atac_val_0.h5ad', backed=None)
 # snap.pp.select_features(atac_true)
 # snap.tl.spectral(atac_true)
 # snap.tl.umap(atac_true)
 # snap.pp.knn(atac_true)
-# snap.tl.leiden(atac_true)
-# snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_hnscc_train_true.pdf', marker_size=2.0, height=500)
-# atac_true.write('hnscc_atac_train_0_res.h5ad')
+# snap.tl.leiden(atac_true, resolution=1)
+# snap.pl.umap(atac_true, color='leiden', show=False, out_file='umap_tumor_B_val_true.pdf', marker_size=2.0, height=500)
+# atac_true.write('tumor_B_atac_val_0_res.h5ad')
 
-
-atac_true = snap.read('hnscc_atac_train_0_res.h5ad', backed=None)
+atac_true = snap.read('tumor_B_atac_val_0_res.h5ad', backed=None)
 
 atac_pred = atac_true.copy()
 atac_pred.X = csr_matrix(m)
@@ -803,6 +802,41 @@ atac_pred.X = csr_matrix(m)
 snap.pp.select_features(atac_pred)
 snap.tl.spectral(atac_pred)
 snap.tl.umap(atac_pred)
-snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_hnscc_train_predict.pdf', marker_size=2.0, height=500)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_tumor_B_val_predict.pdf', marker_size=2.0, height=500)
+
+
+
+
+import scanpy as sc
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')     # 8475 × 38244
+sc.pp.filter_genes(rna, min_cells=10)            # 8475 × 18524
+rna.write('crc_rna.h5ad')
+
+atac = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_atac.h5ad')     # 8475 × 1033239
+sc.pp.filter_genes(atac, min_cells=10)              # 8475 × 185908
+atac.write('crc_atac.h5ad')
+
+
+
+
+adata = sc.read_h5ad('crc_rna_val_0.h5ad')  
+sc.pp.normalize_total(adata, target_sum=1e4)
+sc.pp.log1p(adata)
+
+sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
+adata.raw = adata
+adata = adata[:, adata.var.highly_variable]
+
+sc.tl.pca(adata, svd_solver='arpack')
+
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)#, min_dist=0.2)
+sc.tl.leiden(adata, resolution=0.2)
+
+sc.tl.rank_genes_groups(adata, 'leiden', method='wilcoxon')
+
+sc.pl.umap(adata, color='leiden', legend_fontsize='5', legend_loc='on data',
+           title='', frameon=True, save='_min_dist_0.2_resolution_0.2.pdf')
 
 
