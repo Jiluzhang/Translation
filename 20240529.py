@@ -191,3 +191,9 @@ snap.tl.spectral(atac_pred)
 snap.tl.umap(atac_pred)
 snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pbmc_val_predict.pdf', marker_size=2.0, height=500)
 
+
+
+
+
+
+
