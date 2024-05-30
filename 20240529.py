@@ -227,8 +227,8 @@ snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pbmc_val_pred
 
 
 
-
-
+## Organization of the human intestine at single-cell resolution
+## https://www.nature.com/articles/s41586-023-05915-x
 
 
 
