@@ -194,6 +194,58 @@ snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pbmc_val_pred
 
 
 
+## random.choices is for sampling with replacement!!! (need to revise)
+
+
+python split_train_val_test.py --RNA pbmc_rna.h5ad --ATAC pbmc_atac.h5ad
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val_all \
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv pbmc_predict.npy pbmc_val_predict.npy
+
+
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import csr_matrix
+
+m_raw = np.load('pbmc_val_predict.npy')
+m = m_raw.copy()
+# [sum(m_raw[i]>0.7) for i in range(5)]
+m[m>0.7]=1
+m[m<=0.7]=0
+
+atac_true = snap.read('pbmc_atac_val_0_res.h5ad', backed=None)
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_pbmc_val_predict.pdf', marker_size=2.0, height=500)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
