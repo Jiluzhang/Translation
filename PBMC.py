@@ -1,18 +1,93 @@
 ## pbmc dataset
 
+## alignment -> filtering -> clustering -> modeling -> evaluation
+
 ## raw data process
+# human_genes.txt  38244
+# human_cCREs.bed  1033239
+# python align_filter_rna_atac_10x.py -i pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5
+import argparse
+import warnings
 import scanpy as sc
+import pandas as pd
+import numpy as np
+import pybedtools
+from tqdm import tqdm
+from scipy.sparse import csr_matrix
 
-dat = sc.read_10x_h5('/fs/home/jiluzhang/scTranslator_new/datasets/raw/10x/pbmc/pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5', gex_only=False)  # 11898 × 180488
+warnings.filterwarnings('ignore')
+
+parser = argparse.ArgumentParser(description='Alignment for h5 file from 10x')
+parser.add_argument('-i', '--input', type=str, help='h5 file')
+
+args = parser.parse_args()
+h5_file = args.input
+
+dat = sc.read_10x_h5(h5_file, gex_only=False)
 dat.var_names_make_unique()
-rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()  # 11898 × 36601
-sc.pp.filter_genes(rna, min_cells=10)  # 11898 × 22017
-rna.write('pbmc_rna.h5ad')
 
-atac = dat[:, dat.var['feature_types']=='Peaks'].copy()  # 11898 × 143887
-atac.X[atac.X>0]=1  # binarization
-sc.pp.filter_genes(atac, min_cells=10)   # 11898 × 143883
-atac.write('pbmc_atac.h5ad')
+## RNA
+rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
+rna.X = rna.X.toarray()
+genes = pd.read_table('human_genes.txt', names=['gene_ids', 'gene_name'])
+
+rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index)], axis=1)
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 4:].T
+X_new.fillna(value=0, inplace=True)
+
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)
+rna_new.write('rna_aligned.h5ad')
+print('######## RNA alignment done ########')
+
+## ATAC
+atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
+atac.X = atac.X.toarray()
+atac.X[atac.X>0] = 1  # binarization
+
+peaks = pd.DataFrame({'id': atac.var_names})
+peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks.drop(columns='id', inplace=True)
+peaks['idx'] = range(peaks.shape[0])
+
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+idx_map.columns = ['peaks_idx', 'cCREs_idx']
+
+m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+    m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+
+atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+atac_new.var.index = atac_new.var['gene_ids'].values
+atac_new.X = csr_matrix(atac_new.X)
+atac_new.write('atac_aligned.h5ad')
+print('######## ATAC alignment done ########')
+
+## filter genes & peaks & cells
+sc.pp.filter_genes(rna_new, min_cells=10)
+sc.pp.filter_cells(rna_new, min_genes=500)
+sc.pp.filter_cells(rna_new, max_genes=5000)
+
+sc.pp.filter_genes(atac_new, min_cells=10)
+sc.pp.filter_cells(atac_new, min_genes=1000)
+sc.pp.filter_cells(atac_new, max_genes=50000)
+
+idx = np.intersect1d(rna_new.obs.index, atac_new.obs.index)
+rna_new[idx, :].copy().write('rna.h5ad')
+atac_new[idx, :].copy().write('atac.h5ad')
+print(f'Select {rna_new.n_obs} / {rna.n_obs} cells')
+print(f'Select {rna_new.n_vars} / 38244 genes')
+print(f'Select {atac_new.n_vars} / 1033239 peaks')
+
+
+
 
 
 sc.pp.normalize_total(rna, target_sum=1e4)
