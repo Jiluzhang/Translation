@@ -180,27 +180,29 @@ sc.pl.umap(rna, color='cell_anno', legend_fontsize='7', legend_loc='on data', si
 rna.write('rna_cell_anno.h5ad')
 
 ## ATAC clustering
+# /fs/home/jiluzhang/softwares/miniconda3/envs/snapatac2/lib/python3.8/site-packages/snapatac2/tools/_embedding.py  min_dist=0.01
 import snapatac2 as snap
+import scanpy as sc
 
 atac = snap.read('atac.h5ad', backed=None)
-snap.pp.select_features(atac)
-snap.tl.spectral(atac)
-snap.tl.umap(atac)
-snap.pp.knn(atac)
-snap.tl.leiden(atac)
-
 rna = snap.read('rna_cell_anno.h5ad', backed=None)
 atac.obs['cell_anno'] = rna.obs['cell_anno']
-
-snap.pl.umap(atac, color='cell_anno', show=False, out_file='umap_atac.pdf', marker_size=2.0, height=500)
+snap.pp.select_features(atac, n_features=50000)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
+           title='', frameon=True, save='_atac_50000.pdf')
+# sc.pl.umap(rna, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
+#            title='', frameon=True, save='_cell_anno.pdf')
 atac.write('atac_cell_anno.h5ad')
 
-## use scanpy to plot!!!!!!!! keep the color consistent!!!!!
 
-
-
-
-
+# pip install episcanpy
+# import episcanpy as epi
+# import scanpy as sc
+# atac = sc.read_h5ad('atac.h5ad')
+# rna = sc.read_h5ad('rna_cell_anno.h5ad', backed=None)
+# atac.obs['cell_anno'] = rna.obs['cell_anno']
 
 
 
