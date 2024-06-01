@@ -192,10 +192,7 @@ snap.tl.spectral(atac)
 snap.tl.umap(atac)
 sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
            title='', frameon=True, save='_atac_50000.pdf')
-# sc.pl.umap(rna, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
-#            title='', frameon=True, save='_cell_anno.pdf')
 atac.write('atac_cell_anno.h5ad')
-
 
 # pip install episcanpy
 # import episcanpy as epi
@@ -205,4 +202,11 @@ atac.write('atac_cell_anno.h5ad')
 # atac.obs['cell_anno'] = rna.obs['cell_anno']
 
 
+python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
+python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val
+accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val_all \
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv pbmc_predict.npy pbmc_val_predict.npy
 
