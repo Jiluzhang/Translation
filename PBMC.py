@@ -201,12 +201,52 @@ atac.write('atac_cell_anno.h5ad')
 # rna = sc.read_h5ad('rna_cell_anno.h5ad', backed=None)
 # atac.obs['cell_anno'] = rna.obs['cell_anno']
 
+########################################################
+# cell: 11516 (train: 8061   valid: 1151  test:2304)
+# rna: 17,295
+# atac: 236,316
+########################################################
+
+# train: 5min   valid: 4min  multiple_rate: 20
 
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
 python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val
-accelerate launch --config_file accelerator_config.yaml rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
-accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29821 rna2atac_evaluate.py -d ./preprocessed_data_val_all \
-                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv pbmc_predict.npy pbmc_val_predict.npy
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val \
+                  -l save/pytorch_model_epoch_3.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
+
+
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import csr_matrix
+import scanpy as sc
+
+m_raw = np.load('val_predict.npy')
+m = m_raw.copy()
+# [sum(m_raw[i]>0.7) for i in range(5)]
+m[m>0.7]=1
+m[m<=0.7]=0
+
+atac= snap.read('data/atac_cell_anno.h5ad', backed=None)
+atac_val = snap.read('atac_val_0.h5ad', backed=None)
+atac_true = atac[atac_val.obs.index, :]
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+# snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_val_predict.pdf', marker_size=2.0, height=500)
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
+           title='', frameon=True, save='_atac_val_predict.pdf')
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_val_predict.pdf')
+
+## may try epoch 4
+
+
 
