@@ -225,7 +225,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import scanpy as sc
 
-m_raw = np.load('val_predict_epoch_43.npy')
+m_raw = np.load('val_predict_epoch_5.npy')
 m = m_raw.copy()
 # [sum(m_raw[i]>0.7) for i in range(5)]
 m[m>0.7]=1
@@ -244,7 +244,7 @@ snap.tl.umap(atac_pred)
 # sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
 #            title='', frameon=True, save='_atac_val_predict.pdf')
 sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_val_predict_epoch_43.pdf')
+           title='', frameon=True, save='_atac_val_predict_epoch_5.pdf')
 
 sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :], color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
            title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
@@ -259,21 +259,60 @@ conda create -n scButterfly python==3.9
 conda activate scButterfly
 pip install scButterfly -i https://pypi.tuna.tsinghua.edu.cn/simple
 conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia
+pip install jaxlib==0.4.27
 
+## python scbt_c.py
+import os
 from scButterfly.butterfly import Butterfly
 from scButterfly.split_datasets import *
 import scanpy as sc
 import anndata as ad
+import random
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+RNA_data = sc.read_h5ad('rna.h5ad')
+ATAC_data = sc.read_h5ad('atac.h5ad')
+
+random.seed(0)
+idx = list(range(RNA_data.n_obs))
+random.shuffle(idx)
+train_id = idx[:int(len(idx)*0.7)]
+validation_id = idx[int(len(idx)*0.7):(int(len(idx)*0.7)+int(len(idx)*0.1))]
+test_id = idx[(int(len(idx)*0.7)+int(len(idx)*0.1)):]
 
 butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+butterfly.data_preprocessing()  # time-consuming
 
-RNA_data_train = sc.read_h5ad('rna_train_0.h5ad')
-RNA_data_val   = sc.read_h5ad('rna_val_0.h5ad')
-RNA_data = ad.concat([RNA_data_train, RNA_data_val])
-RNA_data.var = RNA_data_train.var[['gene_ids', 'feature_types']]
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
 
-ATAC_data_train = sc.read_h5ad('atac_train_0.h5ad')
-ATAC_data_val   = sc.read_h5ad('atac_val_0.h5ad')
-ATAC_data = ad.concat([ATAC_data_train, ATAC_data_val])
-ATAC_data.var = ATAC_data_train.var[['gene_ids', 'feature_types']]
+butterfly.augmentation(aug_type="MultiVI_augmentation") # ~ 15 min
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model()
+A2R_predict, R2A_predict = butterfly.test_model()
+
+A2R_predict.write('rna_test_predict.h5ad')
+R2A_predict.write('atac_test_predict.h5ad')
+
+# nohup python scbt_c.py > 20240603.log &  # 2022641
+
+
+
+
+
+
+
 
