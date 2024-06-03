@@ -255,6 +255,7 @@ sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :
 ############ scButterfly ############
 ## Github: https://github.com/BioX-NKU/scButterfly
 ## Tutorial: https://scbutterfly.readthedocs.io/en/latest/
+## https://scbutterfly.readthedocs.io/en/latest/Tutorial/RNA_ATAC_paired_prediction/RNA_ATAC_paired_scButterfly-C.html
 conda create -n scButterfly python==3.9
 conda activate scButterfly
 pip install scButterfly -i https://pypi.tuna.tsinghua.edu.cn/simple
