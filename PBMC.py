@@ -215,7 +215,7 @@ python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --da
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val \
-                  -l save/pytorch_model_epoch_3.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
+                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
 
@@ -225,7 +225,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import scanpy as sc
 
-m_raw = np.load('val_predict.npy')
+m_raw = np.load('val_predict_epoch_43.npy')
 m = m_raw.copy()
 # [sum(m_raw[i]>0.7) for i in range(5)]
 m[m>0.7]=1
@@ -241,12 +241,39 @@ snap.pp.select_features(atac_pred)
 snap.tl.spectral(atac_pred)
 snap.tl.umap(atac_pred)
 # snap.pl.umap(atac_pred, color='leiden', show=False, out_file='umap_val_predict.pdf', marker_size=2.0, height=500)
-sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
-           title='', frameon=True, save='_atac_val_predict.pdf')
+# sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
+#            title='', frameon=True, save='_atac_val_predict.pdf')
 sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_val_predict.pdf')
+           title='', frameon=True, save='_atac_val_predict_epoch_43.pdf')
 
-## may try epoch 4
+sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :], color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
+           palette={'CD14 Mono': 'red', 'CD16 Mono': 'blue'})
 
 
+
+############ scButterfly ############
+## Github: https://github.com/BioX-NKU/scButterfly
+## Tutorial: https://scbutterfly.readthedocs.io/en/latest/
+conda create -n scButterfly python==3.9
+conda activate scButterfly
+pip install scButterfly -i https://pypi.tuna.tsinghua.edu.cn/simple
+conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia
+
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+
+butterfly = Butterfly()
+
+RNA_data_train = sc.read_h5ad('rna_train_0.h5ad')
+RNA_data_val   = sc.read_h5ad('rna_val_0.h5ad')
+RNA_data = ad.concat([RNA_data_train, RNA_data_val])
+RNA_data.var = RNA_data_train.var[['gene_ids', 'feature_types']]
+
+ATAC_data_train = sc.read_h5ad('atac_train_0.h5ad')
+ATAC_data_val   = sc.read_h5ad('atac_val_0.h5ad')
+ATAC_data = ad.concat([ATAC_data_train, ATAC_data_val])
+ATAC_data.var = ATAC_data_train.var[['gene_ids', 'feature_types']]
 
