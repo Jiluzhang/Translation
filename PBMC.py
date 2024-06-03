@@ -250,6 +250,9 @@ sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :
            title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
            palette={'CD14 Mono': 'red', 'CD16 Mono': 'blue'})
 
+# earlystop based on AUPRC of validation dataset
+# "max_epoch" set to 100
+# 2207721
 
 
 ############ scButterfly ############
@@ -311,8 +314,60 @@ R2A_predict.write('atac_test_predict.h5ad')
 # nohup python scbt_c.py > 20240603.log &  # 2022641
 
 
+########### BABLE ###########
+## concat train & valid dataset
+import scanpy as sc
+import anndata as ad
+
+rna_train = sc.read_h5ad('rna_train_0.h5ad')
+rna_val = sc.read_h5ad('rna_val_0.h5ad')
+rna_train_val = ad.concat([rna_train, rna_val])
+rna_train_val.var = rna_train.var[['gene_ids', 'feature_types']]
+rna_train_val.write('rna_train_val.h5ad')
+
+atac_train = sc.read_h5ad('atac_train_0.h5ad')
+atac_val = sc.read_h5ad('atac_val_0.h5ad')
+atac_train_val = ad.concat([atac_train, atac_val])
+atac_train_val.var = atac_train.var[['gene_ids', 'feature_types']]
+atac_train_val.write('atac_train_val.h5ad')
 
 
+## python h5ad2h5.py -n train_val
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+import argparse
+
+parser = argparse.ArgumentParser(description='concat RNA and ATAC h5ad to h5 format')
+parser.add_argument('-n', '--name', type=str, help='sample type or name')
+
+args = parser.parse_args()
+sn = args.name
+rna  = h5py.File('rna_'+sn+'.h5ad', 'r')
+atac = h5py.File('atac_'+sn+'.h5ad', 'r')
+out  = h5py.File(sn+'.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+g.create_dataset('data', data=rna_atac_csr_mat.data)
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+out.close()
 
 
 
