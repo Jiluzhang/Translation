@@ -212,12 +212,13 @@ atac.write('atac_cell_anno.h5ad')
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
 python rna2atac_data_preprocess.py --config_file rna2atac_config.yaml --dataset_type train
 python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type val
+python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type test  # ~15 min
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val \
                   -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/pytorch_model_epoch_1.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
+                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
 
 
 import snapatac2 as snap
@@ -250,6 +251,26 @@ sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :
            title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
            palette={'CD14 Mono': 'red', 'CD16 Mono': 'blue'})
 
+
+m_raw = np.load('test_predict.npy')
+m = m_raw.copy()
+# [sum(m_raw[i]>0.7) for i in range(5)]
+m[m>0.7]=1
+m[m<=0.7]=0
+
+atac= snap.read('data/atac_cell_anno.h5ad', backed=None)
+atac_test = snap.read('atac_test_0.h5ad', backed=None)
+atac_true = atac[atac_test.obs.index, :]
+atac_pred = atac_true.copy()
+atac_pred.X = csr_matrix(m)
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_test_predict.pdf')
+
+
 # earlystop based on AUPRC of validation dataset
 # "max_epoch" set to 100
 # 2207721
@@ -264,6 +285,19 @@ conda activate scButterfly
 pip install scButterfly -i https://pypi.tuna.tsinghua.edu.cn/simple
 conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install jaxlib==0.4.27
+
+# conda create -n scButterfly_clone --clone /fs/home/jiluzhang/softwares/miniconda3/envs/scButterfly
+
+# train_model.py
+# mark following code
+'''
+else:
+    my_logger.info('calculate neighbors graph for following test ...')
+    sc.pp.pca(A2R_predict)
+    sc.pp.neighbors(A2R_predict)
+    sc.pp.pca(R2A_predict)
+    sc.pp.neighbors(R2A_predict)
+'''
 
 ## python scbt_c.py
 import os
@@ -287,7 +321,8 @@ test_id = idx[(int(len(idx)*0.7)+int(len(idx)*0.1)):]
 
 butterfly = Butterfly()
 butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
-butterfly.data_preprocessing()  # time-consuming
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
 
 butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
 chrom_list = []
@@ -303,15 +338,17 @@ for i in range(len(butterfly.ATAC_data_p.var.chrom)):
     else:
         chrom_list[-1] += 1
 
-butterfly.augmentation(aug_type="MultiVI_augmentation") # ~ 15 min
+butterfly.augmentation(aug_type=None)  # butterfly.augmentation(aug_type="MultiVI_augmentation")
 butterfly.construct_model(chrom_list=chrom_list)
-butterfly.train_model()
-A2R_predict, R2A_predict = butterfly.test_model()
+butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+# A2R_predict, R2A_predict = butterfly.test_model(model_path='.', load_model=False, test_cluster=False, test_figure=False, output_data=False)
 
-A2R_predict.write('rna_test_predict.h5ad')
-R2A_predict.write('atac_test_predict.h5ad')
 
-# nohup python scbt_c.py > 20240603.log &  # 2022641
+# nohup python scbt_c.py > 20240604.log &  # 2924860
+
+
+
 
 
 ########### BABLE ###########
@@ -332,7 +369,8 @@ atac_train_val.var = atac_train.var[['gene_ids', 'feature_types']]
 atac_train_val.write('atac_train_val.h5ad')
 
 
-## python h5ad2h5.py -n train_val
+# python h5ad2h5.py -n train_val
+# python h5ad2h5.py -n test
 import h5py
 import numpy as np
 from scipy.sparse import csr_matrix, hstack
@@ -368,6 +406,17 @@ g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['v
 g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
 
 out.close()
+
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 5 \
+                                                     --nofilter --noplot --transonly --skiprnasource --skipatacsource
+# 2956730
+
+
+
+
+
 
 
 
