@@ -345,7 +345,7 @@ A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=
 # A2R_predict, R2A_predict = butterfly.test_model(model_path='.', load_model=False, test_cluster=False, test_figure=False, output_data=False)
 
 
-# nohup python scbt_c.py > 20240604.log &  # 2924860
+# nohup python scbt_c.py > 20240604.log &  # 3010473
 
 
 
