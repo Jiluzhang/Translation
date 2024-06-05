@@ -465,6 +465,95 @@ sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right 
 
 
 
+## generate true h5ad file
+import scanpy as sc 
+
+atac= sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/data/atac_cell_anno.h5ad')
+atac_test = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad')
+atac[atac_test.obs.index, :].write('rna2atac_true.h5ad')
+
+
+#################### AUROC & AUPRC ####################
+# python cal_auroc_auprc.py --pred rna2atac_scbutterfly_c.h5ad --true rna2atac_true.h5ad
+import argparse
+import scanpy as sc
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+import numpy as np
+import random
+from tqdm import tqdm
+
+parser = argparse.ArgumentParser(description='Calculate AUROC')
+parser.add_argument('--pred', type=str, help='prediction')
+parser.add_argument('--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred = sc.read_h5ad(pred_file).X.toarray()
+true = sc.read_h5ad(true_file).X.toarray()
+print('Read h5ad files done')
+
+## cell-wise
+random.seed(0)
+cell_idx = random.sample(list(range(pred.shape[0])), k=500)
+
+cell_auroc = []
+for i in tqdm(cell_idx, ncols=80, desc='Calculate cell-wise AUROC'):
+    fpr, tpr, _ = roc_curve(true[i], pred[i])
+    cell_auroc.append(auc(fpr, tpr))
+print('Cell-wise AUROC:', round(np.mean(cell_auroc), 4))
+
+cell_auprc = []
+for i in tqdm(cell_idx, ncols=80, desc='Calculate cell-wise AUPRC'):
+    precision, recall, thresholds = precision_recall_curve(true[i], pred[i])
+    cell_auprc.append(auc(recall, precision))
+print('Cell-wise AUPRC:', round(np.mean(cell_auprc), 4))
+
+## peak-wise
+peak_idx = random.sample(list(range(pred.shape[1])), k=10000)
+
+peak_auroc = []
+for i in tqdm(peak_idx, ncols=80, desc='Calculate peak-wise AUROC'):
+    fpr, tpr, _ = roc_curve(true[:, i], pred[:, i])
+    peak_auroc.append(auc(fpr, tpr))
+print('Peak-wise AUROC:', round(np.mean(peak_auroc), 4))
+
+peak_auprc = []
+for i in tqdm(peak_idx, ncols=80, desc='Calculate peak-wise AUPRC'):
+    precision, recall, thresholds = precision_recall_curve(true[:, i], pred[:, i])
+    peak_auprc.append(auc(recall, precision))
+print('Peak-wise AUPRC:', round(np.mean(peak_auprc), 4))
+
+
+#################### ARI & AMI & NMI & HOM ####################
+## cal_cluster_plot.py --pred rna2atac_scbutterfly_c.h5ad --true rna2atac_true.h5ad
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import csr_matrix
+import scanpy as sc
+
+pred = snap.read('rna2atac_scbutterfly_c.h5ad', backed=None)
+m = atac_pred.X.toarray().copy()
+m[m>0.5]=1
+m[m<=0.5]=0
+atac_pred.X = csr_matrix(m)
+
+atac= snap.read('/fs/home/jiluzhang/scM2M_pbmc/data/atac_cell_anno.h5ad', backed=None)
+atac_test = snap.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad', backed=None)
+atac_true = atac[atac_test.obs.index, :]
+atac_pred.obs['cell_anno'] = atac_true.obs['cell_anno']
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_test_predict_2.pdf')
+
+
+
+
+
+
 
 
 
