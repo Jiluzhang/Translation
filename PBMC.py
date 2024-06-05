@@ -474,7 +474,7 @@ atac[atac_test.obs.index, :].write('rna2atac_true.h5ad')
 
 
 #################### AUROC & AUPRC ####################
-# python cal_auroc_auprc.py --pred rna2atac_scbutterfly_c.h5ad --true rna2atac_true.h5ad
+# python cal_auroc_auprc.py --pred rna2atac_scbutterflyc.h5ad --true rna2atac_true.h5ad
 import argparse
 import scanpy as sc
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
@@ -526,28 +526,46 @@ print('Peak-wise AUPRC:', round(np.mean(peak_auprc), 4))
 
 
 #################### ARI & AMI & NMI & HOM ####################
-## cal_cluster_plot.py --pred rna2atac_scbutterfly_c.h5ad --true rna2atac_true.h5ad
+## python cal_cluster_plot.py --pred rna2atac_scbutterflyc.h5ad --true rna2atac_true.h5ad
+import argparse
 import snapatac2 as snap
-import numpy as np
 from scipy.sparse import csr_matrix
 import scanpy as sc
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
 
-pred = snap.read('rna2atac_scbutterfly_c.h5ad', backed=None)
-m = atac_pred.X.toarray().copy()
+parser = argparse.ArgumentParser(description='Calculate clustering metrics and plot umap')
+parser.add_argument('--pred', type=str, help='prediction')
+parser.add_argument('--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+pred = snap.read(pred_file, backed=None)
+m = pred.X.toarray().copy()
 m[m>0.5]=1
 m[m<=0.5]=0
-atac_pred.X = csr_matrix(m)
+pred.X = csr_matrix(m)
 
-atac= snap.read('/fs/home/jiluzhang/scM2M_pbmc/data/atac_cell_anno.h5ad', backed=None)
-atac_test = snap.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad', backed=None)
-atac_true = atac[atac_test.obs.index, :]
-atac_pred.obs['cell_anno'] = atac_true.obs['cell_anno']
+true = snap.read(true_file, backed=None)
+pred.obs['cell_anno'] = true.obs['cell_anno']
 
-snap.pp.select_features(atac_pred)
-snap.tl.spectral(atac_pred)
-snap.tl.umap(atac_pred)
-sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_test_predict_2.pdf')
+snap.pp.select_features(pred)
+snap.tl.spectral(pred)
+snap.tl.umap(pred)
+sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_'+pred_file.split('_')[1].split('.')[0]+'.pdf')
+print('Plot umap done')
+
+snap.pp.knn(pred)
+snap.tl.leiden(pred)
+AMI = adjusted_mutual_info_score(pred.obs['cell_anno'], pred.obs['leiden'])
+ARI = adjusted_rand_score(pred.obs['cell_anno'], pred.obs['leiden'])
+HOM = homogeneity_score(pred.obs['cell_anno'], pred.obs['leiden'])
+NMI = normalized_mutual_info_score(pred.obs['cell_anno'], pred.obs['leiden'])
+print('AMI:', round(AMI, 4))
+print('ARI:', round(ARI, 4))
+print('HOM:', round(HOM, 4))
+print('NMI:', round(NMI, 4))
 
 
 
