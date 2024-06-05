@@ -221,10 +221,12 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
                   -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
 
 # depth: 6  heads: 5  parameters: 18,893,313
-# 10,000 peaks per prediction
+
 
 # 3423220
 # train_batch_size: 16  val_batch_size=8
+# validation dataset random 10,000 peaks
+# 10,000 peaks per prediction for testing dataset
 # watch -n 1 -d nvidia-smi
 
 
