@@ -220,6 +220,13 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
 
+# depth: 6  heads: 5  parameters: 18,893,313
+# 10,000 peaks per prediction
+
+# 3423220
+# train_batch_size: 16  val_batch_size=8
+# watch -n 1 -d nvidia-smi
+
 
 import snapatac2 as snap
 import numpy as np
@@ -338,17 +345,35 @@ for i in range(len(butterfly.ATAC_data_p.var.chrom)):
     else:
         chrom_list[-1] += 1
 
-butterfly.augmentation(aug_type=None)  # butterfly.augmentation(aug_type="MultiVI_augmentation")
+butterfly.augmentation(aug_type='MultiVI_augmentation')  # butterfly.augmentation(aug_type=None)
 butterfly.construct_model(chrom_list=chrom_list)
 butterfly.train_model(batch_size=16)
 A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
 # A2R_predict, R2A_predict = butterfly.test_model(model_path='.', load_model=False, test_cluster=False, test_figure=False, output_data=False)
 
 
-# nohup python scbt_c.py > 20240604.log &  # 3010473
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import csr_matrix
+import scanpy as sc
 
+atac_pred = snap.read('R2A.h5ad', backed=None)
+m = atac_pred.X.toarray().copy()
+# [sum(m[i]>0.7) for i in range(5)]  [8520, 2497, 1514, 12855, 1659]
+m[m>0.7]=1
+m[m<=0.7]=0
+atac_pred.X = csr_matrix(m)
 
+atac= snap.read('/fs/home/jiluzhang/scM2M_pbmc/data/atac_cell_anno.h5ad', backed=None)
+atac_test = snap.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad', backed=None)
+atac_true = atac[atac_test.obs.index, :]
+atac_pred.obs['cell_anno'] = atac_true.obs['cell_anno']
 
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_test_predict.pdf')
 
 
 ########### BABLE ###########
@@ -410,10 +435,31 @@ out.close()
 
 python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 5 \
-                                                     --nofilter --noplot --transonly --skiprnasource --skipatacsource
-# 2956730
+                                                     --nofilter --noplot --transonly
+# 3298408
 
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import csr_matrix
+import scanpy as sc
 
+atac_pred = snap.read('rna_atac_adata.h5ad', backed=None)
+m = atac_pred.X.toarray().copy()
+# [sum(m[i]>0.7) for i in range(5)]  [10206, 197, 7789, 6523, 523]
+m[m>0.5]=1
+m[m<=0.5]=0
+atac_pred.X = csr_matrix(m)
+
+atac= snap.read('/fs/home/jiluzhang/scM2M_pbmc/data/atac_cell_anno.h5ad', backed=None)
+atac_test = snap.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad', backed=None)
+atac_true = atac[atac_test.obs.index, :]
+atac_pred.obs['cell_anno'] = atac_true.obs['cell_anno']
+
+snap.pp.select_features(atac_pred)
+snap.tl.spectral(atac_pred)
+snap.tl.umap(atac_pred)
+sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_test_predict_2.pdf')
 
 
 
