@@ -216,11 +216,16 @@ python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --da
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val \
-                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/pytorch_model_epoch_5.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy   # 1 min per 400 cells
 
-# depth: 6  heads: 5  parameters: 18,893,313
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test_tmp \
+                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict_tmp.npy
+
+# 3.5 min per 100 cells with 3 gpu and batch_size of 4
+
+# depth: 6  heads: 6  parameters: 18,893,313
 
 
 # 3423220
@@ -228,6 +233,24 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 # validation dataset random 10,000 peaks
 # 10,000 peaks per prediction for testing dataset
 # watch -n 1 -d nvidia-smi
+
+nohup accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                        -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy > 20240606_predict.log &
+# 2112917
+
+
+## npy -> h5ad
+import scanpy as sc
+import numpy as np
+
+dat = np.load('test_predict.npy')
+true = sc.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad')
+pred = true.copy()
+pred.X = dat
+del pred.obs['n_genes']
+del pred.var['n_cells']
+pred.write('rna2atac_scm2m.h5ad')
+
 
 
 import snapatac2 as snap
@@ -489,7 +512,9 @@ args = parser.parse_args()
 pred_file = args.pred
 true_file = args.true
 
-pred = sc.read_h5ad(pred_file).X.toarray()
+pred = sc.read_h5ad(pred_file).X
+if type(pred) is not np.ndarray:
+    pred = pred_X.toarray()
 true = sc.read_h5ad(true_file).X.toarray()
 print('Read h5ad files done')
 
@@ -529,6 +554,7 @@ print('Peak-wise AUPRC:', round(np.mean(peak_auprc), 4))
 ## python cal_cluster_plot.py --pred rna2atac_scbutterflyc.h5ad --true rna2atac_true.h5ad
 import argparse
 import snapatac2 as snap
+import numpy as np
 from scipy.sparse import csr_matrix
 import scanpy as sc
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
@@ -541,7 +567,10 @@ pred_file = args.pred
 true_file = args.true
 
 pred = snap.read(pred_file, backed=None)
-m = pred.X.toarray().copy()
+if type(pred.X) is not np.ndarray:
+    m = pred.X.toarray().copy()
+else:
+    m = pred.X.copy()
 m[m>0.5]=1
 m[m<=0.5]=0
 pred.X = csr_matrix(m)
