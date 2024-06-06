@@ -235,8 +235,9 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 # watch -n 1 -d nvidia-smi
 
 nohup accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                        -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy > 20240606_predict.log &
-# 2112917
+                        -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml > 20240606_predict.log &
+mv predict.npy test_predict.npy
+# 2156382
 
 
 ## npy -> h5ad
