@@ -220,8 +220,8 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy   # 1 min per 400 cells
 
-accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test_tmp \
-                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict_tmp.npy
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val_tmp \
+                  -l save/pytorch_model_epoch_16.bin --config_file rna2atac_config_whole.yaml
 
 # 3.5 min per 100 cells with 3 gpu and batch_size of 4
 
@@ -234,10 +234,13 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 # 10,000 peaks per prediction for testing dataset
 # watch -n 1 -d nvidia-smi
 
-nohup accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                        -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml > 20240606_predict.log &
-mv predict.npy test_predict.npy
-# 2156382
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val_tmp -n rna2atac_train
+
+nohup accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val_tmp \
+                        -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
 
 
 ## npy -> h5ad
@@ -258,8 +261,9 @@ import snapatac2 as snap
 import numpy as np
 from scipy.sparse import csr_matrix
 import scanpy as sc
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
 
-m_raw = np.load('val_predict_epoch_5.npy')
+m_raw = np.load('predict_epoch_16.npy')
 m = m_raw.copy()
 # [sum(m_raw[i]>0.7) for i in range(5)]
 m[m>0.7]=1
@@ -268,7 +272,7 @@ m[m<=0.7]=0
 atac= snap.read('data/atac_cell_anno.h5ad', backed=None)
 atac_val = snap.read('atac_val_0.h5ad', backed=None)
 atac_true = atac[atac_val.obs.index, :]
-atac_pred = atac_true.copy()
+atac_pred = atac_true[:500, :].copy()
 atac_pred.X = csr_matrix(m)
 
 snap.pp.select_features(atac_pred)
@@ -278,11 +282,28 @@ snap.tl.umap(atac_pred)
 # sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='on data', size=5,
 #            title='', frameon=True, save='_atac_val_predict.pdf')
 sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_val_predict_epoch_5.pdf')
+           title='', frameon=True, save='_atac_val_predict.pdf')
 
-sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :], color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
-           palette={'CD14 Mono': 'red', 'CD16 Mono': 'blue'})
+# sc.pl.umap(atac_pred[atac_pred.obs.cell_anno.isin(['CD14 Mono', 'CD16 Mono']), :], color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_atac_val_predict_epoch_43_tmp.pdf', groups=['CD14 Mono', 'CD16 Mono'], 
+#            palette={'CD14 Mono': 'red', 'CD16 Mono': 'blue'})
+
+snap.pp.knn(atac_pred)
+snap.tl.leiden(atac_pred)
+AMI = adjusted_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+ARI = adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+HOM = homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+NMI = normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
+print(round(AMI, 4), round(ARI, 4), round(HOM, 4), round(NMI, 4))
+
+
+##################################################################
+auroc: 0.8385     auprc: 0.4052
+depth_1_head_1_epoch_26: 0.0342 0.0336 0.0598 0.065
+
+auroc: 0.8598     auprc: 0.4437
+depth_2_head_2_epoch_22: 
+##################################################################
 
 
 m_raw = np.load('test_predict.npy')
@@ -297,11 +318,8 @@ atac_true = atac[atac_test.obs.index, :]
 atac_pred = atac_true.copy()
 atac_pred.X = csr_matrix(m)
 
-snap.pp.select_features(atac_pred)
-snap.tl.spectral(atac_pred)
-snap.tl.umap(atac_pred)
-sc.pl.umap(atac_pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_atac_test_predict.pdf')
+
+
 
 
 # earlystop based on AUPRC of validation dataset
@@ -566,6 +584,12 @@ parser.add_argument('--true', type=str, help='ground truth')
 args = parser.parse_args()
 pred_file = args.pred
 true_file = args.true
+
+
+pred_file = 'rna2atac_scm2m.h5ad'
+true_file = 'rna2atac_true.h5ad'
+
+
 
 pred = snap.read(pred_file, backed=None)
 if type(pred.X) is not np.ndarray:
