@@ -219,12 +219,16 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
                   -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy   # 1 min per 400 cells
 
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/pytorch_model_epoch_3.bin --config_file rna2atac_config_whole.yaml
+                  -l save/pytorch_model_epoch_6.bin --config_file rna2atac_config_whole.yaml
 mv predict.npy test_predict.npy
 
 # 3.5 min per 100 cells with 3 gpu and batch_size of 4
 
 # depth: 6  heads: 6  parameters: 18,893,313
+
+
+nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240607.log &
 
 
 
