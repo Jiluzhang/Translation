@@ -215,17 +215,17 @@ python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --da
 python rna2atac_data_preprocess.py --config_file rna2atac_config_whole.yaml --dataset_type test  # ~15 min
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_pretrain.py --config_file rna2atac_config.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
-accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val \
-                  -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy val_predict.npy
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy   # 1 min per 400 cells
 
-accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_val_tmp \
-                  -l save/pytorch_model_epoch_16.bin --config_file rna2atac_config_whole.yaml
+accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/pytorch_model_epoch_3.bin --config_file rna2atac_config_whole.yaml
+mv predict.npy test_predict.npy
 
 # 3.5 min per 100 cells with 3 gpu and batch_size of 4
 
 # depth: 6  heads: 6  parameters: 18,893,313
+
 
 
 # 3423220
@@ -241,16 +241,19 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
 
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+mv predict.npy test_predict.npy
 
-########## try early-stop version!!!!!!!!!!!!! ##########
-
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 
 ## npy -> h5ad
+# python npy2h5ad.py
 import scanpy as sc
 import numpy as np
 
 dat = np.load('test_predict.npy')
-true = sc.read('/fs/home/jiluzhang/scM2M_pbmc/atac_test_0.h5ad')
+true = sc.read_h5ad('atac_test_0.h5ad')
 pred = true.copy()
 pred.X = dat
 del pred.obs['n_genes']
