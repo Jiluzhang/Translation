@@ -405,6 +405,51 @@ A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=
 # A2R_predict, R2A_predict = butterfly.test_model(model_path='.', load_model=False, test_cluster=False, test_figure=False, output_data=False)
 
 
+## python scbt_b.py
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+import random
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+
+RNA_data = sc.read_h5ad('rna.h5ad')
+ATAC_data = sc.read_h5ad('atac.h5ad')
+
+random.seed(0)
+idx = list(range(RNA_data.n_obs))
+random.shuffle(idx)
+train_id = idx[:int(len(idx)*0.7)]
+validation_id = idx[int(len(idx)*0.7):(int(len(idx)*0.7)+int(len(idx)*0.1))]
+test_id = idx[(int(len(idx)*0.7)+int(len(idx)*0.1)):]
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+
 import snapatac2 as snap
 import numpy as np
 from scipy.sparse import csr_matrix
