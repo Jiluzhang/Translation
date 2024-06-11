@@ -219,7 +219,7 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
                   -l save/rna2atac_train/pytorch_model.bin --config_file rna2atac_config_whole.yaml && mv predict.npy test_predict.npy   # 1 min per 400 cells
 
 accelerate launch --config_file accelerator_config_eval.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/pytorch_model_epoch_6.bin --config_file rna2atac_config_whole.yaml
+                  -l save/pytorch_model_epoch_12.bin --config_file rna2atac_config_whole.yaml
 mv predict.npy test_predict.npy
 
 # 3.5 min per 100 cells with 3 gpu and batch_size of 4
@@ -248,8 +248,14 @@ accelerate launch --config_file accelerator_config_eval.yaml --main_process_port
 mv predict.npy test_predict.npy
 
 python npy2h5ad.py
+mv rna2atac_scm2m.h5ad benchmark
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config.yaml \
+                  --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val_tmp -n rna2atac_train
+
 
 ## npy -> h5ad
 # python npy2h5ad.py
@@ -587,7 +593,7 @@ true_file = args.true
 
 pred = sc.read_h5ad(pred_file).X
 if type(pred) is not np.ndarray:
-    pred = pred_X.toarray()
+    pred = pred.toarray()
 true = sc.read_h5ad(true_file).X.toarray()
 print('Read h5ad files done')
 
