@@ -253,8 +253,12 @@ python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 
 
+# modify rna2atac_config.yaml
+python data_preprocess.py -r rna_train_0.h5ad -a atac_train_0.h5ad -s preprocessed_data_train
+python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_data_val 
+
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config.yaml \
-                  --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val_tmp -n rna2atac_train
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 
 ## npy -> h5ad
