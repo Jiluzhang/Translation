@@ -721,14 +721,15 @@ python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_d
 python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
 
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240606.log &
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/2024-06-12_rna2atac_train_34/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 ## scButterfly-B
 python scbt_b.py
-
+python cal_auroc_auprc.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true_leiden.h5ad
 
 ## plot testing true (no cell annotation)
 import snapatac2 as snap
@@ -743,3 +744,4 @@ snap.pp.knn(atac_true)
 snap.tl.leiden(atac_true)
 sc.pl.umap(atac_true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
            title='', frameon=True, save='_true.pdf')
+atac_true.write('rna2atac_true_leiden.h5ad')
