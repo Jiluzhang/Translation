@@ -724,7 +724,15 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/2024-06-12_rna2atac_train_34/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+                  -l save/2024-06-12_rna2atac_train_39/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+mv predict.npy test_predict.npy
+
+python npy2h5ad.py
+mv rna2atac_scm2m.h5ad benchmark
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true_leiden.h5ad
+
+
 
 ## scButterfly-B
 python scbt_b.py
