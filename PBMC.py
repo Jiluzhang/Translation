@@ -256,9 +256,10 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 # modify rna2atac_config.yaml
 python data_preprocess.py -r rna_train_0.h5ad -a atac_train_0.h5ad -s preprocessed_data_train
 python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_data_val 
+python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed_data_test 
 
-accelerate launch --config_file accelerator_config.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config.yaml \
-                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/2024-06-12_rna2atac_train_34/pytorch_model.bin --config_file rna2atac_config_whole.yaml
 
 
 ## npy -> h5ad
@@ -314,6 +315,21 @@ ARI = adjusted_rand_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
 HOM = homogeneity_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
 NMI = normalized_mutual_info_score(atac_pred.obs['cell_anno'], atac_pred.obs['leiden'])
 print(round(AMI, 4), round(ARI, 4), round(HOM, 4), round(NMI, 4))
+
+
+## plot testing true
+import snapatac2 as snap
+import scanpy as sc
+
+atac= snap.read('../data/atac_cell_anno.h5ad', backed=None)
+atac_test = snap.read('rna2atac_true.h5ad', backed=None)
+atac_true = atac[atac_test.obs.index, :]
+
+snap.pp.select_features(atac_true)
+snap.tl.spectral(atac_true)
+snap.tl.umap(atac_true)
+sc.pl.umap(atac_true, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_true.pdf')
 
 
 ##################################################################
@@ -689,8 +705,41 @@ print('NMI:', round(NMI, 4))
 
 
 
+################# CRC #####################
+import scanpy as sc
+rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')     # 8475 × 38244
+sc.pp.filter_genes(rna, min_cells=10)            # 8475 × 18524
+rna.write('crc_rna.h5ad')
+atac = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_atac.h5ad')     # 8475 × 1033239
+sc.pp.filter_genes(atac, min_cells=10)              # 8475 × 185908
+atac.write('crc_atac.h5ad')
+
+## scM2M
+python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
+python data_preprocess.py -r rna_train_0.h5ad -a atac_train_0.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
+python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
+python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
+
+nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240606.log &
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save/2024-06-12_rna2atac_train_34/pytorch_model.bin --config_file rna2atac_config_whole.yaml
+
+## scButterfly-B
+python scbt_b.py
 
 
+## plot testing true (no cell annotation)
+import snapatac2 as snap
+import scanpy as sc
 
+atac_true = snap.read('rna2atac_true.h5ad', backed=None)
 
-
+snap.pp.select_features(atac_true)
+snap.tl.spectral(atac_true)
+snap.tl.umap(atac_true)
+snap.pp.knn(atac_true)
+snap.tl.leiden(atac_true)
+sc.pl.umap(atac_true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_true.pdf')
