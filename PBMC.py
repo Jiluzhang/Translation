@@ -724,7 +724,7 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/2024-06-12_rna2atac_train_39/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-13_rna2atac_train_17/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save_depth_1_head_1/2024-06-13_rna2atac_train_19/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
