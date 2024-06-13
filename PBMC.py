@@ -725,6 +725,11 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/2024-06-12_rna2atac_train_39/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l save_depth_1_head_1/2024-06-13_rna2atac_train_19/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+
 mv predict.npy test_predict.npy
 
 python npy2h5ad.py
@@ -753,3 +758,29 @@ snap.tl.leiden(atac_true)
 sc.pl.umap(atac_true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
            title='', frameon=True, save='_true.pdf')
 atac_true.write('rna2atac_true_leiden.h5ad')
+
+
+
+# m = ((m.T > m.T.mean(axis=0)).T) & (m>m.mean(axis=0)).astype(int)
+
+
+## select best threshold for binarization
+import scanpy as sc 
+from sklearn.metrics import f1_score
+import numpy as np
+
+pred_X = sc.read_h5ad('rna2atac_scbutterflyb.h5ad').X.toarray()
+true_X = sc.read_h5ad('rna2atac_true.h5ad').X.toarray()
+pred = pred_X[:2].flatten()
+true = true_X[:2].flatten()
+
+thresholds = np.arange(0.1, 1, 0.1)
+f1_scores = [f1_score(true, (pred >= t).astype(int)) for t in thresholds]
+best_f1_threshold_index = np.argmax(f1_scores)
+best_f1_threshold = thresholds[best_f1_threshold_index]
+best_f1_threshold
+
+
+
+
+
