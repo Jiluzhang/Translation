@@ -783,4 +783,101 @@ best_f1_threshold
 
 
 
+import sys
+import tqdm
+import argparse
+import os
+import yaml
 
+import torch
+import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
+import torch.nn.functional as F
+
+# from pytorchtools import EarlyStopping #Qihang
+
+sys.path.append("M2Mmodel")
+
+from M2M import M2M_rna2atac
+import datetime
+import time
+from torch.utils.tensorboard import SummaryWriter
+from torcheval.metrics.functional import binary_auprc, binary_auroc
+#Luz from sklearn.metrics import precision_score, roc_auc_score
+#Luz from sklearn.metrics import average_precision_score # Luz
+
+# DDP 
+# import New_Accelerate as Accelerator
+from utils import *
+# 调试工具：梯度异常会对对应位置报错
+torch.autograd.set_detect_anomaly = True
+# 设置多线程文件系统
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+model_1 = M2M_rna2atac(
+            dim = 240,
+
+            enc_num_gene_tokens = 20539 + 1, # +1 for <PAD>
+            enc_num_value_tokens = 64 + 1, # +1 for <PAD>
+            enc_depth = 1,
+            enc_heads = 1,
+            enc_ff_mult = 4,
+            enc_dim_head = 128,
+            enc_emb_dropout = 0.1,
+            enc_ff_dropout = 0.1,
+            enc_attn_dropout = 0.1,
+
+            dec_depth = 1,
+            dec_heads = 1,
+            dec_ff_mult = 4,
+            dec_dim_head = 128,
+            dec_emb_dropout = 0.1,
+            dec_ff_dropout = 0.1,
+            dec_attn_dropout = 0.1
+        )
+
+model_2 = M2M_rna2atac(
+            dim = 240,
+
+            enc_num_gene_tokens = 20539 + 1, # +1 for <PAD>
+            enc_num_value_tokens = 64 + 1, # +1 for <PAD>
+            enc_depth = 1,
+            enc_heads = 1,
+            enc_ff_mult = 4,
+            enc_dim_head = 128,
+            enc_emb_dropout = 0.1,
+            enc_ff_dropout = 0.1,
+            enc_attn_dropout = 0.1,
+
+            dec_depth = 1,
+            dec_heads = 1,
+            dec_ff_mult = 4,
+            dec_dim_head = 128,
+            dec_emb_dropout = 0.1,
+            dec_ff_dropout = 0.1,
+            dec_attn_dropout = 0.1
+        )
+
+model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0/save_depth_1_head_1/2024-06-12_rna2atac_train_4/pytorch_model.bin'))
+
+model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0/save_depth_1_head_1/2024-06-12_rna2atac_train_5/pytorch_model.bin'))
+
+param_sum = 0
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        print(name, param.shape)#param_sum += np.prod(list(param.shape))
+
+param_sum
+
+for i in model_1.state_dict():
+    if model_1.state_dict()[i].equal(model_2.state_dict()[i]):
+        print(i)
+
+
+# dim_240_depth_1_head_1_dim_head_128: 6,243,713
+# dim_480_depth_1_head_1_dim_head_128: 14,329,473
+# dim_240_depth_2_head_2_dim_head_128: 8,280,209
+# dim_240_depth_1_head_1_dim_head_256: 6,613,505
+  
+#1. cross-tissue
+#2. bigger dataset
