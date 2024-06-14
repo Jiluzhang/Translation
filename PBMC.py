@@ -629,7 +629,7 @@ print('Cell-wise AUROC:', round(np.mean(cell_auroc), 4))
 
 cell_auprc = []
 for i in tqdm(cell_idx, ncols=80, desc='Calculate cell-wise AUPRC'):
-    precision, recall, thresholds = precision_recall_curve(true[i], pred[i])
+    precision, recall, thresholds = precision_recall_curve(true[i, :5120], pred[i, :5120])
     cell_auprc.append(auc(recall, precision))
 print('Cell-wise AUPRC:', round(np.mean(cell_auprc), 4))
 
@@ -723,6 +723,10 @@ python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train_freeze.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+
+
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save/2024-06-13_rna2atac_train_17/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
@@ -737,6 +741,13 @@ mv rna2atac_scm2m.h5ad benchmark
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true_leiden.h5ad
 
+
+import scanpy as sc
+atac = sc.read_h5ad('atac_train_0.h5ad')
+atac[:, atac.var.index.map(lambda x: x.split(':')[0])=='chr1'][:, :5120].write('atac_train_0_chr1_5120.h5ad')
+
+atac = sc.read_h5ad('atac_val_0.h5ad')
+atac[:, atac.var.index.map(lambda x: x.split(':')[0])=='chr1'][:, :5120].write('atac_val_0_chr1_5120.h5ad')
 
 
 ## scButterfly-B
@@ -863,8 +874,12 @@ model_1.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/
 model_2.load_state_dict(torch.load('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0/save_depth_1_head_1/2024-06-12_rna2atac_train_5/pytorch_model.bin'))
 
 param_sum = 0
-for name, param in model.named_parameters():
+for name, param in model_1.named_parameters():
     if param.requires_grad:
+        print(name, param.shape)#param_sum += np.prod(list(param.shape))
+
+for name, param in model_1.named_parameters():
+    if param.requires_grad and 'dec.block.net.layers.0.0' in name:
         print(name, param.shape)#param_sum += np.prod(list(param.shape))
 
 param_sum
@@ -878,6 +893,67 @@ for i in model_1.state_dict():
 # dim_480_depth_1_head_1_dim_head_128: 14,329,473
 # dim_240_depth_2_head_2_dim_head_128: 8,280,209
 # dim_240_depth_1_head_1_dim_head_256: 6,613,505
-  
+
+
+# enc.gene_emb.weight torch.Size([20540, 240])
+# enc.value_emb.weight torch.Size([65, 240])
+# enc.block.net.layers.0.0.norm.weight torch.Size([240])
+# enc.block.net.layers.0.0.norm.bias torch.Size([240])
+# enc.block.net.layers.0.0.fn.to_q.weight torch.Size([128, 240])
+# enc.block.net.layers.0.0.fn.to_q.bias torch.Size([128])
+# enc.block.net.layers.0.0.fn.to_k.weight torch.Size([128, 240])
+# enc.block.net.layers.0.0.fn.to_k.bias torch.Size([128])
+# enc.block.net.layers.0.0.fn.to_v.weight torch.Size([128, 240])
+# enc.block.net.layers.0.0.fn.to_v.bias torch.Size([128])
+# enc.block.net.layers.0.0.fn.to_out.weight torch.Size([240, 128])
+# enc.block.net.layers.0.0.fn.to_out.bias torch.Size([240])
+# enc.block.net.layers.0.1.norm.weight torch.Size([240])
+# enc.block.net.layers.0.1.norm.bias torch.Size([240])
+# enc.block.net.layers.0.1.fn.fn.w1.weight torch.Size([960, 240])
+# enc.block.net.layers.0.1.fn.fn.w1.bias torch.Size([960])
+# enc.block.net.layers.0.1.fn.fn.w2.weight torch.Size([240, 960])
+# enc.block.net.layers.0.1.fn.fn.w2.bias torch.Size([240])
+# enc.norm.weight torch.Size([240])
+# enc.norm.bias torch.Size([240])
+# dec.iConv_enc.weight torch.Size([10, 40])
+# dec.to_out.weight torch.Size([1, 240])
+# dec.to_out.bias torch.Size([1])
+# dec.block.net.layers.0.0.norm.weight torch.Size([240])
+# dec.block.net.layers.0.0.norm.bias torch.Size([240])
+# dec.block.net.layers.0.0.fn.to_q.weight torch.Size([128, 240])
+# dec.block.net.layers.0.0.fn.to_q.bias torch.Size([128])
+# dec.block.net.layers.0.0.fn.to_k.weight torch.Size([128, 240])
+# dec.block.net.layers.0.0.fn.to_k.bias torch.Size([128])
+# dec.block.net.layers.0.0.fn.to_v.weight torch.Size([128, 240])
+# dec.block.net.layers.0.0.fn.to_v.bias torch.Size([128])
+# dec.block.net.layers.0.0.fn.to_out.weight torch.Size([240, 128])
+# dec.block.net.layers.0.0.fn.to_out.bias torch.Size([240])
+# dec.block.net.layers.0.1.norm.weight torch.Size([240])
+# dec.block.net.layers.0.1.norm.bias torch.Size([240])
+# dec.block.net.layers.0.1.fn.to_q.weight torch.Size([128, 240])
+# dec.block.net.layers.0.1.fn.to_q.bias torch.Size([128])
+# dec.block.net.layers.0.1.fn.to_k.weight torch.Size([128, 240])
+# dec.block.net.layers.0.1.fn.to_k.bias torch.Size([128])
+# dec.block.net.layers.0.1.fn.to_v.weight torch.Size([128, 240])
+# dec.block.net.layers.0.1.fn.to_v.bias torch.Size([128])
+# dec.block.net.layers.0.1.fn.to_out.weight torch.Size([240, 128])
+# dec.block.net.layers.0.1.fn.to_out.bias torch.Size([240])
+# dec.block.net.layers.0.2.norm.weight torch.Size([240])
+# dec.block.net.layers.0.2.norm.bias torch.Size([240])
+# dec.block.net.layers.0.2.fn.fn.w1.weight torch.Size([960, 240])
+# dec.block.net.layers.0.2.fn.fn.w1.bias torch.Size([960])
+# dec.block.net.layers.0.2.fn.fn.w2.weight torch.Size([240, 960])
+# dec.block.net.layers.0.2.fn.fn.w2.bias torch.Size([240])
+# dec.norm.weight torch.Size([240])
+# dec.norm.bias torch.Size([240])
+
+
+# rna_sequence: b, mul, n
+# rna_value: b, mul, n
+# atac_sequence: b, n, mul, 6
+# atac_value: b, mul, n
+# enc_pad_mask: b, mul, n
+
+
 #1. cross-tissue
 #2. bigger dataset
