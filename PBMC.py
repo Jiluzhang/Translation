@@ -723,12 +723,11 @@ python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
-accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train_freeze.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+# 100 multiple training dataset generation time: 1.5 h !!!!!!!!
 
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
-                  -l save/2024-06-13_rna2atac_train_17/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-15_rna2atac_train_30/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save_depth_1_head_1/2024-06-13_rna2atac_train_19/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
@@ -754,6 +753,78 @@ atac[:, atac.var.index.map(lambda x: x.split(':')[0])=='chr1'][:, :5120].write('
 python scbt_b.py
 python cal_auroc_auprc.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true_leiden.h5ad
+
+
+## babel
+########### BABLE ###########
+## concat train & valid dataset
+import scanpy as sc
+import anndata as ad
+
+rna_train = sc.read_h5ad('rna_train_0.h5ad')
+rna_val = sc.read_h5ad('rna_val_0.h5ad')
+rna_train_val = ad.concat([rna_train, rna_val])
+rna_train_val.var = rna_train.var[['gene_ids', 'feature_types']]
+rna_train_val.write('rna_train_val.h5ad')
+
+atac_train = sc.read_h5ad('atac_train_0.h5ad')
+atac_val = sc.read_h5ad('atac_val_0.h5ad')
+atac_train_val = ad.concat([atac_train, atac_val])
+atac_train_val.var = atac_train.var[['gene_ids', 'feature_types']]
+atac_train_val.write('atac_train_val.h5ad')
+
+
+# python h5ad2h5.py -n train_val
+# python h5ad2h5.py -n test
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+import argparse
+
+parser = argparse.ArgumentParser(description='concat RNA and ATAC h5ad to h5 format')
+parser.add_argument('-n', '--name', type=str, help='sample type or name')
+
+args = parser.parse_args()
+sn = args.name
+rna  = h5py.File('rna_'+sn+'.h5ad', 'r')
+atac = h5py.File('atac_'+sn+'.h5ad', 'r')
+out  = h5py.File(sn+'.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+g.create_dataset('data', data=rna_atac_csr_mat.data)
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+out.close()
+
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 \
+                                                     --nofilter --noplot --transonly
+
+
+
+
+
+
+
+
+
 
 ## plot testing true (no cell annotation)
 import snapatac2 as snap
@@ -782,14 +853,94 @@ import numpy as np
 
 pred_X = sc.read_h5ad('rna2atac_scbutterflyb.h5ad').X.toarray()
 true_X = sc.read_h5ad('rna2atac_true.h5ad').X.toarray()
-pred = pred_X[:2].flatten()
-true = true_X[:2].flatten()
+pred = pred_X[:5].flatten()
+true = true_X[:5].flatten()
 
 thresholds = np.arange(0.1, 1, 0.1)
 f1_scores = [f1_score(true, (pred >= t).astype(int)) for t in thresholds]
 best_f1_threshold_index = np.argmax(f1_scores)
 best_f1_threshold = thresholds[best_f1_threshold_index]
 best_f1_threshold
+
+
+
+pred_X = sc.read_h5ad('rna2atac_scbutterflyb.h5ad').X.toarray()
+true_X = sc.read_h5ad('rna2atac_true.h5ad').X.toarray()
+pred = pred_X[:4].flatten()
+true = true_X[:4].flatten()
+
+thresholds = np.arange(0.1, 1, 0.1)
+f1_scores = [f1_score(true, (pred >= t).astype(int)) for t in thresholds]
+best_f1_threshold_index = np.argmax(f1_scores)
+best_f1_threshold = thresholds[best_f1_threshold_index]
+best_f1_threshold
+
+
+
+
+import scanpy as sc 
+from sklearn.metrics import f1_score, recall_score, precision_score, precision_recall_curve, roc_curve, auc
+import numpy as np
+from tqdm import tqdm
+import random
+
+scm2m_X = sc.read_h5ad('rna2atac_scm2m.h5ad').X
+scm2m_X[scm2m_X>0.5] = 1
+scm2m_X[scm2m_X<=0.5] = 0
+#scm2m_X = ((scm2m_X.T > scm2m_X.T.mean(axis=0)).T) & (scm2m_X>scm2m_X.mean(axis=0)).astype(int)
+
+
+scbt_X = sc.read_h5ad('rna2atac_scbutterflyb.h5ad').X.toarray()
+scbt_X[scbt_X>0.3] = 1
+scbt_X[scbt_X<=0.3] = 0
+#scbt_X = ((scbt_X.T > scbt_X.T.mean(axis=0)).T) & (scbt_X>scbt_X.mean(axis=0)).astype(int)
+
+true_X = sc.read_h5ad('rna2atac_true.h5ad').X.toarray()
+
+scm2m_f1 = []
+for i in tqdm(range(500), ncols=80):
+    scm2m_f1.append(f1_score(true_X[i], scm2m_X[i]))
+
+scbt_f1 = []
+for i in tqdm(range(500), ncols=80):
+    scbt_f1.append(f1_score(true_X[i], scbt_X[i]))
+
+
+## cell-wise
+random.seed(0)
+cell_idx = random.sample(list(range(scm2m_X.shape[0])), k=500)
+
+scm2m_X = sc.read_h5ad('rna2atac_scm2m.h5ad').X
+scbt_X = sc.read_h5ad('rna2atac_scbutterflyb.h5ad').X.toarray()
+babel_X = sc.read_h5ad('rna2atac_babel.h5ad').X.toarray()
+
+scm2m_cell_auroc = []
+scbt_cell_auroc = []
+for i in tqdm(cell_idx, ncols=80, desc='Calculate cell-wise AUROC'):
+    fpr, tpr, _ = roc_curve(true_X[i], scm2m_X[i])
+    scm2m_cell_auroc.append(auc(fpr, tpr))
+    fpr, tpr, _ = roc_curve(true_X[i], scbt_X[i])
+    scbt_cell_auroc.append(auc(fpr, tpr))
+
+scm2m_cell_auprc = []
+scbt_cell_auprc = []
+for i in tqdm(cell_idx, ncols=80, desc='Calculate cell-wise AUPRC'):
+    precision, recall, thresholds = precision_recall_curve(true_X[i], scm2m_X[i])
+    scm2m_cell_auprc.append(auc(recall, precision))
+    precision, recall, thresholds = precision_recall_curve(true_X[i], scbt_X[i])
+    scbt_cell_auprc.append(auc(recall, precision))
+
+round(pearsonr(scm2m_X.sum(axis=0), true_X.sum(axis=0))[0], 4)  # 0.8085
+round(pearsonr(scbt_X.sum(axis=0), true_X.sum(axis=0))[0], 4)   # 0.9988
+round(pearsonr(babel_X.sum(axis=0), true_X.sum(axis=0))[0], 4)  # 0.9979
+
+
+
+
+
+
+
+
 
 
 
