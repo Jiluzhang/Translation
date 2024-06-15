@@ -704,7 +704,6 @@ print('NMI:', round(NMI, 4))
 
 
 
-
 ################# CRC #####################
 import scanpy as sc
 rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')     # 8475 × 38244
@@ -937,8 +936,51 @@ round(pearsonr(babel_X.sum(axis=0), true_X.sum(axis=0))[0], 4)  # 0.9979
 
 
 
+############ select genes and peaks from crc to fit pbmc ############
+import scanpy as sc
+
+rna_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')
+rna_crc_test = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/rna_test_0.h5ad')
+rna_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/rna_val_0.h5ad')
+rna_out = rna_crc_all[rna_crc_test.obs.index, rna_pbmc.var.index]  # 1696 × 17295
+rna_out.write('rna_test_0.h5ad')
+
+rna_crc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/rna.h5ad')
+rna_out = rna_crc_all[rna_crc.obs.index, rna_pbmc.var.index]  # 8475 × 17295
+rna_out.write('rna.h5ad')
+
+atac_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_atac.h5ad')
+atac_crc_test = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac_test_0.h5ad')
+atac_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/atac_val_0.h5ad')
+atac_out = atac_crc_all[atac_crc_test.obs.index, atac_pbmc.var.index]  # 1696 × 236316
+atac_out.write('atac_test_0.h5ad')
+
+atac_crc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac.h5ad')
+atac_out = atac_crc_all[atac_crc.obs.index, atac_pbmc.var.index]  # 8475 × 236316
+atac_out.write('atac.h5ad')
 
 
+#### generate true h5ad
+import scanpy as sc
+atac_no_anno = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc2crc/scm2m/atac_test_0.h5ad')
+atac_with_anno = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/benchmark/rna2atac_true_leiden.h5ad')
+atac_no_anno.obs['leiden'] = atac_with_anno.obs['leiden']
+atac_no_anno.write('rna2atac_true_leiden.h5ad')
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
+                  -l /fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/save/2024-06-15_rna2atac_train_40/pytorch_model.bin \
+                  --config_file rna2atac_config_val_eval.yaml
+
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint /fs/home/jiluzhang/scM2M_pbmc/old/2048_2048/mult_20/5_5_5_5/babel/babel_train_out \
+                                                     --data test.h5 --outdir babel_test_out --device 3 \
+                                                     --nofilter --noplot --transonly
+## sort cell based on true h5ad
+import scanpy as sc
+raw = sc.read_h5ad('rna2atac_babel.h5ad')
+true = sc.read_h5ad('rna2atac_true_leiden.h5ad')
+raw[true.obs.index, :].write('rna2atac_babelsort.h5ad')
+
+####################################################
 
 
 
