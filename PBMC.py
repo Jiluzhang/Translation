@@ -722,6 +722,28 @@ python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
 
+
+##########################################################################################################################################################
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val \
+                  --load /fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/save/2024-06-15_rna2atac_train_40/pytorch_model.bin \
+                  -n rna2atac_train
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-06-17_rna2atac_train_5/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+mv predict.npy test_predict.npy
+
+python npy2h5ad.py
+mv rna2atac_scm2m.h5ad benchmark
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true_leiden.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true_leiden.h5ad
+
+##########################################################################################################################################################
+
+
+
 # 100 multiple training dataset generation time: 1.5 h !!!!!!!!
 
 
@@ -945,6 +967,18 @@ rna_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_
 rna_out = rna_crc_all[rna_crc_test.obs.index, rna_pbmc.var.index]  # 1696 × 17295
 rna_out.write('rna_test_0.h5ad')
 
+rna_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')
+rna_crc_train = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/rna_train_0.h5ad')
+rna_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/rna_train_0.h5ad')
+rna_out = rna_crc_all[rna_crc_train.obs.index, rna_pbmc.var.index]  # 5932 × 17295
+rna_out.write('rna_train_0.h5ad')
+
+rna_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_rna.h5ad')
+rna_crc_val = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/rna_val_0.h5ad')
+rna_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/rna_val_0.h5ad')
+rna_out = rna_crc_all[rna_crc_val.obs.index, rna_pbmc.var.index]  # 847 × 17295
+rna_out.write('rna_val_0.h5ad')
+
 rna_crc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/rna.h5ad')
 rna_out = rna_crc_all[rna_crc.obs.index, rna_pbmc.var.index]  # 8475 × 17295
 rna_out.write('rna.h5ad')
@@ -954,6 +988,18 @@ atac_crc_test = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac_
 atac_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/atac_val_0.h5ad')
 atac_out = atac_crc_all[atac_crc_test.obs.index, atac_pbmc.var.index]  # 1696 × 236316
 atac_out.write('atac_test_0.h5ad')
+
+atac_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_atac.h5ad')
+atac_crc_train = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac_train_0.h5ad')
+atac_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/atac_train_0.h5ad')
+atac_out = atac_crc_all[atac_crc_train.obs.index, atac_pbmc.var.index]  # 5932 × 236316
+atac_out.write('atac_train_0.h5ad')
+
+atac_crc_all = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CM354C2-T1_atac.h5ad')
+atac_crc_val = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac_val_0.h5ad')
+atac_pbmc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/atac_val_0.h5ad')
+atac_out = atac_crc_all[atac_crc_val.obs.index, atac_pbmc.var.index]  # 847 × 236316
+atac_out.write('atac_val_0.h5ad')
 
 atac_crc = sc.read_h5ad('/fs/home/jiluzhang/scM2M_crc/scM2M_corrected/atac.h5ad')
 atac_out = atac_crc_all[atac_crc.obs.index, atac_pbmc.var.index]  # 8475 × 236316
