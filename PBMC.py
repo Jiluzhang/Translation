@@ -719,8 +719,8 @@ python data_preprocess.py -r rna_train_0.h5ad -a atac_train_0.h5ad -s preprocess
 python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
 python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
 
-nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29821 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240612.log &
+nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val_tmp -n rna2atac_train > 20240612.log &
 
 
 ##########################################################################################################################################################
@@ -729,9 +729,9 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
                   --load /fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/save/2024-06-15_rna2atac_train_40/pytorch_model.bin \
                   -n rna2atac_train
 
-accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py \
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-17_rna2atac_train_5/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-17_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 mv predict.npy test_predict.npy
 
