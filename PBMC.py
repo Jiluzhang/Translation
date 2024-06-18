@@ -729,9 +729,9 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
                   --load /fs/home/jiluzhang/scM2M_pbmc/new/5120_5120/mult_20/10_0_correct/save/2024-06-15_rna2atac_train_40/pytorch_model.bin \
                   -n rna2atac_train
 
-accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-18_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-18_rna2atac_train_40/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 mv predict.npy test_predict.npy
 
