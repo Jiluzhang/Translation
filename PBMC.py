@@ -720,7 +720,7 @@ python data_preprocess.py -r rna_val_0.h5ad -a atac_val_0.h5ad -s preprocessed_d
 python data_preprocess.py -r rna_test_0.h5ad -a atac_test_0.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
 
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train_tmp --val_data_dir ./preprocessed_data_val_tmp -n rna2atac_train > 20240612.log &
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240618.log &
 
 
 ##########################################################################################################################################################
@@ -731,7 +731,7 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-17_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-18_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 mv predict.npy test_predict.npy
 
@@ -752,6 +752,10 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d ./preprocessed_data_test \
                   -l save_depth_1_head_1/2024-06-13_rna2atac_train_19/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d 4096_2048_10/preprocessed_data_test \
+                  -l model_1/save/2024-06-15_rna2atac_train_30/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 
 mv predict.npy test_predict.npy
