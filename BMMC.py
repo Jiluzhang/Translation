@@ -129,7 +129,8 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_d
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
 python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
 
-
-
+nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240618.log &
+# 1222703
 
 
