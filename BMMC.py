@@ -133,4 +133,93 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240618.log &
 # 1222703
 
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-06-19_rna2atac_train_25/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+
+
+import scanpy as sc
+atac = sc.read_h5ad('atac_test.h5ad')
+atac.obs['cell_anno'] = atac.obs.cell_type
+atac.write('rna2atac_true.h5ad')
+
+mv predict.npy test_predict.npy
+python npy2h5ad.py
+mv rna2atac_scm2m.h5ad benchmark
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+
+#################### scButterfly-B ####################
+python scbt_b.py  # 3845160
+python cal_auroc_auprc.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scbutterflyb.h5ad --true rna2atac_true_leiden.h5ad
+
+
+########### BABLE ###########
+## concat train & valid dataset
+import scanpy as sc
+import anndata as ad
+
+rna_train = sc.read_h5ad('rna_train.h5ad')
+rna_val = sc.read_h5ad('rna_val.h5ad')
+rna_train_val = ad.concat([rna_train, rna_val])
+rna_train_val.var = rna_train.var[['gene_id', 'feature_types']]
+rna_train_val.write('rna_train_val.h5ad')
+
+atac_train = sc.read_h5ad('atac_train.h5ad')
+atac_val = sc.read_h5ad('atac_val.h5ad')
+atac_train_val = ad.concat([atac_train, atac_val])
+atac_train_val.var = atac_train.var[['gene_id', 'feature_types']]
+atac_train_val.write('atac_train_val.h5ad')
+
+
+# python h5ad2h5.py -n train_val
+# python h5ad2h5.py -n test
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+import argparse
+
+parser = argparse.ArgumentParser(description='concat RNA and ATAC h5ad to h5 format')
+parser.add_argument('-n', '--name', type=str, help='sample type or name')
+
+args = parser.parse_args()
+sn = args.name
+rna  = h5py.File('rna_'+sn+'.h5ad', 'r')
+atac = h5py.File('atac_'+sn+'.h5ad', 'r')
+out  = h5py.File(sn+'.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+g.create_dataset('data', data=rna_atac_csr_mat.data)
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+out.close()
+
+
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 \
+                                                     --nofilter --noplot --transonly
+
+
+
+
+
+
 
