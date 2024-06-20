@@ -138,7 +138,7 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-19_rna2atac_train_40/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+                  -l save/2024-06-20_rna2atac_train_14/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 import scanpy as sc
 atac = sc.read_h5ad('atac_test.h5ad')
