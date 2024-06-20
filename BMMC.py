@@ -1,5 +1,8 @@
 ############ BMMC dataset ############
 # wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE194nnn/GSE194122/suppl/GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad.gz
+
+######### atac peak index !!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 import scanpy as sc
 bmmc = sc.read_h5ad('GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad')
 bmmc.obs.cell_type.value_counts()
@@ -135,9 +138,7 @@ nohup accelerate launch --config_file accelerator_config.yaml --main_process_por
 
 accelerate launch --config_file accelerator_config.yaml --main_process_port 29823 rna2atac_evaluate.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-19_rna2atac_train_25/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
-
-
+                  -l save/2024-06-19_rna2atac_train_40/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 import scanpy as sc
 atac = sc.read_h5ad('atac_test.h5ad')
@@ -148,7 +149,8 @@ mv predict.npy test_predict.npy
 python npy2h5ad.py
 mv rna2atac_scm2m.h5ad benchmark
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
-python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad   # 20 min
+
 
 #################### scButterfly-B ####################
 python scbt_b.py  # 3845160
@@ -162,16 +164,27 @@ import scanpy as sc
 import anndata as ad
 
 rna_train = sc.read_h5ad('rna_train.h5ad')
+rna_train_sim = sc.AnnData(rna_train.X, obs=rna_train.obs[['cell_type']], var=rna_train.var)
 rna_val = sc.read_h5ad('rna_val.h5ad')
-rna_train_val = ad.concat([rna_train, rna_val])
+rna_val_sim = sc.AnnData(rna_val.X, obs=rna_val.obs[['cell_type']], var=rna_val.var)
+rna_train_val = ad.concat([rna_train_sim, rna_val_sim])
 rna_train_val.var = rna_train.var[['gene_id', 'feature_types']]
 rna_train_val.write('rna_train_val.h5ad')
 
 atac_train = sc.read_h5ad('atac_train.h5ad')
+atac_train_sim = sc.AnnData(atac_train.X, obs=atac_train.obs[['cell_type']], var=atac_train.var)
 atac_val = sc.read_h5ad('atac_val.h5ad')
-atac_train_val = ad.concat([atac_train, atac_val])
+atac_val_sim = sc.AnnData(atac_val.X, obs=atac_val.obs[['cell_type']], var=atac_val.var)
+atac_train_val = ad.concat([atac_train_sim, atac_val_sim])
 atac_train_val.var = atac_train.var[['gene_id', 'feature_types']]
+atac_train_val.var.index = atac_train_val.var.index.map(lambda x: x.replace('-', ':', 1))
 atac_train_val.write('atac_train_val.h5ad')
+
+## process peak index for test file
+import scanpy as sc
+atac = sc.read_h5ad('atac_test_raw.h5ad')
+atac.var.index = atac.var.index.map(lambda x: x.replace('-', ':', 1))
+atac.write('atac_test.h5ad')
 
 
 # python h5ad2h5.py -n train_val
@@ -204,22 +217,29 @@ g.create_dataset('shape', data=l)
 
 g_2 = g.create_group('features')
 g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
-g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
-g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
-g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
-g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*(rna['var']['_index'].shape[0]), [b'Peaks']*(atac['var']['_index'].shape[0])))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['_index'].shape[0]+atac['var']['_index'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))
 g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
 
 out.close()
 
 
-python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 4 --nofilter  
+# 423322
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 \
                                                      --nofilter --noplot --transonly
 
 
-
-
+## python babel_revise.py
+import scanpy as sc
+babel = sc.read_h5ad('rna2atac_babel.h5ad')
+true = sc.read_h5ad('rna2atac_true.h5ad')
+out = babel[true.obs.index, :]
+out.var = babel.var
+out.X = out.X.toarray()
+out.write('rna2atac_babeltrue.h5ad')
 
 
 
