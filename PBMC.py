@@ -762,6 +762,10 @@ accelerate launch --config_file accelerator_config.yaml --main_process_port 2982
                   -l model_1/save/2024-06-15_rna2atac_train_30/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
 
 
+accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_evaluate.py -d preprocessed_data_test \
+                  -l save/2024-06-20_rna2atac_train_40/pytorch_model.bin --config_file rna2atac_config_val_eval.yaml
+
+
 mv predict.npy test_predict.npy
 
 python npy2h5ad.py
