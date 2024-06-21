@@ -3,11 +3,87 @@
 # wget -c https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-018-08205-7/MediaObjects/41467_2018_8205_MOESM6_ESM.xls   # ATAC
 # wget -c https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-018-08205-7/MediaObjects/41467_2018_8205_MOESM7_ESM.xls   # RNA
 
-## xls to h5ad
-import pandas as pd
+############ xls to h5ad ############
 import scanpy as sc
+import pandas as pd
+from scipy.sparse import csr_matrix
+import pybedtools
+import numpy as np
+from tqdm import tqdm
 
+## rna
 rna_dat = pd.read_table('41467_2018_8205_MOESM7_ESM.xls')  # 49059 x 549
-rna = sc.AnnData(rna_dat.values.T, var=pd.DataFrame({'gene_ids': rna_dat.index.values, 'feature_types': 'Peaks'}))
+rna = sc.AnnData(rna_dat.values.T, var=pd.DataFrame({'gene_ids': rna_dat.index.values, 'feature_types': 'Gene Expression'}))
 rna.obs.index = rna_dat.columns.values
 rna.var.index = rna.var['gene_ids']
+rna.obs['cell_anno'] = rna.obs.index.map(lambda x: x.split('_')[1])
+
+genes = pd.read_table('human_genes.txt', names=['gene_ids', 'gene_name'])
+
+rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index.values)], axis=1)
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 3:].T
+X_new.fillna(value=0, inplace=True)
+
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)
+rna_new.write('rna_aligned.h5ad')
+
+## atac
+atac_dat = pd.read_table('41467_2018_8205_MOESM6_ESM.xls')  # 157358 x 549
+atac = sc.AnnData(atac_dat.values.T, var=pd.DataFrame({'gene_ids': atac_dat.index.values, 'feature_types': 'Peaks'}))
+atac.obs.index = atac_dat.columns.values
+atac.var['gene_ids'] = atac.var['gene_ids'].map(lambda x: x.replace('_', ':', 1).replace('_', '-'))
+atac.var.index = atac.var['gene_ids'].values
+atac.obs['cell_anno'] = atac.obs.index.map(lambda x: x.split('_')[1])
+atac.X[atac.X>0] = 1  # binarization
+
+peaks = pd.DataFrame({'id': atac.var_names})
+peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks.drop(columns='id', inplace=True)
+peaks['idx'] = range(peaks.shape[0])
+
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+idx_map.columns = ['peaks_idx', 'cCREs_idx']
+
+m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+    m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+
+atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+atac_new.var.index = atac_new.var['gene_ids'].values
+atac_new.X = csr_matrix(atac_new.X)
+atac_new.write('atac_aligned.h5ad')
+
+## filter genes & peaks & cells
+sc.pp.filter_genes(rna_new, min_cells=5)
+sc.pp.filter_cells(rna_new, min_genes=500)
+sc.pp.filter_cells(rna_new, max_genes=10000)
+
+sc.pp.filter_genes(atac_new, min_cells=5)
+sc.pp.filter_cells(atac_new, min_genes=1000)
+sc.pp.filter_cells(atac_new, max_genes=50000)
+
+idx = np.intersect1d(rna_new.obs.index, atac_new.obs.index)  
+rna_new[idx, :].copy().write('rna.h5ad')     # 460 * 21965
+atac_new[idx, :].copy().write('atac.h5ad')   # 460 * 72149
+
+
+python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
+
+nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240621.log &
+# patience: 10
+# batch size: 8
+
+
+
