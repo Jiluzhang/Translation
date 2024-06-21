@@ -82,6 +82,7 @@ python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_dat
 
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240621.log &
+# 456863
 # patience: 10
 # batch size: 8
 
