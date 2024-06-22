@@ -113,14 +113,30 @@ np.count_nonzero(rna.X.toarray(), axis=1).max()
 
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml   # list_digits: 6 -> 7
-python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
-python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 
-nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240621.log &    # self.iConv_enc = nn.Embedding(10, dim//6)  -> 7
-# 456863
-# patience: 10
-# batch size: 8
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240622.log &    
+# 903119
+# self.iConv_enc = nn.Embedding(10, dim//6)  -> 7
+# accelerator.print()
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-06-22_rna2atac_train_68/pytorch_model.bin --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+mv rna2atac_scm2m.h5ad benchmark
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad   # 1 min
+
+
+#################### scButterfly-B ####################
+python scbt_b.py  # 1071932
+python cal_auroc_auprc.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
+
 
 
 
