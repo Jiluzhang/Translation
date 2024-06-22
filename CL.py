@@ -4,6 +4,32 @@
 # wget -c https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-018-08205-7/MediaObjects/41467_2018_8205_MOESM6_ESM.xls   # ATAC
 # wget -c https://static-content.springer.com/esm/art%3A10.1038%2Fs41467-018-08205-7/MediaObjects/41467_2018_8205_MOESM7_ESM.xls   # RNA
 
+# wget -c https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/liftOver
+# wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+
+# awk '{print $1}' 41467_2018_8205_MOESM6_ESM.xls | sed '1d' | sed 's/_/\t/g' | awk '{print $0 "\t" "peak_" NR}' > peaks_hg19.bed
+# liftOver peaks_hg19.bed hg19ToHg38.over.chain.gz peaks_hg38.bed unmapped.bed
+
+## hg19 -> hg38 for all peak sets
+import pandas as pd
+
+dat = pd.read_table('41467_2018_8205_MOESM6_ESM.xls')
+dat['idx'] = ['peak_'+str(i) for i in range(1, dat.shape[0]+1)]
+
+peaks_hg38 = pd.read_table('peaks_hg38.bed', header=None, names=['chr', 'start', 'end', 'idx'])
+peaks_hg38['start'] = peaks_hg38['start'].astype('str')
+peaks_hg38['end'] = peaks_hg38['end'].astype('str')
+peaks_hg38['pos'] = peaks_hg38['chr']+'_'+peaks_hg38['start']+'_'+peaks_hg38['end']
+peaks_hg38.drop(['chr', 'start', 'end'], axis=1, inplace=True)
+
+out = pd.merge(peaks_hg38, dat, how='left', on='idx')
+out.index = out['pos'].values
+out.drop(['idx', 'pos'], axis=1, inplace=True)
+out.to_csv('41467_2018_8205_MOESM6_ESM_hg19_to_hg38.xls', sep='\t')
+
+grep -v GL 41467_2018_8205_MOESM6_ESM_hg19_to_hg38.xls | grep -v alt | grep -v KI > 41467_2018_8205_MOESM6_ESM_hg38.xls
+
+
 ############ xls to h5ad ############
 import scanpy as sc
 import pandas as pd
@@ -31,7 +57,7 @@ rna_new.X = csr_matrix(rna_new.X)
 rna_new.write('rna_aligned.h5ad')
 
 ## atac
-atac_dat = pd.read_table('41467_2018_8205_MOESM6_ESM.xls')  # 157358 x 549
+atac_dat = pd.read_table('41467_2018_8205_MOESM6_ESM_hg38.xls', index_col=0)  # 157358 x 549
 atac = sc.AnnData(atac_dat.values.T, var=pd.DataFrame({'gene_ids': atac_dat.index.values, 'feature_types': 'Peaks'}))
 atac.obs.index = atac_dat.columns.values
 atac.var['gene_ids'] = atac.var['gene_ids'].map(lambda x: x.replace('_', ':', 1).replace('_', '-'))
@@ -62,18 +88,19 @@ atac_new.var.index = atac_new.var['gene_ids'].values
 atac_new.X = csr_matrix(atac_new.X)
 atac_new.write('atac_aligned.h5ad')
 
-## filter genes & peaks & cells
-sc.pp.filter_genes(rna_new, min_cells=5)
-sc.pp.filter_cells(rna_new, min_genes=500)
-sc.pp.filter_cells(rna_new, max_genes=10000)
+########## filter cells ##########
+# no filtering !!!!
+# sc.pp.filter_genes(rna_new, min_cells=5)
+# sc.pp.filter_cells(rna_new, min_genes=500)
+# sc.pp.filter_cells(rna_new, max_genes=10000)
 
-sc.pp.filter_genes(atac_new, min_cells=5)
-sc.pp.filter_cells(atac_new, min_genes=1000)
-sc.pp.filter_cells(atac_new, max_genes=50000)
+# sc.pp.filter_genes(atac_new, min_cells=5)
+# sc.pp.filter_cells(atac_new, min_genes=1000)
+# sc.pp.filter_cells(atac_new, max_genes=50000)
 
-idx = np.intersect1d(rna_new.obs.index, atac_new.obs.index)  
-rna_new[idx, :].copy().write('rna.h5ad')     # 460 * 21965
-atac_new[idx, :].copy().write('atac.h5ad')   # 460 * 72149
+# idx = np.intersect1d(rna_new.obs.index, atac_new.obs.index)  
+# rna_new[idx, :].copy().write('rna.h5ad')     # 460 * 21965
+# atac_new[idx, :].copy().write('atac.h5ad')   # 460 * 72149
 
 
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
