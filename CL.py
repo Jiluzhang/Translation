@@ -138,5 +138,13 @@ python cal_auroc_auprc.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
 
 
+########### BABLE ###########
+concat_train_val.py
+python h5ad2h5.py -n train_val
+python h5ad2h5.py -n test
 
+python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 6 --nofilter  
+# 423322
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 \
+                                                     --nofilter --noplot --transonly
 
