@@ -25,9 +25,10 @@ peaks_hg38.drop(['chr', 'start', 'end'], axis=1, inplace=True)
 out = pd.merge(peaks_hg38, dat, how='left', on='idx')
 out.index = out['pos'].values
 out.drop(['idx', 'pos'], axis=1, inplace=True)
-out.to_csv('41467_2018_8205_MOESM6_ESM_hg19_to_hg38.xls', sep='\t')
+out.to_csv('41467_2018_8205_MOESM6_ESM_hg38_raw.xls', sep='\t')
 
-grep -v GL 41467_2018_8205_MOESM6_ESM_hg19_to_hg38.xls | grep -v alt | grep -v KI > 41467_2018_8205_MOESM6_ESM_hg38.xls
+
+# grep -v GL 41467_2018_8205_MOESM6_ESM_hg38_raw.xls | grep -v alt | grep -v KI > 41467_2018_8205_MOESM6_ESM_hg38.xls
 
 
 ############ xls to h5ad ############
@@ -54,7 +55,7 @@ X_new.fillna(value=0, inplace=True)
 rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
 rna_new.var.index = genes['gene_name'].values
 rna_new.X = csr_matrix(rna_new.X)
-rna_new.write('rna_aligned.h5ad')
+rna_new.write('rna.h5ad')
 
 ## atac
 atac_dat = pd.read_table('41467_2018_8205_MOESM6_ESM_hg38.xls', index_col=0)  # 157358 x 549
@@ -86,10 +87,10 @@ for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
 atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
 atac_new.var.index = atac_new.var['gene_ids'].values
 atac_new.X = csr_matrix(atac_new.X)
-atac_new.write('atac_aligned.h5ad')
+atac_new.write('atac.h5ad')
 
 ########## filter cells ##########
-# no filtering !!!!
+#################### no filtering !!!! (for model performance evaluation using different data quality) ####################
 # sc.pp.filter_genes(rna_new, min_cells=5)
 # sc.pp.filter_cells(rna_new, min_genes=500)
 # sc.pp.filter_cells(rna_new, max_genes=10000)
@@ -103,13 +104,20 @@ atac_new.write('atac_aligned.h5ad')
 # atac_new[idx, :].copy().write('atac.h5ad')   # 460 * 72149
 
 
+######## max enc length ########
+import scanpy as sc
+rna = sc.read_h5ad('rna.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max()
+# 13703
+
+
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
-python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml   # list_digits: 6 -> 7
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val_eval.yaml
 python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_val_eval.yaml
 
 nohup accelerate launch --config_file accelerator_config.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240621.log &
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240621.log &    # self.iConv_enc = nn.Embedding(10, dim//6)  -> 7
 # 456863
 # patience: 10
 # batch size: 8
