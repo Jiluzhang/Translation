@@ -133,7 +133,7 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad 
 
 
 #################### scButterfly-B ####################
-python scbt_b.py  # 1071932
+python scbt_b.py
 python cal_auroc_auprc.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
 
@@ -144,7 +144,52 @@ python h5ad2h5.py -n train_val
 python h5ad2h5.py -n test
 
 python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 6 --nofilter  
-# 423322
-python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 \
-                                                     --nofilter --noplot --transonly
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 --nofilter --noplot --transonly
+
+python cal_auroc_auprc.py --pred rna2atac_babel.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_babel.h5ad --true rna2atac_true.h5ad
+
+
+
+
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
+python csr2array.py --pred rna2atac_babel_raw.h5ad  --true rna2atac_true.h5ad
+python csr2array.py --pred rna2atac_scbt_raw.h5ad  --true rna2atac_true.h5ad
+
+import argparse
+import scanpy as sc
+import numpy as np
+
+parser = argparse.ArgumentParser(description='Calculate clustering metrics and plot umap')
+parser.add_argument('--pred', type=str, help='prediction')
+parser.add_argument('--true', type=str, help='ground truth')
+args = parser.parse_args()
+pred_file = args.pred
+true_file = args.true
+
+alg = pred_file.split('_')[1]
+
+pred = sc.read_h5ad(pred_file)
+true = sc.read_h5ad(true_file)
+
+if type(pred.X) is not np.ndarray:
+    pred.X = pred.X.toarray()
+
+pred[true.obs.index.values, :].write('rna2atac_'+alg+'.h5ad')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
