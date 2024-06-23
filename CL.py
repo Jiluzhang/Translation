@@ -106,6 +106,7 @@ atac_new.write('atac.h5ad')
 
 ######## max enc length ########
 import scanpy as sc
+import numpy as np
 rna = sc.read_h5ad('rna.h5ad')
 np.count_nonzero(rna.X.toarray(), axis=1).max()
 # 13703
@@ -116,26 +117,21 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_d
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
 python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240622.log &    
-# 903119
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240623.log &    
 # self.iConv_enc = nn.Embedding(10, dim//6)  -> 7
-# accelerator.print()
+# accelerator.print('#'*80)
 
-accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-22_rna2atac_train_68/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -l save/2024-06-23_rna2atac_train_104/pytorch_model.bin --config_file rna2atac_config_test.yaml
 
 python npy2h5ad.py
-mv rna2atac_scm2m.h5ad benchmark
-python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
-python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad   # 1 min
+mv rna2atac_scm2m_raw.h5ad ../benchmark/
 
 
 #################### scButterfly-B ####################
 python scbt_b.py
-python cal_auroc_auprc.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
-python cal_cluster_plot.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
 
 
 ########### BABLE ###########
@@ -146,12 +142,9 @@ python h5ad2h5.py -n test
 python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir babel_train_out --batchsize 512 --earlystop 25 --device 6 --nofilter  
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint babel_train_out --data test.h5 --outdir babel_test_out --device 4 --nofilter --noplot --transonly
 
-python cal_auroc_auprc.py --pred rna2atac_babel.h5ad --true rna2atac_true.h5ad
-python cal_cluster_plot.py --pred rna2atac_babel.h5ad --true rna2atac_true.h5ad
 
 
-
-
+########### Benchmark ###########
 python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
 python csr2array.py --pred rna2atac_babel_raw.h5ad  --true rna2atac_true.h5ad
 python csr2array.py --pred rna2atac_scbt_raw.h5ad  --true rna2atac_true.h5ad
@@ -178,12 +171,42 @@ if type(pred.X) is not np.ndarray:
 pred[true.obs.index.values, :].write('rna2atac_'+alg+'.h5ad')
 
 
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+
+# python csr2array.py --pred rna2atac_scm2malpha_raw.h5ad  --true rna2atac_true.h5ad
+# python cal_auroc_auprc.py --pred rna2atac_scm2malpha.h5ad --true rna2atac_true.h5ad
+# python cal_cluster_plot.py --pred rna2atac_scm2malpha.h5ad --true rna2atac_true.h5ad
+
+# python csr2array.py --pred rna2atac_scm2malphaftdiff_raw.h5ad  --true rna2atac_true.h5ad
+# python cal_auroc_auprc.py --pred rna2atac_scm2malphaftdiff.h5ad --true rna2atac_true.h5ad
+# python cal_cluster_plot.py --pred rna2atac_scm2malphaftdiff.h5ad --true rna2atac_true.h5ad
 
 
 
+################# scM2M PBMC #################
+######## max enc length ########
+import scanpy as sc
+import numpy as np
+rna = sc.read_h5ad('rna.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max()
+# 9744
 
+python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240623.log &    
 
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-06-23_rna2atac_train_8/pytorch_model.bin --config_file rna2atac_config_test.yaml
+# 3021223
+python npy2h5ad.py
+mv rna2atac_scm2m_raw.h5ad ../benchmark/
 
 
 
