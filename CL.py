@@ -263,14 +263,54 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
 
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save_01/2024-06-24_rna2atac_train_7/pytorch_model.bin \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-24_rna2atac_train_27/pytorch_model.bin \
                   --config_file rna2atac_config_test.yaml
 
+
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-24_rna2atac_train_27/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+
+
+# import snapatac2 as snap
+# import numpy as np
+# from scipy.sparse import csr_matrix
+# import scanpy as sc
+
+# true = snap.read('atac_val_100.h5ad', backed=None)
+# snap.pp.select_features(true)
+# snap.tl.spectral(true)
+# snap.tl.umap(true)
+# snap.pp.knn(true)
+# snap.tl.leiden(true)
+# sc.pl.umap(true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_atac_100_true.pdf')
+
+# m_raw = np.load('predict.npy')
+# m = m_raw.copy()
+# m[m>0.5]=1
+# m[m<=0.5]=0
+
+# pred = true.copy()
+# pred.X = csr_matrix(m)
+
+# snap.pp.select_features(pred)
+# snap.tl.spectral(pred)
+# snap.tl.umap(pred)
+# sc.pl.umap(pred, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_atac_100_predict.pdf')
+
+
+
 python npy2h5ad.py
-mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancer2_raw.h5ad
-python csr2array.py --pred rna2atac_scm2mpancancer2_raw.h5ad  --true rna2atac_true.h5ad
-python cal_auroc_auprc.py --pred rna2atac_scm2mpancancer2.h5ad --true rna2atac_true.h5ad
-python cal_cluster_plot.py --pred rna2atac_scm2mpancancer2.h5ad --true rna2atac_true.h5ad
+mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancer_raw.h5ad
+python csr2array.py --pred rna2atac_scm2mpancancer_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
 
 
 
@@ -300,7 +340,15 @@ for i in range(1, samples.shape[0]):
 rna.var = rna_0.var
 atac.var = atac_0.var
 
-
+## workdir: all_data
+# python out_train_dataset.sh
+for sample in `cat ../files_all.txt`;do
+    mkdir $sample
+    cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/$sample\_rna.h5ad $sample/rna.h5ad
+    cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/$sample\_atac.h5ad $sample/atac.h5ad
+    python data_preprocess.py -r $sample/rna.h5ad -a $sample/atac.h5ad -s $sample/preprocessed_data_train --dt train --config ../rna2atac_config_train.yaml
+    echo $sample done
+done
 
 
 
