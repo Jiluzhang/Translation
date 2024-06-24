@@ -197,18 +197,108 @@ python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 -
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
 python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
-
+# 122344
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240623.log &    
 
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-06-23_rna2atac_train_8/pytorch_model.bin --config_file rna2atac_config_test.yaml
-# 3021223
+                  -l save/2024-06-23_rna2atac_train_27/pytorch_model.bin --config_file rna2atac_config_test.yaml
+# 155117
 python npy2h5ad.py
 mv rna2atac_scm2m_raw.h5ad ../benchmark/
 
 
+#################### scButterfly-B ####################
+nohup python scbt_b.py > 20240624.log &  # 194227
+
+
+
+
+############# Pan-cancer #############
+# ## CE336E1-S1
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE336E1-S1_rna.h5ad rna.h5ad
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE336E1-S1_atac.h5ad atac.h5ad
+
+# python ../split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
+# python ../data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config ../rna2atac_config_train.yaml
+# python ../data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config ../rna2atac_config_val.yaml
+# accelerate launch --config_file ../accelerator_config_train.yaml --main_process_port 29823 ../rna2atac_train.py --config_file ../rna2atac_config_train.yaml \
+#                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+
+
+# ## CE348E1-S1K1
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE348E1-S1K1_rna.h5ad rna.h5ad
+# cp /fs/home/jiluzhang/2023_nature_LD/normal_h5ad/CE348E1-S1K1_atac.h5ad atac.h5ad
+
+# accelerate launch --config_file ../accelerator_config_train.yaml --main_process_port 29823 ../rna2atac_train.py --config_file ../rna2atac_config_train.yaml \
+#                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val 
+#                   -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/CE336E1-S1/save/2024-06-24_rna2atac_train_35/pytorch_model.bin -n rna2atac_train
+
+
+
+
+
+
+cp /fs/home/jiluzhang/scM2M_v2/rna_32124_shuf.h5ad rna.h5ad
+cp /fs/home/jiluzhang/scM2M_v2/atac_32124_shuf.h5ad atac.h5ad
+
+python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml  # ~30 min
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
+# 2666090
+
+
+
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train -s save_ft \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save_01/2024-06-24_rna2atac_train_7/pytorch_model.bin
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save_ft/2024-06-24_rna2atac_train_57/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save_01/2024-06-24_rna2atac_train_7/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancer2_raw.h5ad
+python csr2array.py --pred rna2atac_scm2mpancancer2_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2mpancancer2.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2mpancancer2.h5ad --true rna2atac_true.h5ad
+
+
+
+## combine samples
+import pandas as pd
+import scanpy as sc
+import anndata as ad
+import numpy as np
+
+samples = pd.read_table('files_all.txt', header=None)  # 129
+rna_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][0]+'_rna.h5ad')
+rna_0.obs.index = samples[0][0]+'_'+rna_0.obs.index 
+atac_0 = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][0]+'_atac.h5ad')
+atac_0.obs.index = samples[0][0]+'_'+atac_0.obs.index 
+rna = rna_0.copy()
+atac = atac_0.copy()
+
+for i in range(1, samples.shape[0]):
+    rna_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][i]+'_rna.h5ad')
+    rna_tmp.obs.index = samples[0][i]+'_'+rna_tmp.obs.index 
+    atac_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+samples[0][i]+'_atac.h5ad')
+    atac_tmp.obs.index = samples[0][i]+'_'+atac_tmp.obs.index 
+    rna = ad.concat([rna, rna_tmp])
+    atac = ad.concat([atac, atac_tmp])
+    print(samples[0][i], 'done')
+
+rna.var = rna_0.var
+atac.var = atac_0.var
 
 
 
