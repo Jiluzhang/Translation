@@ -340,6 +340,7 @@ for i in range(1, samples.shape[0]):
 rna.var = rna_0.var
 atac.var = atac_0.var
 
+
 ## workdir: all_data
 # python out_train_dataset.sh
 for sample in `cat ../files_all.txt`;do
@@ -349,6 +350,42 @@ for sample in `cat ../files_all.txt`;do
     python data_preprocess.py -r $sample/rna.h5ad -a $sample/atac.h5ad -s $sample/preprocessed_data_train --dt train --config ../rna2atac_config_train.yaml
     echo $sample done
 done
+
+
+
+import os
+import random
+
+train_files = []
+for root, dirs, files in os.walk('./all_data/train_datasets'):
+    for filename in files:
+        if filename[-2:]=='pt':
+            train_files.append(os.path.join(root, filename))
+
+random.seed(0)
+random.shuffle(train_files)
+
+
+
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./all_data/train_datasets --val_data_dir ./all_data/val_datasets -n rna2atac_train -s save_all_data
+
+
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save_all_data/2024-06-25_rna2atac_train_1/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancer_raw.h5ad
+python csr2array.py --pred rna2atac_scm2mpancancer_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
+
+
+
+
 
 
 
