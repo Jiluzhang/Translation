@@ -174,6 +174,23 @@ pred[true.obs.index.values, :].write('rna2atac_'+alg+'.h5ad')
 python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+# AMI: [0.5732, 0.8516, 0.7297, 0.8516, 0.8473]
+# ARI: [0.4715, 0.8618, 0.6112, 0.8618, 0.8536]
+# HOM: [0.4249, 0.8046, 0.6081, 0.8046, 0.7989]
+# NMI: [0.5806, 0.858, 0.7384, 0.858, 0.8538]
+
+python cal_cluster_plot.py --pred rna2atac_scbt.h5ad --true rna2atac_true.h5ad
+# AMI: [0.8435, 0.8435, 0.8435, 0.8435, 0.8435]
+# ARI: [0.7894, 0.7894, 0.7894, 0.7894, 0.7894]
+# HOM: [0.7363, 0.7363, 0.7363, 0.7363, 0.7363]
+# NMI: [0.8481, 0.8481, 0.8481, 0.8481, 0.8481]
+
+python cal_cluster_plot.py --pred rna2atac_babel.h5ad --true rna2atac_true.h5ad
+# AMI: [0.7441, 0.7332, 0.7531, 0.7531, 0.7531]
+# ARI: [0.7033, 0.6735, 0.7014, 0.7014, 0.7014]
+# HOM: [0.6518, 0.6416, 0.6589, 0.6589, 0.6589]
+# NMI: [0.7516, 0.7411, 0.7604, 0.7604, 0.7604]
+
 
 # python csr2array.py --pred rna2atac_scm2malpha_raw.h5ad  --true rna2atac_true.h5ad
 # python cal_auroc_auprc.py --pred rna2atac_scm2malpha.h5ad --true rna2atac_true.h5ad
@@ -377,7 +394,10 @@ mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancernoft_raw.h5ad
 python csr2array.py --pred rna2atac_scm2mpancancernoft_raw.h5ad  --true rna2atac_true.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2mpancancernoft.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2mpancancernoft.h5ad --true rna2atac_true.h5ad
-
+# AMI: [0.2027, 0.2392, 0.1969, 0.1883, 0.1899]
+# ARI: [0.1369, 0.1468, 0.1293, 0.1106, 0.1206]
+# HOM: [0.158, 0.2261, 0.154, 0.1765, 0.1491]
+# NMI: [0.2164, 0.2619, 0.2107, 0.2146, 0.2038]
 
 ########## with fine tune for cl dataset ##########
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
@@ -394,12 +414,20 @@ mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancerft_raw.h5ad
 python csr2array.py --pred rna2atac_scm2mpancancerft_raw.h5ad  --true rna2atac_true.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2mpancancerft.h5ad --true rna2atac_true.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2mpancancerft.h5ad --true rna2atac_true.h5ad
+# AMI: [0.878, 0.8758, 0.878, 0.8785, 0.8811]
+# ARI: [0.8574, 0.8457, 0.8574, 0.8647, 0.873]
+# HOM: [0.8253, 0.819, 0.8253, 0.8278, 0.8321]
+# NMI: [0.8832, 0.8812, 0.8832, 0.8836, 0.8862]
 
 
 
 
-
-
+pred = sc.read_h5ad('rna2atac_scm2mpancancernoft.h5ad')
+#pred.X = pred.X.toarray()
+pred.X[pred.X>0.5]=1
+pred.X[pred.X<=0.5]=0
+#pred.X = ((pred.X.T > pred.X.T.mean(axis=0)).T) & (pred.X>pred.X.mean(axis=0)).astype(int)
+round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 
 
