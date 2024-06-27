@@ -430,6 +430,51 @@ pred.X[pred.X<=0.5]=0
 round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 
+## cell count stats
+import scanpy as sc
+import os
+
+s_lst = os.listdir('.')
+cell_cnt = 0
+for s in s_lst:
+    cell_cnt += sc.read_h5ad(s+'/rna.h5ad').n_obs
+print(cell_cnt)
+# 461604 (for training)
+# 4061 (for validating)
+
+
+python data_preprocess.py -r val_datasets/GBML018G1-M1/rna.h5ad -a val_datasets/GBML018G1-M1/atac.h5ad -s preprocessed_data_test --dt test --config ../rna2atac_config_test.yaml
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l ../save/2024-06-25_rna2atac_train_3/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true val_datasets/GBML018G1-M1/atac.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+# AMI: [0.2586, 0.2621, 0.2654, 0.2628, 0.2818]
+# ARI: [0.147, 0.1475, 0.1507, 0.1476, 0.1555]
+# HOM: [0.3055, 0.3092, 0.3132, 0.31, 0.3296]
+# NMI: [0.2683, 0.2718, 0.275, 0.2725, 0.2913]
+
+
+## cluster & plot for true atac
+import snapatac2 as snap
+import scanpy as sc
+
+true = snap.read('./val_datasets/GBML018G1-M1/atac.h5ad', backed=None)
+snap.pp.select_features(true)
+snap.tl.spectral(true)
+snap.tl.umap(true)
+snap.pp.knn(true)
+snap.tl.leiden(true)
+sc.pl.umap(true[:550, :], color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_true.pdf')
+true[:550, :].write('rna2atac_true.h5ad')
+
+
 
 
 
