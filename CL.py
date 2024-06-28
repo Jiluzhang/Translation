@@ -476,7 +476,7 @@ true[:550, :].write('rna2atac_true.h5ad')
 
 
 
-
-
+## DSRCT multiome dataset
+wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE263nnn/GSE263522/suppl/GSE263522_RAW.tar
 
 
