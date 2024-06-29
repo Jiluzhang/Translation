@@ -476,7 +476,63 @@ true[:550, :].write('rna2atac_true.h5ad')
 
 
 
-## DSRCT multiome dataset
+################ DSRCT multiome dataset ################
 wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE263nnn/GSE263522/suppl/GSE263522_RAW.tar
+
+mv GSM8193977_GR11_Multiome_matrix.mtx matrix.mtx
+gzip matrix.mtx
+mv GSM8193977_GR11_Multiome_features.tsv features.tsv
+gzip features.tsv
+mv GSM8193977_GR11_Multiome_barcodes.tsv barcodes.tsv
+gzip barcodes.tsv 
+
+## RNA
+import scanpy as sc
+
+rna = sc.read_10x_mtx('./rna')  # 2916 × 36601
+rna.write('rna_raw.h5ad')
+
+## ATAC
+import snapatac2 as snap
+import pandas as pd
+
+ccre = pd.read_table('/fs/home/jiluzhang/scM2M_no_dec_attn/scM2M_cl/data/human_cCREs.bed', header=None)
+ccre[1] = ccre[1].astype(str)
+ccre[2] = ccre[2].astype(str)
+ccre['idx'] = ccre[0]+':'+ccre[1]+'-'+ccre[2]
+
+atac = snap.pp.import_data(fragment_file='./GSM8193977_GR11_Multiome_atac_fragments.tsv', genome=snap.genome.hg38, file='atac_raw.h5ad', sorted_by_barcode=False)  # ~5 min
+peak = snap.pp.make_peak_matrix(atac, use_rep=ccre['idx'])  # 15138 × 1033239
+peak.write('atac_peak_raw.h5ad')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
