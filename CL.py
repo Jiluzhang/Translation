@@ -506,13 +506,37 @@ peak = snap.pp.make_peak_matrix(atac, use_rep=ccre['idx'])  # 15138 × 1033239
 peak.write('atac_peak_raw.h5ad')
 
 
+## Combine RNA & ATAC
+import scanpy as sc
+import pandas as pd
+from scipy.sparse import csr_matrix
+import numpy as np
 
+rna = sc.read_h5ad('rna_raw.h5ad')
+rna.X = rna.X.toarray()
 
+genes = pd.read_table('/fs/home/jiluzhang/scM2M_no_dec_attn/scM2M_cl/data/human_genes.txt', names=['gene_ids', 'gene_name'])
 
+rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index.values)], axis=1)
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 3:].T
+X_new.fillna(value=0, inplace=True)
 
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)
 
+sc.pp.filter_cells(rna_new, min_genes=500)
+sc.pp.filter_cells(rna_new, max_genes=10000)
 
+atac = sc.read_h5ad('atac_raw.h5ad')
+atac.X[atac.X>1]=1
 
+sc.pp.filter_cells(atac, min_genes=1000)
+sc.pp.filter_cells(atac, max_genes=50000)
+
+idx = np.intersect1d(rna_new.obs.index, atac.obs.index)  
+rna_new[idx, :].copy().write('rna.h5ad')     # 2359 × 38244
+atac[idx, :].copy().write('atac.h5ad')       # 2359 × 1033239
 
 
 
