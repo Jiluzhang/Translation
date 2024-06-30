@@ -539,8 +539,62 @@ rna_new[idx, :].copy().write('rna.h5ad')     # 2359 × 38244
 atac[idx, :].copy().write('atac.h5ad')       # 2359 × 1033239
 
 
+## fine tune & predict
+python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
+mv rna_train.h5ad rna_2123.h5ad
+mv atac_train.h5ad atac_2123.h5ad
+mv rna_val.h5ad rna_236.h5ad
+mv atac_val.h5ad atac_236.h5ad
+python data_preprocess.py -r rna_236.h5ad -a atac_236.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+# 320148
+
+#python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml  # ~30 min
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
 
 
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-24_rna2atac_train_27/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+# import snapatac2 as snap
+# import numpy as np
+# from scipy.sparse import csr_matrix
+# import scanpy as sc
+
+# true = snap.read('atac_val_100.h5ad', backed=None)
+# snap.pp.select_features(true)
+# snap.tl.spectral(true)
+# snap.tl.umap(true)
+# snap.pp.knn(true)
+# snap.tl.leiden(true)
+# sc.pl.umap(true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_atac_100_true.pdf')
+
+# m_raw = np.load('predict.npy')
+# m = m_raw.copy()
+# m[m>0.5]=1
+# m[m<=0.5]=0
+
+# pred = true.copy()
+# pred.X = csr_matrix(m)
+
+# snap.pp.select_features(pred)
+# snap.tl.spectral(pred)
+# snap.tl.umap(pred)
+# sc.pl.umap(pred, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_atac_100_predict.pdf')
+
+
+python npy2h5ad.py
+mv rna2atac_scm2m_raw.h5ad ../benchmark/rna2atac_scm2mpancancer_raw.h5ad
+python csr2array.py --pred rna2atac_scm2mpancancer_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2mpancancer.h5ad --true rna2atac_true.h5ad
 
 
 
