@@ -579,34 +579,58 @@ true.write('rna2atac_true.h5ad')
 python data_preprocess.py -r rna_2123.h5ad -a atac_2123.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
 
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_test -n rna2atac_train -s save_ft_1e-3 \
+                  --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_test -n rna2atac_train -s save_ft_2123 \
                   -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-25_rna2atac_train_3/pytorch_model.bin
 # 352883
 
-
-
+## find the most similar dataset for the target rna
+# pan_cancer_samples.txt  127
 import scanpy as sc
-from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity, pairwise_distances
 import numpy as np
+from tqdm import tqdm
+from scipy.stats import pearsonr
 
-ref_rna = sc.read_h5ad('rna_ref.h5ad')
 tgt_rna = sc.read_h5ad('rna_236.h5ad')
-
-ref_rna_m = ref_rna.X.toarray()
 tgt_rna_m = tgt_rna.X.toarray()
 
-rna_res = cosine_similarity(tgt_rna_m[[0]], ref_rna_m)
-idx_max = np.argmax(rna_res)  # 527
+cor_lst = []
+pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
+for s in tqdm(pan_cancer_samples[0].values, ncols=80):
+    rna_s_m = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+s+'/rna.h5ad').X.toarray()
+    cor_lst.append(round(pearsonr(tgt_rna_m.sum(axis=0), rna_s_m.sum(axis=0))[0], 4))
 
-ref_atac = sc.read_h5ad('atac_ref.h5ad')
-tgt_atac = sc.read_h5ad('atac_236.h5ad')
-
-ref_atac_m = ref_atac.X.toarray()
-tgt_atac_m = tgt_atac.X.toarray()
-
-atac_res = cosine_similarity(tgt_atac_m[[0]], ref_atac_m)
+np.argmax(cor_lst)  # 122
+pan_cancer_samples[0][np.argmax(cor_lst)]   # 'VF032V1-S1'
 
 
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/VF032V1-S1/preprocessed_data_train \
+                  --val_data_dir ./preprocessed_data_test -n rna2atac_train -s save_ft_VF032V1_S1 \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-25_rna2atac_train_3/pytorch_model.bin
+# 557002
+
+
+
+
+
+
+
+# rna_res = cosine_similarity(tgt_rna_m[[0]], ref_rna_m)
+# idx_max = np.argmax(rna_res)  # 527
+
+# ref_atac = sc.read_h5ad('atac_ref.h5ad')
+# tgt_atac = sc.read_h5ad('atac_236.h5ad')
+
+# ref_atac_m = ref_atac.X.toarray()
+# tgt_atac_m = tgt_atac.X.toarray()
+
+# dist_lst = []
+# for i in tqdm(range(ref_atac_m.shape[0]), ncols=80):
+#     dist_lst.append(pairwise_distances(tgt_atac_m[[0]], ref_atac_m[[i]], metric='hamming')[0][0])
+
+round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 
 
