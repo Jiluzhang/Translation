@@ -613,8 +613,57 @@ accelerate launch --config_file accelerator_config_train.yaml --main_process_por
 
 
 
+## cell mapping
+# Using DenseFly algorithm for cell searching on massive scRNA-seq datasets
+# scmap: https://github.com/hemberg-lab/scmap
 
+import scanpy as sc
+import random
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from scipy.spatial import cKDTree
 
+tgt_rna = sc.read_h5ad('rna_236.h5ad')
+tgt_rna_m = tgt_rna.X.toarray()
+tgt_rna_m_norm = tgt_rna_m / tgt_rna_m.sum(axis=1, keepdims=True)
+
+# time-cosuming
+# pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
+# for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+#     if i==0:
+#         ref_rna_m = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad').X.toarray()
+#     else:
+#         rna_s_m = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad').X.toarray()
+#         ref_rna_m = vstack([ref_rna_m, rna_s_m])
+
+pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
+dist_dict = {}
+rna_dict = {}
+atac_dict = {}
+for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+    ref_rna = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
+    ref_rna_m = ref_rna.X.toarray()
+    ref_rna_m_norm = ref_rna_m / ref_rna_m.sum(axis=1, keepdims=True)
+    kdtree = cKDTree(ref_rna_m_norm)
+    distance, index = kdtree.query(tgt_rna_m_norm, k=1)
+    dist_dict[i] = distance
+    rna_dict[i] = ref_rna[index, :]
+    ref_atac = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
+    atac_dict[i] = ref_atac[index, :]
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_rna.h5ad')
+rna.obs.index = pan_cancer_samples[0][0]+'_'+rna_0.obs.index 
+atac = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_atac.h5ad')
+atac.obs.index = pan_cancer_samples[0][0]+'_'+atac_0.obs.index 
+
+for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+    rna_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][i]+'_rna.h5ad')
+    rna_tmp.obs.index = pan_cancer_samples[0][i]+'_'+rna_tmp.obs.index 
+    atac_tmp = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][i]+'_atac.h5ad')
+    atac_tmp.obs.index = pan_cancer_samples[0][i]+'_'+atac_tmp.obs.index 
+    rna = ad.concat([rna, rna_tmp])
+    atac = ad.concat([atac, atac_tmp])
 
 
 # rna_res = cosine_similarity(tgt_rna_m[[0]], ref_rna_m)
@@ -634,8 +683,50 @@ round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 
 
+## SCARlink
+conda activate /data/home/zouqihang/miniconda3/envs/scarlink-env
 
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.colorbar as colorbar
+import matplotlib.gridspec as gridspec
+import matplotlib.colors as colors
+from matplotlib import cm
+import logging
+import seaborn
+import tensorflow as tf
+import numpy as np
+import pandas
+import h5py
+import sys
+import os
+import warnings
+from tables import NaturalNameWarning
+from scipy import stats
+from scipy.sparse import csr_matrix
+from sklearn.preprocessing import MaxAbsScaler
+from sklearn.model_selection import RepeatedKFold, train_test_split
+import tensorflow.keras.backend as K
+from scarlink.src.plotExtra import plotRegion, get_fragment_counts, plot_hist, create_colormap
+from scarlink.src.read_h5_and_group_cells import construct_cell_info, construct_gex_mat, get_train_test_split, get_gene_tile_matrix_group_cells, write_significance, read_sparse_significance
+from scarlink.src.tile_significance import set_gene_tile_significance_bootstrapped, set_gene_tile_significance_signed_rank
 
+def build_model(atac_shape, a):
+    inputs = tf.keras.layers.Input(shape=(atac_shape,), name = 'inputA')
+    out = tf.keras.layers.Dense(1, activation = tf.exp, name = 'rate', kernel_regularizer=tf.keras.regularizers.l2(a), kernel_constraint = tf.keras.constraints.NonNeg())(inputs)
+    m = tf.keras.models.Model(inputs=inputs, outputs=out)
+    return m
 
+dat = h5py.File('../coassay_matrix.h5')
+atac_shape_1 = dat['A2M']['shape'][1]
+
+cof = h5py.File('coefficients_None.hd5')
+a = int(cof['genes']['ACSL1'].attrs['alpha'])  
+w = cof['genes']['ACSL1'][:]
+w = np.insert(w, 1, cof['genes']['ACSL1'].attrs['intercept'], axis=1)
+
+model = build_model(atac_shape_1, a)
+model.set_weights(w)
+s_corr, s_pval = self.find_correlation_spearman(model_custom, atac, rna)
 
 
