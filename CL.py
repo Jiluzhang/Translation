@@ -685,31 +685,13 @@ round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 ## SCARlink
 conda activate /data/home/zouqihang/miniconda3/envs/scarlink-env
+## python predict_gex.py
 
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.colorbar as colorbar
-import matplotlib.gridspec as gridspec
-import matplotlib.colors as colors
-from matplotlib import cm
-import logging
-import seaborn
-import tensorflow as tf
-import numpy as np
-import pandas
 import h5py
-import sys
-import os
-import warnings
-from tables import NaturalNameWarning
-from scipy import stats
+import numpy as np
 from scipy.sparse import csr_matrix
-from sklearn.preprocessing import MaxAbsScaler
-from sklearn.model_selection import RepeatedKFold, train_test_split
-import tensorflow.keras.backend as K
-from scarlink.src.plotExtra import plotRegion, get_fragment_counts, plot_hist, create_colormap
-from scarlink.src.read_h5_and_group_cells import construct_cell_info, construct_gex_mat, get_train_test_split, get_gene_tile_matrix_group_cells, write_significance, read_sparse_significance
-from scarlink.src.tile_significance import set_gene_tile_significance_bootstrapped, set_gene_tile_significance_signed_rank
+import tensorflow as tf
+import pandas as pd
 
 def build_model(atac_shape, a):
     inputs = tf.keras.layers.Input(shape=(atac_shape,), name = 'inputA')
@@ -717,16 +699,25 @@ def build_model(atac_shape, a):
     m = tf.keras.models.Model(inputs=inputs, outputs=out)
     return m
 
-dat = h5py.File('../coassay_matrix.h5')
-atac_shape_1 = dat['A2M']['shape'][1]
+dat = h5py.File('coassay_matrix.h5')
+cof = h5py.File('scarlink_out/coefficients_None.hd5')
+gene_lst = list(cof['genes'].keys())
 
-cof = h5py.File('coefficients_None.hd5')
-a = int(cof['genes']['ACSL1'].attrs['alpha'])  
-w = cof['genes']['ACSL1'][:]
-w = np.insert(w, 1, cof['genes']['ACSL1'].attrs['intercept'], axis=1)
+exp = pd.DataFrame()
+for gene in gene_lst:
+    atac_shape = dat[gene]['shape'][0]
+    a = int(cof['genes'][gene].attrs['alpha'])  
+    w = []
+    w.append(cof['genes'][gene][:])
+    w.append(np.array([cof['genes'][gene].attrs['intercept']]))
+    
+    x = csr_matrix((dat[gene]['data'][:], dat[gene]['indices'][:], dat[gene]['indptr'][:]), shape=dat[gene]['shape'][:][::-1])
+    
+    model = build_model(atac_shape, a)
+    model.set_weights(w)
+    pred_y = model.predict(x)
+    exp[gene] = pred_y.flatten()
+    print('Predict', gene, 'done#######')
 
-model = build_model(atac_shape_1, a)
-model.set_weights(w)
-s_corr, s_pval = self.find_correlation_spearman(model_custom, atac, rna)
-
+exp.to_csv('predicted_gex.csv', index=False)
 
