@@ -1,4 +1,5 @@
 ## SCARlink
+# https://github.com/snehamitra/SCARlink
 conda activate /data/home/zouqihang/miniconda3/envs/scarlink-env
 ## python predict_gex.py
 
