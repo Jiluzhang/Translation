@@ -622,86 +622,51 @@ import random
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-#from scipy.spatial import cKDTree
 from sklearn.neighbors import NearestNeighbors
 
 tgt_rna = sc.read_h5ad('rna_236.h5ad')
 tgt_rna_m = tgt_rna.X.toarray()
-#tgt_rna_m_norm = tgt_rna_m / tgt_rna_m.sum(axis=1, keepdims=True)
-
-# time-cosuming
-# pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
-# for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
-#     if i==0:
-#         ref_rna_m = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad').X.toarray()
-#     else:
-#         rna_s_m = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad').X.toarray()
-#         ref_rna_m = vstack([ref_rna_m, rna_s_m])
-
-#ref_rna_m_norm = ref_rna_m / ref_rna_m.sum(axis=1, keepdims=True)
-
 pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
 
-ref_rna_0 = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
-ref_rna_m_0 = ref_rna_0.X.toarray()
-ref_atac_0 = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
-neigh = NearestNeighbors(n_neighbors=1, metric='cosine')
-neigh.fit(ref_rna_m_0)
-dist_0, idx_0 = neigh.kneighbors(tgt_rna_m, 1, return_distance=True)
-obs_knn = ref_rna_0[idx_0.flatten(), :].obs.index.values
-rna_knn = ref_rna_0[idx_0.flatten(), :].X.toarray()
-atac_knn = ref_atac_0[idx_0.flatten(), :].X.toarray()
+for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+    if i==0:
+        ref_rna = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][0]+'/rna.h5ad')
+        ref_rna_m = ref_rna.X.toarray()
+        neigh = NearestNeighbors(n_neighbors=1, metric='cosine')
+        neigh.fit(ref_rna_m)
+        dist, idx = neigh.kneighbors(tgt_rna_m, 1, return_distance=True)
+        dist = dist.flatten()
+        idx = idx.flatten()
+        obs_knn = ref_rna[idx, :].obs.index.values
+        pt_lst = [[pan_cancer_samples[0][0], i] for i in obs_knn]
+    else:
+        ref_rna_tmp = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
+        ref_rna_m_tmp = ref_rna_tmp.X.toarray()
+        neigh = NearestNeighbors(n_neighbors=1, metric='cosine')
+        neigh.fit(ref_rna_m_tmp)
+        dist_tmp, idx_tmp = neigh.kneighbors(tgt_rna_m, 1, return_distance=True)
+        dist_tmp = dist_tmp.flatten()
+        idx_tmp = idx_tmp.flatten()
+        
+        bool_tmp = dist_tmp<dist
+        dist[bool_tmp] = dist_tmp[bool_tmp]
+        obs_knn_tmp = ref_rna_tmp[idx_tmp, :].obs.index.values
+        
+        for t in range(len(bool_tmp)):
+            if bool_tmp[t]:
+                pt_lst[t] = [pan_cancer_samples[0][i], obs_knn_tmp[t]]
 
-for i in tqdm(range(1, pan_cancer_samples.shape[0]), ncols=80):
-    ref_rna = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
-    ref_rna_m = ref_rna.X.toarray()
-    ref_atac = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
-    neigh = NearestNeighbors(n_neighbors=1, metric='cosine')
-    neigh.fit(ref_rna_m)
-    dist, idx = neigh.kneighbors(tgt_rna_m, 1, return_distance=True)
+np.save('knn_res.npy', np.array(pt_lst))
 
-    bool_tmp = dist<dist_0
-    obs_knn[bool_tmp.flatten()] = ref_rna.obs.index.values[idx[bool_tmp]]
-    rna_knn[bool_tmp.flatten(), :] = ref_rna.X.toarray()[idx[bool_tmp]]
-    atac_knn[bool_tmp.flatten(), :] = ref_atac.X.toarray()[idx[bool_tmp]]
+################ extract certain cells' info from h5ad files !!!!!!!!!!!!!!!!!!
+
 
     
-    ################ add cell_id to obs.index ################
-
-    
-    #kdtree = cKDTree(ref_rna_m_norm)
-    #distance, index = kdtree.query(tgt_rna_m_norm, k=1)
-    #dist_dict[i] = distance
-    #rna_dict[i] = ref_rna[index, :]
-    
-    ref_atac = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
-    atac_dict[i] = ref_atac[index, :]
 
 
 
 
-rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_rna.h5ad')
-rna.obs.index = pan_cancer_samples[0][0]+'_'+rna_0.obs.index 
-atac = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_atac.h5ad')
-atac.obs.index = pan_cancer_samples[0][0]+'_'+atac_0.obs.index 
 
-
-
-
-# rna_res = cosine_similarity(tgt_rna_m[[0]], ref_rna_m)
-# idx_max = np.argmax(rna_res)  # 527
-
-# ref_atac = sc.read_h5ad('atac_ref.h5ad')
-# tgt_atac = sc.read_h5ad('atac_236.h5ad')
-
-# ref_atac_m = ref_atac.X.toarray()
-# tgt_atac_m = tgt_atac.X.toarray()
-
-# dist_lst = []
-# for i in tqdm(range(ref_atac_m.shape[0]), ncols=80):
-#     dist_lst.append(pairwise_distances(tgt_atac_m[[0]], ref_atac_m[[i]], metric='hamming')[0][0])
-
-round(pearsonr(pred.X.sum(axis=0), true.X.toarray().sum(axis=0))[0], 4)
 
 
 
