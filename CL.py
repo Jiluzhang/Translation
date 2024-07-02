@@ -652,6 +652,13 @@ for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
     ref_atac = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
     atac_dict[i] = ref_atac[index, :]
 
+ref_rna_m_norm = csr_matrix(np.empty(shape=[0,38244]))
+for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+    ref_rna = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
+    ref_rna_m = ref_rna.X
+    ref_rna_m_norm = vstack([ref_rna_m_norm, (ref_rna_m / ref_rna_m.sum(axis=1, keepdims=True))])
+
+
 rna = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_rna.h5ad')
 rna.obs.index = pan_cancer_samples[0][0]+'_'+rna_0.obs.index 
 atac = sc.read_h5ad('/fs/home/jiluzhang/2023_nature_LD/normal_h5ad/'+pan_cancer_samples[0][0]+'_atac.h5ad')
