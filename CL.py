@@ -702,7 +702,7 @@ accelerate launch --config_file accelerator_config_train.yaml --main_process_por
 
 
 
-## prediction by model_ft
+## prediction by model_ft_2123
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
                   -d ./preprocessed_data_test \
                   -l ./save_ft_2123/2024-07-01_rna2atac_train_40/pytorch_model.bin \
@@ -716,6 +716,102 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 # ARI: [0.0183, 0.0305, 0.0308, 0.033, 0.0245]
 # HOM: [0.0583, 0.0786, 0.0798, 0.0815, 0.0735]
 # NMI: [0.0684, 0.0827, 0.0842, 0.0856, 0.0773]
+
+
+## prediction by model_ft_VF032V1_S1
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l ./save_ft_VF032V1_S1/2024-07-01_rna2atac_train_7/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+# AMI: [0.0239, 0.0308, 0.0272, 0.0239, 0.0296]
+# ARI: [0.0054, 0.0104, 0.0082, 0.0055, 0.0094]
+# HOM: [0.0396, 0.0461, 0.0427, 0.0396, 0.045]
+# NMI: [0.0416, 0.0483, 0.0448, 0.0416, 0.0472]
+
+
+## prediction by model_ft_knn
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l ./save_ft_knn/2024-07-03_rna2atac_train_38/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+# AMI: [0.0083, 0.0095, 0.0361, 0.0256, 0.0278]
+# ARI: [0.0003, 0.0024, 0.014, 0.0098, 0.0136]
+# HOM: [0.0251, 0.0261, 0.0594, 0.041, 0.0433]
+# NMI: [0.0264, 0.0276, 0.058, 0.0436, 0.0456]
+
+
+
+
+
+############ motif enrichment analysis ############
+import snapatac2 as snap
+import scanpy as sc
+import numpy as np
+
+atac = snap.read('atac_236.h5ad', backed=None)
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=0.5)
+atac.obs.leiden.value_counts()
+# 0    174
+# 1     62
+# 0: malignant cells
+# 1: non-malignant cells
+sc.pl.umap(atac, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_236_true_2_clusters.pdf')
+atac.write('atac_236_2_clusters.h5ad')
+
+atac = sc.read_h5ad('atac_236_2_clusters.h5ad')
+
+atac_0 = atac[atac.obs.leiden=='0'].copy()
+atac_1 = atac[atac.obs.leiden=='1'].copy()
+
+sc.pp.filter_genes(atac_0, min_cells=atac_0.n_obs*0.10)  # 47883
+sc.pp.filter_genes(atac_1, min_cells=atac_1.n_obs*0.02)  # 43691
+
+atac_0_sp = np.setdiff1d(atac_0.var.index.values, atac_1.var.index.values)
+
+# np.intersect1d(atac_0.var.index.values, atac_1.var.index.values)
+
+marker_peaks = {'0': list(atac_0.var.index.values)}
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                  regions=marker_peaks,
+                                  genome_fasta=snap.genome.hg38)
+snap.pl.motif_enrichment(motifs, max_fdr=0, height=500, out_file='motif_enrichment_0.pdf')
+
+
+for i in range(1165):
+    if tmp['0']['name'][i]=='JUND':
+        print(i)
+
+# EGR3: 131
+# FOSL2: 178
+# JUND: 375
+
+marker_peaks = {'0': list(atac_0.var.index.values)[:1000],
+                '1': list(atac_1.var.index.values)[:1000]}
+motifs_tmp = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True)[375:380],
+                                  regions=marker_peaks,
+                                  genome_fasta=snap.genome.hg38,
+                                  method='binomial')
+motifs_tmp
+snap.pl.motif_enrichment(motifs_tmp, max_fdr=0.00001, height=500, out_file='motif_enrichment_0.pdf')
+
+method = "hypergeometric" if background is None else "binomial"
+
+snap.pl.motif_enrichment(motifs, max_fdr=0.0001, height=500, show=False, interactive=False, out_file='motif_enrichment_0.pdf')
 
 
 
