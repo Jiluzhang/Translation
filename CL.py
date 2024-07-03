@@ -660,9 +660,62 @@ np.save('knn_res.npy', np.array(pt_lst))
 
 ################ extract certain cells' info from h5ad files !!!!!!!!!!!!!!!!!!
 
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+import scanpy as sc
+from scipy.sparse import csr_matrix
 
-    
+idx = np.load('knn_res.npy')
 
+pan_cancer_samples = pd.read_table('pan_cancer_samples.txt', header=None)
+rna_dict = {}
+atac_dict = {}
+for i in tqdm(range(pan_cancer_samples.shape[0]), ncols=80):
+    rna_dict[pan_cancer_samples[0][i]] = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/rna.h5ad')
+    atac_dict[pan_cancer_samples[0][i]] = sc.read_h5ad('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/train_datasets/'+pan_cancer_samples[0][i]+'/atac.h5ad')
+
+rna_m = np.zeros(shape=[236, 38244])
+atac_m = np.zeros(shape=[236, 1033239])
+obs_lst = []
+for j in tqdm(range(len(idx)), ncols=80):
+    obs_lst.append(idx[j][0]+'_'+idx[j][1])
+    rna_m[j] = rna_dict[idx[j][0]][idx[j][1]].X.toarray()
+    atac_m[j] = atac_dict[idx[j][0]][idx[j][1]].X.toarray()
+
+rna_out = sc.AnnData(csr_matrix(rna_m), obs=[], var=rna_dict[idx[0][0]][idx[0][1]].var)
+rna_out.obs.index = obs_lst
+rna_out.write('rna_236_knn.h5ad')
+
+atac_out = sc.AnnData(csr_matrix(atac_m), obs=[], var=atac_dict[idx[0][0]][idx[0][1]].var)
+atac_out.obs.index = obs_lst
+atac_out.write('atac_236_knn.h5ad')  ## maybe with duplicates
+
+
+python data_preprocess.py -r rna_236_knn.h5ad -a atac_236_knn.h5ad -s preprocessed_data_train_knn --dt train --config rna2atac_config_train.yaml
+
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                  --train_data_dir ./preprocessed_data_train_knn \
+                  --val_data_dir ./preprocessed_data_test -n rna2atac_train -s save_ft_knn \
+                  -l /fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/save/2024-06-25_rna2atac_train_3/pytorch_model.bin
+# 1282803
+
+
+
+## prediction by model_ft
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29823 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l ./save_ft_2123/2024-07-01_rna2atac_train_40/pytorch_model.bin \
+                  --config_file rna2atac_config_test.yaml
+
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true rna2atac_true.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
+# AMI: [0.0557, 0.0657, 0.0671, 0.0686, 0.0602]
+# ARI: [0.0183, 0.0305, 0.0308, 0.033, 0.0245]
+# HOM: [0.0583, 0.0786, 0.0798, 0.0815, 0.0735]
+# NMI: [0.0684, 0.0827, 0.0842, 0.0856, 0.0773]
 
 
 
