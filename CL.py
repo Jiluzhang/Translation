@@ -793,16 +793,25 @@ atac_0_sp = peaks[np.setdiff1d(atac_0_peak_idx, atac_1_peak_idx)]
 atac_1_sp = peaks[np.setdiff1d(atac_1_peak_idx, atac_0_peak_idx)]
 
 marker_peaks = {'0': atac_0_sp, '1': atac_1_sp}
-motifs_tmp = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True)[375:380],
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
                                   regions=marker_peaks,
                                   genome_fasta=snap.genome.hg38,
-                                  method='binomial')
-motifs_tmp
-snap.pl.motif_enrichment(motifs_tmp, max_fdr=0.00001, height=500, out_file='motif_enrichment_0.pdf')
+                                  method='hypergeometric')  # ~3.5 min
 
-method = "hypergeometric" if background is None else "binomial"
+motifs_0 =  motifs['0'].to_pandas()
+del motifs_0['family']
+motifs_0.to_csv('atac_236_motif_cluster_0.txt', sep='\t', index=False)
 
-snap.pl.motif_enrichment(motifs, max_fdr=0.0001, height=500, show=False, interactive=False, out_file='motif_enrichment_0.pdf')
+motifs_1 =  motifs['1'].to_pandas()
+del motifs_1['family']
+motifs_1.to_csv('atac_236_motif_cluster_1.txt', sep='\t', index=False)
+
+############################### p-value=0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+#snap.pl.motif_enrichment(motifs, max_fdr=0.00001, height=500, show=False, out_file='motif_enrichment_0.pdf')
+
+
+## Paper in Cell Reports Medicine: https://www.cell.com/cell-reports-medicine/fulltext/S2666-3791(24)00274-X#supplementaryMaterial
 
 
 
