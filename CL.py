@@ -778,30 +778,21 @@ atac = sc.read_h5ad('atac_236_2_clusters.h5ad')
 atac_0 = atac[atac.obs.leiden=='0'].copy()
 atac_1 = atac[atac.obs.leiden=='1'].copy()
 
-sc.pp.filter_genes(atac_0, min_cells=atac_0.n_obs*0.10)  # 47883
-sc.pp.filter_genes(atac_1, min_cells=atac_1.n_obs*0.02)  # 43691
+snap.pp.select_features(atac_0)
+snap.pp.select_features(atac_1)
 
-atac_0_sp = np.setdiff1d(atac_0.var.index.values, atac_1.var.index.values)
+peaks = atac_0.var.index.values
 
-# np.intersect1d(atac_0.var.index.values, atac_1.var.index.values)
+atac_0.var.index = list(range(atac_0.n_vars))
+atac_0_peak_idx = atac_0.var[atac_0.var['count']>atac_0.n_obs*0.10].index.values  # 47883
 
-marker_peaks = {'0': list(atac_0.var.index.values)}
-motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
-                                  regions=marker_peaks,
-                                  genome_fasta=snap.genome.hg38)
-snap.pl.motif_enrichment(motifs, max_fdr=0, height=500, out_file='motif_enrichment_0.pdf')
+atac_1.var.index = list(range(atac_1.n_vars))
+atac_1_peak_idx = atac_1.var[atac_1.var['count']>atac_1.n_obs*0.02].index.values  # 43691
 
+atac_0_sp = peaks[np.setdiff1d(atac_0_peak_idx, atac_1_peak_idx)]
+atac_1_sp = peaks[np.setdiff1d(atac_1_peak_idx, atac_0_peak_idx)]
 
-for i in range(1165):
-    if tmp['0']['name'][i]=='JUND':
-        print(i)
-
-# EGR3: 131
-# FOSL2: 178
-# JUND: 375
-
-marker_peaks = {'0': list(atac_0.var.index.values)[:1000],
-                '1': list(atac_1.var.index.values)[:1000]}
+marker_peaks = {'0': atac_0_sp, '1': atac_1_sp}
 motifs_tmp = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True)[375:380],
                                   regions=marker_peaks,
                                   genome_fasta=snap.genome.hg38,
