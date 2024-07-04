@@ -575,6 +575,8 @@ sc.pl.umap(true, color='leiden', legend_fontsize='7', legend_loc='right margin',
            title='', frameon=True, save='_atac_236_true.pdf')
 true.write('rna2atac_true.h5ad')
 
+# sc.pl.umap(true, color='leiden', legend_fontsize='7', legend_loc='right margin', size=15,
+#            title='', frameon=True, save='_atac_236_true_bigsize.pdf')
 
 python data_preprocess.py -r rna_2123.h5ad -a atac_2123.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
 
