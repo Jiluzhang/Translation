@@ -754,9 +754,11 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true rna2atac_true.h5ad
 
 
 ############ motif enrichment analysis ############
+######## True ########
 import snapatac2 as snap
 import scanpy as sc
 import numpy as np
+import random
 
 atac = snap.read('atac_236.h5ad', backed=None)
 snap.pp.select_features(atac)
@@ -792,19 +794,188 @@ atac_1_peak_idx = atac_1.var[atac_1.var['count']>atac_1.n_obs*0.02].index.values
 atac_0_sp = peaks[np.setdiff1d(atac_0_peak_idx, atac_1_peak_idx)]
 atac_1_sp = peaks[np.setdiff1d(atac_1_peak_idx, atac_0_peak_idx)]
 
+random.seed(0)
+peaks_shuf = peaks.copy()
+random.shuffle(peaks_shuf)
 marker_peaks = {'0': atac_0_sp, '1': atac_1_sp}
+
 motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
                                   regions=marker_peaks,
                                   genome_fasta=snap.genome.hg38,
-                                  method='hypergeometric')  # ~3.5 min
+                                  background=peaks_shuf[:50000],
+                                  method='hypergeometric')  # ~6 min
+# background   A list of regions to be used as the background. If None, the union of elements in `regions` will be used as the background.
+# method  Statistical testing method: "binomial" or "hypergeometric".  To use "hypergeometric", the testing regions must be a subset of background regions.
 
-motifs_0 =  motifs['0'].to_pandas()
+motifs_0 = motifs['0'].to_pandas()
 del motifs_0['family']
 motifs_0.to_csv('atac_236_motif_cluster_0.txt', sep='\t', index=False)
 
-motifs_1 =  motifs['1'].to_pandas()
+motifs_1 = motifs['1'].to_pandas()
 del motifs_1['family']
 motifs_1.to_csv('atac_236_motif_cluster_1.txt', sep='\t', index=False)
+
+
+## Plot top enriched motifs
+import pandas as pd
+from plotnine import *
+import numpy as np
+
+## cluster 0
+motifs_0 = pd.read_table('atac_236_motif_cluster_0.txt')
+motifs_0.index = motifs_0['name'].values
+tfs = ['EGR3', 'ZNF740', 'EGR1', 'KLF16', 'MAZ', 'RREB1', 'ZNF148', 'SP1', 'SP2', 'ZNF263']
+tfs.reverse()
+motifs_0_stat = motifs_0.loc[tfs]
+motifs_0_stat['name'] = pd.Categorical(motifs_0_stat['name'], categories=tfs)
+
+dat = motifs_0_stat[['name', 'log2(fold change)']]
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)')) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() + \
+                                                        xlab('Motif') + ylab('log2FC') + labs(title='Malignant cells')  + \
+                                                        scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='atac_236_motif_cluster_0.pdf', dpi=600, height=4, width=5)
+
+## cluster 1
+motifs_1 = pd.read_table('atac_236_motif_cluster_1.txt')
+motifs_1.index = motifs_1['name'].values
+tfs = ['FOSL2', 'JUND', 'JUNB', 'FOSL1', 'BATF3', 'BATF']
+tfs.reverse()
+motifs_1_stat = motifs_1.loc[tfs]
+motifs_1_stat['name'] = pd.Categorical(motifs_1_stat['name'], categories=tfs)
+
+dat = motifs_1_stat[['name', 'log2(fold change)']]
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)')) + geom_bar(stat='identity', fill='midnightblue', position=position_dodge()) + coord_flip() + \
+                                                        xlab('Motif') + ylab('log2FC') + labs(title='Non-malignant cells')  + \
+                                                        scale_y_continuous(limits=[-1.5, 1], breaks=np.arange(-1.5, 1.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='atac_236_motif_cluster_1.pdf', dpi=600, height=2.5, width=5)
+
+
+
+######## scM2M predict (fine-tune by target dataset) ########
+import snapatac2 as snap
+import scanpy as sc
+import numpy as np
+import random
+
+atac = snap.read('ft_2123/rna2atac_scm2m_binary_ft_2123.h5ad', backed=None)
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=0.4)
+atac.obs.leiden.value_counts()
+# 0    132
+# 1    104
+# 0: malignant cells
+# 1: non-malignant cells
+sc.pl.umap(atac, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_236_scm2mft2123_2_clusters.pdf')
+atac.write('atac_236_scm2mft2123_2_clusters.h5ad')
+
+atac = sc.read_h5ad('atac_236_scm2mft2123_2_clusters.h5ad')
+
+atac_0 = atac[atac.obs.leiden=='0'].copy()
+atac_1 = atac[atac.obs.leiden=='1'].copy()
+
+snap.pp.select_features(atac_0)
+snap.pp.select_features(atac_1)
+
+peaks = atac_0.var.index.values
+
+atac_0.var.index = list(range(atac_0.n_vars))
+atac_0_peak_idx = atac_0.var[atac_0.var['count']>atac_0.n_obs*0.9].index.values  # 75208
+
+atac_1.var.index = list(range(atac_1.n_vars))
+atac_1_peak_idx = atac_1.var[atac_1.var['count']>atac_1.n_obs*0.9].index.values  # 76281
+
+atac_0_sp = peaks[np.setdiff1d(atac_0_peak_idx, atac_1_peak_idx)]  # 2641
+atac_1_sp = peaks[np.setdiff1d(atac_1_peak_idx, atac_0_peak_idx)]  # 3714
+
+random.seed(0)
+peaks_shuf = peaks.copy()
+random.shuffle(peaks_shuf)
+marker_peaks = {'0': atac_0_sp, '1': atac_1_sp}
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                  regions=marker_peaks,
+                                  genome_fasta=snap.genome.hg38,
+                                  background=peaks_shuf[:50000],
+                                  method='hypergeometric')  # ~6 min
+# background   A list of regions to be used as the background. If None, the union of elements in `regions` will be used as the background.
+# method  Statistical testing method: "binomial" or "hypergeometric".  To use "hypergeometric", the testing regions must be a subset of background regions.
+
+motifs_0 = motifs['0'].to_pandas()
+del motifs_0['family']
+motifs_0.to_csv('atac_236_motif_scm2mft2123_cluster_0.txt', sep='\t', index=False)
+
+motifs_1 = motifs['1'].to_pandas()
+del motifs_1['family']
+motifs_1.to_csv('atac_236_motif_scm2mft2123_cluster_1.txt', sep='\t', index=False)
+
+
+## Plot top enriched motifs
+import pandas as pd
+from plotnine import *
+import numpy as np
+
+## cluster 0
+motifs_0 = pd.read_table('atac_236_motif_scm2mft2123_cluster_0.txt')
+motifs_0.index = motifs_0['name'].values
+tfs = ['EGR3', 'ZNF740', 'EGR1', 'KLF16', 'MAZ', 'RREB1', 'ZNF148', 'SP1', 'SP2', 'ZNF263']
+tfs.reverse()
+motifs_0_stat = motifs_0.loc[tfs]
+motifs_0_stat['name'] = pd.Categorical(motifs_0_stat['name'], categories=tfs)
+
+dat = motifs_0_stat[['name', 'log2(fold change)']]
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)')) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() + \
+                                                        xlab('Motif') + ylab('log2FC') + labs(title='Malignant cells')  + \
+                                                        scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='atac_236_motif_scm2mft2123_cluster_0.pdf', dpi=600, height=4, width=5)
+
+## cluster 1
+motifs_1 = pd.read_table('atac_236_motif_scm2mft2123_cluster_1.txt')
+motifs_1.index = motifs_1['name'].values
+tfs = ['FOSL2', 'JUND', 'JUNB', 'FOSL1', 'BATF3', 'BATF']
+tfs.reverse()
+motifs_1_stat = motifs_1.loc[tfs]
+motifs_1_stat['name'] = pd.Categorical(motifs_1_stat['name'], categories=tfs)
+
+dat = motifs_1_stat[['name', 'log2(fold change)']]
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)')) + geom_bar(stat='identity', fill='midnightblue', position=position_dodge()) + coord_flip() + \
+                                                        xlab('Motif') + ylab('log2FC') + labs(title='Non-malignant cells')  + \
+                                                        scale_y_continuous(limits=[-1.5, 1], breaks=np.arange(-1.5, 1.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='atac_236_motif_scm2mft2123_cluster_1.pdf', dpi=600, height=2.5, width=5)
+
+
+## Comparison between predicted and true results
+# total 1165 TFs
+import pandas as pd
+import numpy as np
+from plotnine import *
+
+pred_0 = pd.read_table('atac_236_motif_scm2mft2123_cluster_0.txt')
+pred_0.index = pred_0['name'].values
+sum((pred_0['adjusted p-value']<0.05) & (pred_0['log2(fold change)']>0))  # 217
+
+true_0 = pd.read_table('atac_236_motif_cluster_0.txt')
+true_0.index = true_0['name'].values
+sum((true_0['adjusted p-value']<0.05) & (true_0['log2(fold change)']>0))  # 453
+
+pred_1 = pd.read_table('atac_236_motif_scm2mft2123_cluster_1.txt')
+pred_1.index = pred_1['name'].values
+sum((pred_1['adjusted p-value']<0.05) & (pred_1['log2(fold change)']>0))  # 261
+
+true_1 = pd.read_table('atac_236_motif_cluster_1.txt')
+true_1.index = true_1['name'].values
+sum((true_1['adjusted p-value']<0.05) & (true_1['log2(fold change)']>0))  # 388
+
+
+
+
 
 ############################### p-value=0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
