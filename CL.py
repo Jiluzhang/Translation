@@ -955,26 +955,40 @@ p.save(filename='atac_236_motif_scm2mft2123_cluster_1.pdf', dpi=600, height=2.5,
 # total 1165 TFs
 import pandas as pd
 import numpy as np
-from plotnine import *
+#from plotnine import *
 
 pred_0 = pd.read_table('atac_236_motif_scm2mft2123_cluster_0.txt')
 pred_0.index = pred_0['name'].values
-sum((pred_0['adjusted p-value']<0.05) & (pred_0['log2(fold change)']>0))  # 217
+sum((pred_0['adjusted p-value']<0.01) & (pred_0['log2(fold change)']>0))  # 157
+pred_0_tf = pred_0[(pred_0['adjusted p-value']<0.01) & (pred_0['log2(fold change)']>0)]['name'].values
 
 true_0 = pd.read_table('atac_236_motif_cluster_0.txt')
 true_0.index = true_0['name'].values
-sum((true_0['adjusted p-value']<0.05) & (true_0['log2(fold change)']>0))  # 453
+sum((true_0['adjusted p-value']<0.01) & (true_0['log2(fold change)']>0))  # 432
+true_0_tf = true_0[(true_0['adjusted p-value']<0.01) & (true_0['log2(fold change)']>0)]['name'].values
 
 pred_1 = pd.read_table('atac_236_motif_scm2mft2123_cluster_1.txt')
 pred_1.index = pred_1['name'].values
-sum((pred_1['adjusted p-value']<0.05) & (pred_1['log2(fold change)']>0))  # 261
+sum((pred_1['adjusted p-value']<0.01) & (pred_1['log2(fold change)']>0))  # 197
+pred_1_tf = pred_1[(pred_1['adjusted p-value']<0.01) & (pred_1['log2(fold change)']>0)]['name'].values
 
 true_1 = pd.read_table('atac_236_motif_cluster_1.txt')
 true_1.index = true_1['name'].values
-sum((true_1['adjusted p-value']<0.05) & (true_1['log2(fold change)']>0))  # 388
+sum((true_1['adjusted p-value']<0.01) & (true_1['log2(fold change)']>0))  # 346
+true_1_tf = true_1[(true_1['adjusted p-value']<0.01) & (true_1['log2(fold change)']>0)]['name'].values
 
+np.intersect1d(pred_0_tf, true_0_tf).shape[0]  # 156
+np.intersect1d(pred_1_tf, true_1_tf).shape[0]  # 191
 
+import matplotlib.pyplot as plt
+from matplotlib_venn import venn2
+plt.figure()
+venn2(subsets = [set(pred_0_tf), set(true_0_tf)], set_labels=('Pred','True'), set_colors=('darkred','midnightblue'))
+plt.savefig('pred_0_true_0_tf_venn.pdf')
 
+plt.figure()
+venn2(subsets = [set(pred_1_tf), set(true_1_tf)], set_labels=('Pred','True'), set_colors=('darkred','midnightblue'))
+plt.savefig('pred_1_true_1_tf_venn.pdf')
 
 
 ############################### p-value=0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
