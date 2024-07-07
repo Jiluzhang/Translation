@@ -1003,8 +1003,32 @@ plt.savefig('pred_1_true_1_tf_venn.pdf')
 
 
 
+setRepositories(ind=1:3) # needed to automatically install Bioconductor dependencies
+install.packages("Signac")
+install.packages("GenomicRanges")
+install.packages("Rhtslib")
+install.packages("Rsamtools")
+install.packages("Signac")
 
 
+# level 4 rds data
 
+library(Seurat)
+dat <- readRDS('CPT1541DU-T1.rds')
+write.table(dat@meta.data['cell_type'], 'UCEC_cell_type.txt', row.names=TRUE, col.names=FALSE, quote=FALSE, sep='\t')
+
+
+## python download_rds.py
+import synapseclient
+import pandas as pd
+import os
+
+syn = synapseclient.Synapse()
+syn.login('Luz','jiluzhang_57888282')
+
+ids = pd.read_table('rds_synapse_id.txt', header=None)
+for id in ids[1].values:
+    meta = syn.get(entity=id, downloadFile=True, downloadLocation='.')
+    print(id, 'done')
 
 
