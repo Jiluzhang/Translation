@@ -1317,12 +1317,13 @@ stats <- aggregate(Freq~cell_type, stats, FUN=function(x) sum(x))
 write.table(stats, 'all_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
 
 
-## plot pie for specific cancer types
+########## plot stacked bars ##########
 # tumor:normal ~3:2
 # Low quality & Other_doublets & Unknown
 
 from plotnine import *
 import pandas as pd
+import numpy as np
 
 dat = pd.read_table('stats_cell_types.txt')
 dat.index = dat.iloc[:, 0].values
@@ -1331,11 +1332,61 @@ dat = dat.T
 dat['cancer_type'] = dat.index
 dat = pd.melt(dat, id_vars='cancer_type')
 dat.columns = ['cancer_type', 'cell_type', 'ptg']
+cell_type_lst = ['Tumor', 'Macrophages', 'T-cells', 'Fibroblasts', 'Plasma', 'B-cells', 'Endothelial', 'Other']
+cell_type_lst.reverse()
+dat['cell_type'] = pd.Categorical(dat['cell_type'], categories=cell_type_lst)
 
+# color map: https://www.jianshu.com/p/b88a77a609da
 p = ggplot(dat, aes(x='cancer_type', y='ptg', fill='cell_type')) + geom_bar(stat='identity', position='stack') + coord_flip() + \
-                                                        xlab('Motif') + ylab('log2FC') + labs(title='Malignant cells')  + \
-                                                        scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+                                                                   xlab('Cancer type') + ylab('Proportion') + scale_fill_brewer(palette="Set2", type='qual', direction=-1) +\
+                                                                   scale_y_continuous(limits=[0, 1.01], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
 p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
+
+
+############### UCEC -> OV ###############
+## UCEC
+## generate info files (barcode & cell_anno)
+library(Seurat)
+library(Signac)
+
+for (sample in c('CPT1541DU-T1', 'CPT2373DU-S1', 'CPT704DU-M1', 'CPT704DU-S1')){
+    dat <- readRDS(paste0('../', sample, '.rds'))
+    out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
+    out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
+    out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
+    write.table(out[c('Original_barcode', 'cell_anno')], paste0(sample, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
+    print(paste0(sample, ' done'))    
+}
+
+
+
+import scanpy as sc
+import pandas as pd
+
+dat = sc.read_10x_mtx('/fs/home/jiluzhang/2023_nature_LD/CPT1541DU-T1', gex_only=False)
+
+info = pd.read_table('CPT1541DU-T1_info.txt', header=None)
+info.columns = ['barcode', 'cell_anno']
+out = dat[info['barcode'], :].copy()
+out.obs['cell_anno'] = info['cell_anno'].values
+
+## RNA & ATAC alignment!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
