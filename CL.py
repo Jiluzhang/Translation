@@ -1031,7 +1031,7 @@ for id in ids[1].values:
     meta = syn.get(entity=id, downloadFile=True, downloadLocation='.')
     print(id, 'done')
 
-## CEAD
+############## CEAD ##############
 library(Seurat)
 
 cead_stats <- data.frame()
@@ -1049,8 +1049,9 @@ cead_stats <- aggregate(Freq~cell_type, stats, FUN=function(x) sum(x))
 # 5       Tumor 9657
 # 6     B-cells    4
 # 7      Plasma   36
+write.table(cead_stats, 'cead_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
 
-## CESC
+############## CESC ##############
 cesc_stats <- data.frame()
 for (sample in c('CE337E1-S1N1', 'CE338E1-S1N1', 'CE339E1-S1N1', 'CE340E1-S1N1', 'CE342E1-S1N1',
                  'CE346E1-S1',   'CE347E1-S1K1', 'CE348E1-S1K1', 'CE349E1-S1',   'CE352E1-S1K1',
@@ -1071,3 +1072,270 @@ cesc_stats <- aggregate(Freq~cell_type, cesc_stats, FUN=function(x) sum(x))
 # 8                  T-cells  1112
 # 9                    Tumor 26584
 # 10             Low quality   164
+write.table(cesc_stats, 'cesc_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## CRC ##############
+crc_stats <- data.frame()
+# SP819H1-Mc1 -> CRC_SP819H1-Mc1
+for (sample in c('CM1563C1-S1Y1', 'CM1563C1-T1Y1', 'CM268C1-S1',    'CM268C1-T1',    'CM354C1-T1Y2',
+                 'CM354C2-T1Y2',  'CM478C1-T1Y2',  'CM478C2-T1Y2',  'CM663C1-T1Y1',  'HT225C1-Th1', 
+                 'HT230C1-Th1',   'HT250C1-Th1K1', 'HT253C1-Th1K1', 'HT260C1-Th1K1', 'HT291C1-M1A3',
+                 'HT307C1-Th1K1', 'SP369H1-Mc1',   'CRC_SP819H1-Mc1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    crc_stats <- rbind(crc_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+crc_stats <- aggregate(Freq~cell_type, crc_stats, FUN=function(x) sum(x))
+#                       cell_type  Freq
+# 1                       B-cells  1979
+# 2             Distal Absorptive  1719
+# 3            Distal Enterocytes  2145
+# 4                   Endothelial  1436
+# 5                   Fibroblasts  3508
+# 6                        Goblet   875
+# 7                   Hepatocytes  3128
+# 8                   Low quality  1242
+# 9                   Macrophages  8869
+# 10                       Plasma  2644
+# 11                      T-cells 10636
+# 12                        Tumor 58538
+# 13                     Alveolar  1761
+# 14               Cholangiocytes   421
+# 15 Absorptive BEST4/OTOP2 cells    44
+# 16    Distal Mature Enterocytes   460
+# 17            Distal Stem Cells   414
+# 18                    Distal TA  1554
+# 19               Other_doublets   190
+# 20                           TA    93
+write.table(crc_stats, 'crc_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## UCEC ##############
+ucec_stats <- data.frame()
+for (sample in c('CPT1541DU-T1', 'CPT2373DU-S1', 'CPT704DU-M1', 'CPT704DU-S1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    ucec_stats <- rbind(ucec_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+ucec_stats <- aggregate(Freq~cell_type, ucec_stats, FUN=function(x) sum(x))
+#                                 cell_type  Freq
+# 1                                 B-cells    51
+# 2                             Endothelial    94
+# 3                             Fibroblasts   287
+# 4                             Low quality    39
+# 5                             Macrophages  1158
+# 6                                  Plasma    32
+# 7                                 T-cells   532
+# 8                                   Tumor 17186
+# 9   Ciliated Endometrial epithelial cells   193
+# 10 Secretory Endometrial epithelial cells   645
+write.table(ucec_stats, 'ucec_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+
+############## GBM ##############
+## 2 normal samples
+gbm_stats <- data.frame()
+for (sample in c('GBML018G1-M1N2', 'GBML019G1-M1N1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    gbm_stats <- rbind(gbm_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+gbm_stats <- aggregate(Freq~cell_type, gbm_stats, FUN=function(x) sum(x))
+#          cell_type Freq
+# 1       Astrocytes  833
+# 2      Low quality  415
+# 3      Macrophages   16
+# 4        Microglia  673
+# 5          Neurons  498
+# 6 Oligodendrocytes 5378
+# 7              OPC  418
+# 8        Pericytes  127
+# 9          T-cells   11
+write.table(gbm_stats, 'gbm_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+
+############## PDAC ##############
+pdac_stats <- data.frame()
+for (sample in c('HT090P1-T2A3',   'HT113P1-T2A3',    'HT181P1-T1A3',  'HT224P1-S1',    'HT231P1-S1H3',
+                 'HT232P1-S1H1',   'HT242P1-S1H1',    'HT259P1-S1H1',  'HT264P1-S1H2',  'HT270P1-S1H2',
+                 'HT270P2-Th1Fc1', 'HT288P1-S1H4',    'HT306P1-S1H1',  'HT341P1-S1H1',  'HT390P1-S1H1',
+                 'HT412P1-S1H1',   'HT447P1-Th1K1A3', 'HT452P1-Th1K1', 'PM1380P1-T1Y2', 'PM1467P1-T1Y2',
+                 'PM1532P1-T1Y2',  'PM185P1-T1N2',    'PM439P1-T1N1',  'PM565P1-T1N1',  'PM581P1-T1N1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    pdac_stats <- rbind(pdac_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+pdac_stats <- aggregate(Freq~cell_type, pdac_stats, FUN=function(x) sum(x))
+#         cell_type  Freq
+# 1     Endothelial  1423
+# 2     Fibroblasts  8140
+# 3     Hepatocytes  2298
+# 4     Low quality   672
+# 5     Macrophages 14190
+# 6            Mast   501
+# 7  Other_doublets  1126
+# 8          Plasma  2581
+# 9         T-cells  8948
+# 10          Tumor 49670
+# 11     Adipocytes    41
+# 12        B-cells  1293
+# 13            ADM   195
+# 14   Ductal-like1  4312
+# 15   Ductal-like2  1426
+# 16         Islets  4543
+# 17         Acinar  2810
+# 18    Acinar REG+   962
+write.table(pdac_stats, 'pdac_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## BRCA ##############
+brca_stats <- data.frame()
+for (sample in c('HT235B1-S1H1', 'HT243B1-S1H4', 'HT263B1-S1H1', 'HT297B1-S1H1', 'HT305B1-S1H1', 
+                 'HT497B1-S1H1', 'HT514B1-S1H3', 'HT545B1-S1H1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    brca_stats <- rbind(brca_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+brca_stats <- aggregate(Freq~cell_type, brca_stats, FUN=function(x) sum(x))
+#             cell_type  Freq
+# 1             B-cells   744
+# 2    Basal progenitor   938
+# 3         Endothelial   313
+# 4         Fibroblasts  2951
+# 5      Luminal mature  1258
+# 6         Macrophages  4114
+# 7           Pericytes   326
+# 8              Plasma   599
+# 9             T-cells  2163
+# 10              Tumor 28431
+# 11                 DC    92
+# 12 Luminal progenitor   889
+write.table(brca_stats, 'brca_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## BRCA_Basal ##############
+brcab_stats <- data.frame()
+for (sample in c('HT268B1-Th1H3', 'HT271B1-S1H3', 'HT378B1-S1H1', 'HT378B1-S1H2', 'HT384B1-S1H1', 
+                 'HT517B1-S1H1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    brcab_stats <- rbind(brcab_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+brcab_stats <- aggregate(Freq~cell_type, brcab_stats, FUN=function(x) sum(x))
+#             cell_type  Freq
+# 1             B-cells   435
+# 2                  DC    88
+# 3         Endothelial   170
+# 4         Fibroblasts   430
+# 5      Luminal mature   395
+# 6         Macrophages  3140
+# 7           Pericytes   140
+# 8              Plasma  1621
+# 9             T-cells  3049
+# 10              Tumor 21478
+# 11   Basal progenitor   213
+# 12 Luminal progenitor   278
+write.table(brcab_stats, 'brcab_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## HNSCC ##############
+hnscc_stats <- data.frame()
+for (sample in c('HTx002S1-S1',    'HTx003S1-S1A1', 'HTx004S1-S1A1', 'HTx006S1-S1', 'HTx007S1-S1',
+                 'HTx009S1-S1A1',  'HTx011S1-S1',   'HTx012S1-S1',   'HTx013S1-S1', 'P5216-N1', 
+                 'P5216-N2',       'P5296-1N1',     'P5296-1N2',     'P5379-N1',    'P5504-N1', 
+                 'P5514-1N1',      'P5532-N1',      'P5539-N1',      'P5576-1N1',   'P5590-N1',
+                 'HNSCC_P5794-N1', 'P5797-N1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    hnscc_stats <- rbind(hnscc_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+hnscc_stats <- aggregate(Freq~cell_type, hnscc_stats, FUN=function(x) sum(x))
+#          cell_type  Freq
+# 1          B-cells   865
+# 2               DC   934
+# 3      Endothelial  2342
+# 4      Fibroblasts  7919
+# 5      Low quality   358
+# 6      Macrophages  4052
+# 7        Pericytes   660
+# 8           Plasma  1485
+# 9          T-cells  3461
+# 10           Tumor 35605
+# 11 Skeletal Muscle   174
+write.table(hnscc_stats, 'hnscc_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## SKCM ##############
+skcm_stats <- data.frame()
+for (sample in c('ML080M1-Ty1',  'ML1199M1-Ty1', 'ML1199M1-Ty2', 'ML1232M1-Ty1', 'ML1239M1-Tf1',
+                 'ML123M1-Ty1',  'ML1254M1-Ty1', 'ML1294M1-Ty1', 'ML1329M1-S1',  'ML1332M1-Ty1',
+                 'ML139M1-Tf1',  'ML1511M1-S1',  'ML1525M1-Ty1', 'ML1526M1-Ta1', 'ML1646M1-S1',
+                 'ML1652M1-Ty1', 'ML1704M1-Ty1', 'ML1984M1-Ty1', 'ML225M1-Ty1',  'ML2356M1-S1',
+                 'ML499M1-S1',   'SN001H1-Ms1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    skcm_stats <- rbind(skcm_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+skcm_stats <- aggregate(Freq~cell_type, skcm_stats, FUN=function(x) sum(x))
+#        cell_type  Freq
+# 1        B-cells  2071
+# 2             DC   332
+# 3    Endothelial   911
+# 4    Fibroblasts  2129
+# 5    Macrophages 14514
+# 6         Plasma  1284
+# 7        T-cells  6256
+# 8          Tumor 32533
+# 9          vSMCs   692
+# 10          Mast    84
+# 11 Keratinocytes   641
+# 12       Unknown   310
+# 13   Melanocytes    20
+# 14 Smooth muscle     2
+write.table(skcm_stats, 'skcm_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+############## OV ##############
+ov_stats <- data.frame()
+for (sample in c('VF026V1-S1_1N1', 'VF027V1-S1_1N1', 'VF027V1-S1Y1', 'VF032V1_S1N1', 'VF034V1-T1Y1',
+                 'VF035V1_S1N1',   'VF044V1-S1N1',   'VF050V1-S2N1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    ov_stats <- rbind(ov_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+ov_stats <- aggregate(Freq~cell_type, ov_stats, FUN=function(x) sum(x))
+#     cell_type  Freq
+# 1     B-cells   232
+# 2 Endothelial   159
+# 3 Fibroblasts  1706
+# 4 Macrophages  1500
+# 5      Plasma  1839
+# 6     T-cells  1042
+# 7       Tumor 22511
+# 8 Low quality   316
+write.table(ov_stats, 'ov_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+library(data.table)
+stats <- rbindlist(list(cead_stats, cesc_stats, crc_stats,   ucec_stats,  gbm_stats,
+                        pdac_stats, brca_stats, brcab_stats, hnscc_stats, skcm_stats,
+                        ov_stats))
+stats <- aggregate(Freq~cell_type, stats, FUN=function(x) sum(x))
+write.table(stats, 'all_stats.txt', row.names=FALSE, col.names=FALSE, quote=FALSE)
+
+
+## plot pie for specific cancer types
+# tumor:normal ~3:2
+# Low quality & Other_doublets & Unknown
+
+from plotnine import *
+import pandas as pd
+
+dat = pd.read_table('stats_cell_types.txt')
+dat.index = dat.iloc[:, 0].values
+del dat['Unnamed: 0']
+dat = dat.T
+dat['cancer_type'] = dat.index
+dat = pd.melt(dat, id_vars='cancer_type')
+dat.columns = ['cancer_type', 'cell_type', 'ptg']
+
+p = ggplot(dat, aes(x='cancer_type', y='ptg', fill='cell_type')) + geom_bar(stat='identity', position='stack') + coord_flip() + \
+                                                        xlab('Motif') + ylab('log2FC') + labs(title='Malignant cells')  + \
+                                                        scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3.1, 0.5)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
+
+
+
