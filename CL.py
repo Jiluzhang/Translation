@@ -1031,4 +1031,43 @@ for id in ids[1].values:
     meta = syn.get(entity=id, downloadFile=True, downloadLocation='.')
     print(id, 'done')
 
+## CEAD
+library(Seurat)
 
+cead_stats <- data.frame()
+for (sample in c('CE336E1-S1', 'CE354E1-S1', 'CE357E1-S1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    cead_stats <- rbind(cead_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+cead_stats <- aggregate(Freq~cell_type, stats, FUN=function(x) sum(x))
+# cell_type Freq
+# 1 Endothelial  114
+# 2 Fibroblasts  115
+# 3 Macrophages  114
+# 4     T-cells   18
+# 5       Tumor 9657
+# 6     B-cells    4
+# 7      Plasma   36
+
+## CESC
+cesc_stats <- data.frame()
+for (sample in c('CE337E1-S1N1', 'CE338E1-S1N1', 'CE339E1-S1N1', 'CE340E1-S1N1', 'CE342E1-S1N1',
+                 'CE346E1-S1',   'CE347E1-S1K1', 'CE348E1-S1K1', 'CE349E1-S1',   'CE352E1-S1K1',
+                 'CE356E1-S1')){
+    dat <- readRDS(paste0(sample, '.rds'))
+    cesc_stats <- rbind(cesc_stats, data.frame(table(dat@meta.data['cell_type'])))
+    print(paste0(sample, ' done'))    
+}
+cesc_stats <- aggregate(Freq~cell_type, cesc_stats, FUN=function(x) sum(x))
+#                  cell_type  Freq
+# 1                  B-cells   199
+# 2              Endothelial   387
+# 3              Fibroblasts  1365
+# 4              Macrophages  1145
+# 5  Normal epithelial cells   248
+# 6    Normal squamous cells   143
+# 7                   Plasma   452
+# 8                  T-cells  1112
+# 9                    Tumor 26584
+# 10             Low quality   164
