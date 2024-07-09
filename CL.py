@@ -1343,14 +1343,13 @@ p = ggplot(dat, aes(x='cancer_type', y='ptg', fill='cell_type')) + geom_bar(stat
 p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
 
 
-############### UCEC -> OV ###############
-## UCEC
 ## generate info files (barcode & cell_anno)
+# processbar: https://blog.csdn.net/ZaoJewin/article/details/133894474
 # library(Seurat)
 # library(Signac)
 
-samples = read.table('rds_samples_id.txt')
-pb <- txtProgressBar(min=0, max=100, style=3)
+samples <- read.table('rds_samples_id.txt')
+pb <- txtProgressBar(min=0, max=129, style=3)
 
 for (i in 1:nrow(samples)){
     s_1 <- samples[i, 1]
@@ -1360,53 +1359,86 @@ for (i in 1:nrow(samples)){
 
     s_2 <- samples[i, 2]
     dir.create(s_2)
-    write.table(out[c('Original_barcode', 'cell_anno')], paste0(s_2, '/', s_2, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
-    seTxtProgressBar() 
+    write.table(out[c('Original_barcode', 'cell_type')], paste0(s_2, '/', s_2, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
+    setTxtProgressBar(pb, i) 
 }
+close(pb)
 
-## install packages for copykat environment
-# conda install python
-# conda install -c conda-forge scanpy python-igraph leidenalg
-# pip install rpy2
 
 ## python filter_cells_with_cell_anno.py
 import scanpy as sc
-from rds2py import read_rds
 import pandas as pd
-import os
 from tqdm import tqdm
 
 samples = pd.read_table('rds_samples_id.txt', header=None)
-for i in tqdm(range(29, samples.shape[0]), ncols=80):
-    s_1 = samples[0][i]
-    rds = read_rds('../'+s_1+'.rds')
-    info = pd.DataFrame({'barcode':rds['attributes']['meta.data']['data'][8]['data'],
-                         'cell_type': rds['attributes']['meta.data']['data'][7]['data'],
-                         'seurat_clusters': rds['attributes']['meta.data']['data'][5]['data']})
-    info['cell_anno'] = info['cell_type']+'_'+info['seurat_clusters'].astype('str')
-    del info['cell_type']
-    del info['seurat_clusters']
-
+for i in tqdm(range(samples.shape[0]), ncols=80):
     s_2= samples[1][i]
+    info = pd.read_table(s_2+'/'+s_2+'_info.txt', header=None)
+    info.columns = ['barcode', 'cell_anno']
     dat = sc.read_10x_mtx('/fs/home/jiluzhang/2023_nature_LD/'+s_2, gex_only=False)
     out = dat[info['barcode'], :].copy()
     out.obs['cell_anno'] = info['cell_anno'].values
-    os.makedirs(s_2)
     out.write(s_2+'/'+s_2+'_filtered.h5ad')
 
 
-## process for 2 GBM samples (read_rds not work)
-# GBML018G1-M1N2  GBML018G1-M1
-# GBML019G1-M1N1  GBML019G1-M1
-
-dat <- readRDS(paste0('../GBML018G1-M1N2.rds'))
-out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
-out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
-out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
-dir.create(s)
-write.table(out[c('Original_barcode', 'cell_anno')], paste0(s, '/', s, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
 
 
+## python rna_atac_align.py
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from scipy.sparse import csr_matrix
+import pybedtools
+from tqdm import tqdm
+
+dat = sc.read_h5ad('CE336E1-S1/CE336E1-S1_filtered.h5ad')
+
+########## rna ##########
+rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
+rna.X = rna.X.toarray()
+genes = pd.read_table('human_genes.txt', names=['gene_id', 'gene_name'])
+
+rna_genes = rna.var.copy()
+rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])  # delete ensembl id with version number
+rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
+
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 4:].T
+X_new.fillna(value=0, inplace=True)
+
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))  # 5517*38244
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)
+rna_new.write('CE336E1-S1/CE336E1-S1_rna.h5ad')
+
+
+
+########## atac ##########
+atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
+atac.X = atac.X.toarray()
+atac.X[atac.X>0] = 1  # binarization
+
+peaks = pd.DataFrame({'id': atac.var_names})
+peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks.drop(columns='id', inplace=True)
+peaks['idx'] = range(peaks.shape[0])
+
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+idx_map.columns = ['peaks_idx', 'cCREs_idx']
+
+m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+  m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+
+atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+atac_new.var.index = atac_new.var['gene_ids'].values
+atac_new.X = csr_matrix(atac_new.X)
+atac_new.write('CE336E1-S1/CE336E1-S1_atac.h5ad')
 
 
 
