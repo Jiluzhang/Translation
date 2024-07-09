@@ -1346,41 +1346,45 @@ p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
 ############### UCEC -> OV ###############
 ## UCEC
 ## generate info files (barcode & cell_anno)
-library(Seurat)
-library(Signac)
+# library(Seurat)
+# library(Signac)
 
-samples = read.table('ucec_ov_samples.txt')
-for (s in samples$V1){
-    dat <- readRDS(paste0('../', s, '.rds'))
-    out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
-    out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
-    out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
-    dir.create(s)
-    write.table(out[c('Original_barcode', 'cell_anno')], paste0(s, '/', s, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
-    print(paste0(s, ' done'))    
-}
+# samples = read.table('ucec_ov_samples.txt')
+# for (s in samples$V1){
+#     dat <- readRDS(paste0('../', s, '.rds'))
+#     out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
+#     out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
+#     out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
+#     dir.create(s)
+#     write.table(out[c('Original_barcode', 'cell_anno')], paste0(s, '/', s, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
+#     print(paste0(s, ' done'))    
+# }
 
-
+## python filter_cells_with_cell_anno.py
 import scanpy as sc
 from rds2py import read_rds
 import pandas as pd
+import os
+from tqdm import tqdm
 
-dat = read_rds('../CE346E1-S1.rds')
-info = pd.DataFrame({'Original_barcode':dat['attributes']['meta.data']['data'][8]['data'],
-                     'cell_type': dat['attributes']['meta.data']['data'][7]['data'],
-                     'seurat_clusters': dat['attributes']['meta.data']['data'][5]['data']})
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+samples = pd.read_table('rds_samples_id.txt', header=None)
+for i in tqdm(range(samples.shape[0]), ncols=80):
+    s_1 = samples[0][i]
+    rds = read_rds('../'+s_1+'.rds')
+    info = pd.DataFrame({'barcode':rds['attributes']['meta.data']['data'][8]['data'],
+                         'cell_type': rds['attributes']['meta.data']['data'][7]['data'],
+                         'seurat_clusters': rds['attributes']['meta.data']['data'][5]['data']})
+    info['cell_anno'] = info['cell_type']+'_'+info['seurat_clusters'].astype('str')
+    del info['cell_type']
+    del info['seurat_clusters']
 
-samples = pd.read_table('ucec_ov_samples.txt')
-dat = sc.read_10x_mtx('/fs/home/jiluzhang/2023_nature_LD/CPT1541DU-T1', gex_only=False)
+    s_2= samples[1][i]
+    dat = sc.read_10x_mtx('/fs/home/jiluzhang/2023_nature_LD/'+s_2, gex_only=False)
+    out = dat[info['barcode'], :].copy()
+    out.obs['cell_anno'] = info['cell_anno'].values
+    os.makedirs(s_2)
+    out.write(s_2+'/'+s_2+'_filtered.h5ad')
 
-info = pd.read_table('CPT1541DU-T1/CPT1541DU-T1_info.txt', header=None)
-info.columns = ['barcode', 'cell_anno']
-out = dat[info['barcode'], :].copy()
-out.obs['cell_anno'] = info['cell_anno'].values
-out.write('CPT1541DU-T1/CPT1541DU-T1_filtered.h5ad')
-
-## RNA & ATAC alignment!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 
