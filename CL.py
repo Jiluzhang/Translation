@@ -1366,6 +1366,11 @@ close(pb)
 
 
 ## python filter_cells_with_cell_anno.py
+# VF027V1-S1_1N1   VF027V1-S1
+# VF027V1-S1Y1     VF027V1-S2
+
+~~~~~~~~~~~~~~~~~~~~~~~~i=122 & i=123~~~~~~~~~~~~~~~~~~~~~~~~
+
 import scanpy as sc
 import pandas as pd
 from tqdm import tqdm
