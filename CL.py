@@ -1349,16 +1349,25 @@ p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
 # library(Seurat)
 # library(Signac)
 
-# samples = read.table('ucec_ov_samples.txt')
-# for (s in samples$V1){
-#     dat <- readRDS(paste0('../', s, '.rds'))
-#     out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
-#     out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
-#     out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
-#     dir.create(s)
-#     write.table(out[c('Original_barcode', 'cell_anno')], paste0(s, '/', s, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
-#     print(paste0(s, ' done'))    
-# }
+samples = read.table('rds_samples_id.txt')
+pb <- txtProgressBar(min=0, max=100, style=3)
+
+for (i in 1:nrow(samples)){
+    s_1 <- samples[i, 1]
+    rds <- readRDS(paste0('../', s_1, '.rds'))
+    out <- rds@meta.data[c('Original_barcode', 'cell_type')]
+    out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
+
+    s_2 <- samples[i, 2]
+    dir.create(s_2)
+    write.table(out[c('Original_barcode', 'cell_anno')], paste0(s_2, '/', s_2, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
+    seTxtProgressBar() 
+}
+
+## install packages for copykat environment
+# conda install python
+# conda install -c conda-forge scanpy python-igraph leidenalg
+# pip install rpy2
 
 ## python filter_cells_with_cell_anno.py
 import scanpy as sc
@@ -1368,7 +1377,7 @@ import os
 from tqdm import tqdm
 
 samples = pd.read_table('rds_samples_id.txt', header=None)
-for i in tqdm(range(samples.shape[0]), ncols=80):
+for i in tqdm(range(29, samples.shape[0]), ncols=80):
     s_1 = samples[0][i]
     rds = read_rds('../'+s_1+'.rds')
     info = pd.DataFrame({'barcode':rds['attributes']['meta.data']['data'][8]['data'],
@@ -1385,6 +1394,17 @@ for i in tqdm(range(samples.shape[0]), ncols=80):
     os.makedirs(s_2)
     out.write(s_2+'/'+s_2+'_filtered.h5ad')
 
+
+## process for 2 GBM samples (read_rds not work)
+# GBML018G1-M1N2  GBML018G1-M1
+# GBML019G1-M1N1  GBML019G1-M1
+
+dat <- readRDS(paste0('../GBML018G1-M1N2.rds'))
+out <- dat@meta.data[c('Original_barcode', 'cell_type', 'seurat_clusters')]
+out <- out[!(out$cell_type %in% c('Low quality', 'Unknown', 'Other_doublets')), ]
+out['cell_anno'] <- paste0(out$cell_type, '_', out$seurat_clusters)
+dir.create(s)
+write.table(out[c('Original_barcode', 'cell_anno')], paste0(s, '/', s, '_info.txt'), row.names=FALSE, col.names=FALSE, quote=FALSE, sep='\t')
 
 
 
