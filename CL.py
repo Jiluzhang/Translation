@@ -265,7 +265,6 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_d
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                   --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train
-# 2666090
 
 
 
@@ -1452,11 +1451,43 @@ for s in tqdm(samples[1], ncols=80):
 
 
 
+# data_preprocess.py
+#     dataset = PairDataset(rna.X, atac.X, enc_max_len, dec_max_len, rna_num_bin, multiple, atac2rna, is_raw_count)
+# ->  dataset = PairDataset(rna, atac, enc_max_len, dec_max_len, rna_num_bin, multiple, atac2rna, is_raw_count)
 
+# utils.py
+#     num_one = round(self.atac_len * self.dec_atac_one_rate)
+# ->  num_one = round(self.atac_len * 0.5)
 
+# block.py
+#     self_and_cross = True
+# ->  only_cross_attn = False
+#     self.self_and_cross = self_and_cross
+# ->  self.only_cross_attn = only_cross_attn
+#     def route_args(router, args, depth, cross_attend, self_and_cross):
+# ->  def route_args(router, args, depth, cross_attend, only_cross_attn):
+#     if cross_attend and self_and_cross:
+# ->  if cross_attend and not only_cross_attn:
+#     def __init__(self, layers, cross_attend, self_and_cross, args_route = {}):
+# ->  def __init__(self, layers, cross_attend, only_cross_attn, args_route = {}):
+#     args = route_args(self.args_route, kwargs, len(self.layers), self.cross_attend, self.self_and_cross)
+# ->  args = route_args(self.args_route, kwargs, len(self.layers), self.cross_attend, self.only_cross_attn)
+#     if self.cross_attend and self.self_and_cross:
+# ->  if self.cross_attend and not self.only_cross_attn:
+#     elif not self_and_cross:
+# ->  elif only_cross_attn:
+#     self.net = SequentialSequence(layers, cross_attend, self_and_cross, args_route = {**attn_route_map, **context_route_map})
+# ->  self.net = SequentialSequence(layers, cross_attend, only_cross_attn, args_route = {**attn_route_map, **context_route_map})
 
+# use block.py from QH (/data/home/zouqihang/desktop/project/M2M/version1.0.0/M2Mmodel/block.py)
 
+./out_train_dataset_ov_ucec.sh
 
+## training dataset:   CPT1541DU-T1  CPT2373DU-S1  CPT704DU-S1
+## validation dataset: CPT704DU-M1
+## testing dataset:    VF026V1-S1  VF027V1-S2  VF027V1-S1  VF032V1_S1  VF034V1-T1  VF035V1_S1  VF044V1-S1  VF050V1-S2
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240623.log & 
 
 
 
