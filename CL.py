@@ -1449,8 +1449,6 @@ for s in tqdm(samples[1], ncols=80):
 
 
 
-
-
 # data_preprocess.py
 #     dataset = PairDataset(rna.X, atac.X, enc_max_len, dec_max_len, rna_num_bin, multiple, atac2rna, is_raw_count)
 # ->  dataset = PairDataset(rna, atac, enc_max_len, dec_max_len, rna_num_bin, multiple, atac2rna, is_raw_count)
@@ -1488,6 +1486,117 @@ for s in tqdm(samples[1], ncols=80):
 ## testing dataset:    VF026V1-S1  VF027V1-S2  VF027V1-S1  VF032V1_S1  VF034V1-T1  VF035V1_S1  VF044V1-S1  VF050V1-S2
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240623.log & 
+
+python data_preprocess.py -r ../VF026V1-S1/VF026V1-S1_rna.h5ad -a ../VF026V1-S1/VF026V1-S1_atac.h5ad -s ./preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+
+## max count of expressed genes
+import scanpy as sc
+import numpy as np
+rna = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max()
+# 6814
+
+
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-07-10_rna2atac_train_20/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true VF026V1-S1_atac.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
+
+
+## plot for true atac
+import snapatac2 as snap
+import scanpy as sc
+
+true = snap.read('VF026V1-S1_atac.h5ad', backed=None)
+snap.pp.select_features(true)
+snap.tl.spectral(true)
+snap.tl.umap(true)
+sc.pl.umap(true, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_VF026V1-S1_atac_true.pdf')
+
+
+
+
+
+
+import sys
+import tqdm
+import argparse
+import os
+import yaml
+
+import torch
+import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
+import torch.nn.functional as F
+
+sys.path.append("M2Mmodel")
+
+from M2M import M2M_rna2atac
+import datetime
+import time
+from torch.utils.tensorboard import SummaryWriter
+from torcheval.metrics.functional import binary_auprc, binary_auroc
+#Luz from sklearn.metrics import precision_score, roc_auc_score
+#Luz from sklearn.metrics import average_precision_score # Luz
+
+# DDP 
+# import New_Accelerate as Accelerator
+from utils import *
+
+# 调试工具：梯度异常会对对应位置报错
+torch.autograd.set_detect_anomaly = True
+# 设置多线程文件系统
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+
+
+model = M2M_rna2atac(
+    dim = 210,
+    enc_num_gene_tokens = 38244 + 1,
+    enc_num_value_tokens = 64 + 1, # +special tokens
+    enc_depth = 1,
+    enc_heads = 1,
+    enc_ff_mult = 4,
+    enc_dim_head = 128,
+    enc_emb_dropout = 0.1,
+    enc_ff_dropout = 0.1,
+    enc_attn_dropout = 0.1,
+
+    dec_depth = 1,
+    dec_heads = 1,
+    dec_ff_mult = 4,
+    dec_dim_head = 128,
+    dec_emb_dropout = 0.1,
+    dec_ff_dropout = 0.1,
+    dec_attn_dropout = 0.1
+)
+
+model.load_state_dict(torch.load('./save/2024-07-10_rna2atac_train_20/pytorch_model.bin'))
+
+test_data = torch.load('./preprocessed_data_test/preprocessed_data_0.pt')
+test_data[0] = test_data[0][:1]
+test_data[1] = test_data[1][:1]
+test_data[2] = test_data[2][:1]
+test_data[3] = test_data[3][:1]
+test_data[4] = test_data[4][:1]
+#test_dataset = PreDataset(test_data)
+
+model.generate_attn_weight(test_data[1], test_data[3], test_data[0])
+
+
+
+
+
+
+
+
+
+
+
 
 
 
