@@ -1574,6 +1574,7 @@ model = M2M_rna2atac(
     dec_ff_dropout = 0.1,
     dec_attn_dropout = 0.1
 )
+model = model.half()
 
 model.load_state_dict(torch.load('./save/2024-07-10_rna2atac_train_20/pytorch_model.bin'))
 
@@ -1584,6 +1585,8 @@ test_data[2] = test_data[2][:1]
 test_data[3] = test_data[3][:1]
 test_data[4] = test_data[4][:1]
 #test_dataset = PreDataset(test_data)
+
+model.generate_attn_weight(test_data[0], test_data[2], test_data[1])
 
 model.generate_attn_weight(test_data[1], test_data[3], test_data[0])
 
