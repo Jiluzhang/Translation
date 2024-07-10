@@ -1366,10 +1366,13 @@ close(pb)
 
 
 ## python filter_cells_with_cell_anno.py
+# something wrong in rds files
 # VF027V1-S1_1N1   VF027V1-S1
 # VF027V1-S1Y1     VF027V1-S2
-
-~~~~~~~~~~~~~~~~~~~~~~~~i=122 & i=123~~~~~~~~~~~~~~~~~~~~~~~~
+# ->
+# VF027V1-S1_1N1   VF027V1-S2
+# VF027V1-S1Y1     VF027V1-S1
+# i=122 & i=123
 
 import scanpy as sc
 import pandas as pd
@@ -1396,54 +1399,54 @@ from scipy.sparse import csr_matrix
 import pybedtools
 from tqdm import tqdm
 
-dat = sc.read_h5ad('CE336E1-S1/CE336E1-S1_filtered.h5ad')
-
-########## rna ##########
-rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
-rna.X = rna.X.toarray()
-genes = pd.read_table('human_genes.txt', names=['gene_id', 'gene_name'])
-
-rna_genes = rna.var.copy()
-rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])  # delete ensembl id with version number
-rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
-
-X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 4:].T
-X_new.fillna(value=0, inplace=True)
-
-rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))  # 5517*38244
-rna_new.var.index = genes['gene_name'].values
-rna_new.X = csr_matrix(rna_new.X)
-rna_new.write('CE336E1-S1/CE336E1-S1_rna.h5ad')
-
-
-
-########## atac ##########
-atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
-atac.X = atac.X.toarray()
-atac.X[atac.X>0] = 1  # binarization
-
-peaks = pd.DataFrame({'id': atac.var_names})
-peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
-peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
-peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
-peaks.drop(columns='id', inplace=True)
-peaks['idx'] = range(peaks.shape[0])
-
-cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
-cCREs['idx'] = range(cCREs.shape[0])
-cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
-peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
-idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
-idx_map.columns = ['peaks_idx', 'cCREs_idx']
-
-m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
-for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
-  m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
-
-atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
-atac_new.var.index = atac_new.var['gene_ids'].values
-atac_new.X = csr_matrix(atac_new.X)
-atac_new.write('CE336E1-S1/CE336E1-S1_atac.h5ad')
+samples = pd.read_table('rds_samples_id_ov_ucec.txt', header=None)
+for s in tqdm(samples[1], ncols=80):
+    dat = sc.read_h5ad(s+'/'+s+'_filtered.h5ad')
+    
+    ########## rna ##########
+    rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
+    rna.X = rna.X.toarray()
+    genes = pd.read_table('human_genes.txt', names=['gene_id', 'gene_name'])
+    
+    rna_genes = rna.var.copy()
+    rna_genes['gene_id'] = rna_genes['gene_ids'].map(lambda x: x.split('.')[0])  # delete ensembl id with version number
+    rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
+    
+    X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 4:].T
+    X_new.fillna(value=0, inplace=True)
+    
+    rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))  # 5517*38244
+    rna_new.var.index = genes['gene_name'].values
+    rna_new.X = csr_matrix(rna_new.X)
+    rna_new.write(s+'/'+s+'_rna.h5ad')
+    
+    ########## atac ##########
+    atac = dat[:, dat.var['feature_types']=='Peaks'].copy()
+    atac.X = atac.X.toarray()
+    atac.X[atac.X>0] = 1  # binarization
+    
+    peaks = pd.DataFrame({'id': atac.var_names})
+    peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+    peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+    peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+    peaks.drop(columns='id', inplace=True)
+    peaks['idx'] = range(peaks.shape[0])
+    
+    cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+    cCREs['idx'] = range(cCREs.shape[0])
+    cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+    peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+    idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+    idx_map.columns = ['peaks_idx', 'cCREs_idx']
+    
+    m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+    for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+        m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+    
+    atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+    atac_new.var.index = atac_new.var['gene_ids'].values
+    atac_new.X = csr_matrix(atac_new.X)
+    atac_new.write(s+'/'+s+'_atac.h5ad')
 
 
 
