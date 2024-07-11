@@ -1506,6 +1506,11 @@ python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
 python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
 
 
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-07-11_rna2atac_train_1/pytorch_model.bin --config_file rna2atac_config_test.yaml
+
+
 ## plot for true atac
 import snapatac2 as snap
 import scanpy as sc
@@ -1521,76 +1526,121 @@ sc.pl.umap(true, color='cell_anno', legend_fontsize='7', legend_loc='right margi
 
 
 
-
+## Attention score matrix
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
 import sys
-import tqdm
-import argparse
-import os
-import yaml
-
-import torch
-import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
-import torch.nn.functional as F
-
 sys.path.append("M2Mmodel")
-
-from M2M import M2M_rna2atac
-import datetime
-import time
-from torch.utils.tensorboard import SummaryWriter
-from torcheval.metrics.functional import binary_auprc, binary_auroc
-#Luz from sklearn.metrics import precision_score, roc_auc_score
-#Luz from sklearn.metrics import average_precision_score # Luz
-
-# DDP 
-# import New_Accelerate as Accelerator
+from utils import PairDataset
+import scanpy as sc
+import torch
 from utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2M import M2M_rna2atac
 
-# 调试工具：梯度异常会对对应位置报错
-torch.autograd.set_detect_anomaly = True
-# 设置多线程文件系统
-torch.multiprocessing.set_sharing_strategy('file_system')
-
-
+data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
+# from config
+with open("rna2atac_config_train.yaml", "r") as f:
+    config = yaml.safe_load(f)
 
 model = M2M_rna2atac(
-    dim = 210,
-    enc_num_gene_tokens = 38244 + 1,
-    enc_num_value_tokens = 64 + 1, # +special tokens
-    enc_depth = 1,
-    enc_heads = 1,
-    enc_ff_mult = 4,
-    enc_dim_head = 128,
-    enc_emb_dropout = 0.1,
-    enc_ff_dropout = 0.1,
-    enc_attn_dropout = 0.1,
+            dim = config["model"].get("dim"),
 
-    dec_depth = 1,
-    dec_heads = 1,
-    dec_ff_mult = 4,
-    dec_dim_head = 128,
-    dec_emb_dropout = 0.1,
-    dec_ff_dropout = 0.1,
-    dec_attn_dropout = 0.1
-)
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
 model = model.half()
 
-model.load_state_dict(torch.load('./save/2024-07-10_rna2atac_train_20/pytorch_model.bin'))
+model.load_state_dict(torch.load('./save/2024-07-11_rna2atac_train_1/pytorch_model.bin'))
 
-test_data = torch.load('./preprocessed_data_test/preprocessed_data_0.pt')
-test_data[0] = test_data[0][:1]
-test_data[1] = test_data[1][:1]
-test_data[2] = test_data[2][:1]
-test_data[3] = test_data[3][:1]
-test_data[4] = test_data[4][:1]
-#test_dataset = PreDataset(test_data)
+dataset = PreDataset(data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+device = select_least_used_gpu()
+model.to(device)
 
-model.generate_attn_weight(test_data[0], test_data[2], test_data[1])
+for inputs in loader:
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    break
 
-model.generate_attn_weight(test_data[1], test_data[3], test_data[0])
+attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value,
+                                  enc_mask=enc_pad_mask, which='decoder')
+rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+atac = sc.read_h5ad('VF026V1-S1_atac.h5ad')
+
+np.argwhere(rna.var.index=='PAX8')  # 5249
+#rna.X[0].toarray()[0][5249]  # 2
+torch.argwhere(rna_sequence[0]==5250)  # 366
+
+plt.figure(figsize=(8, 6))
+sns.heatmap(attn[0][:, [366]], cmap='Reds')
+plt.savefig('cell_0_pax8.png')
+plt.close()
+
+chrom = atac.var.index.map(lambda x: x.split(':')[0])
+start = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+end = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+val = attn[0][:, [366]][:, 0]
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('cell_0_pax8.bedgraph', index=False, header=False, sep='\t')
 
 
+liftOver pax8_hg19.bed hg19ToHg38.over.chain.gz pax18_hg38.bed unmapped.bed
+
+
+
+np.array(attn[1][:, 2813:2814][:, 0]).argsort()[-3:][::-1]
+
+
+x = self.dec.iConv_enc(seq_out) #Luz x = self.enc.iConv_enc(seq_out)
+
+def plot_attn_weight(attns, cell_names=None, xlabels=None, ylabels=None, up_percentile=95, down_percentile=5):
+    if type(attns) != list:
+        attns = [attns]
+    if xlabels is None:
+        xlabels = [xlabels] * len(attns)
+    if ylabels is None:
+        ylabels = [ylabels] * len(attns)
+    if cell_names is None:
+        cell_names = [cell_names] * len(attns)
+    items = zip(attns, cell_names, xlabels, ylabels)
+    for attn, cell_name, xlabel, ylabel in items:
+        numpy_matrix = attn.numpy() * (1/attn.mean().item()) # normalize到均值为1
+        # 设置数值范围，使用数据的分位数来去除极端值
+        vmin = np.percentile(numpy_matrix, down_percentile)  # 下边界设为第5个分位数
+        vmax = np.percentile(numpy_matrix, up_percentile)  # 上边界设为第95个分位数
+        # 使用Seaborn绘制热图
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(numpy_matrix, annot=False, cmap='viridis', vmin=vmin, vmax=vmax)
+        title = 'Attention Weight' if cell_name is None else f'Attention Weight of {cell_name}'
+        plt.title(title)
+        # 添加刻度
+        if exists(xlabel):
+            plt.xticks(ticks=np.arange(len(xlabel)), labels=xlabel, rotation=60)
+        if exists(ylabel):
+            plt.yticks(ticks=np.arange(len(ylabel)), labels=ylabel)
+
+        plt.savefig('tmp.pdf')
+        plt.close()
 
 
 
