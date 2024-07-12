@@ -1587,14 +1587,53 @@ attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value,
 rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
 atac = sc.read_h5ad('VF026V1-S1_atac.h5ad')
 
-np.argwhere(rna.var.index=='PAX8')  # 5249
-#rna.X[0].toarray()[0][5249]  # 2
-torch.argwhere(rna_sequence[0]==5250)  # 366
+gene_lst = []
+gene_idx_lst = []
+for g in rna[:, (rna.X[0].toarray()!=0)[0]].var.index:
+#for g in ['PAX8', 'MECOM', 'SOX17', 'WT1']:
+    idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
+    if len(idx)!=0:
+        gene_lst.append(g)
+        gene_idx_lst.append(idx.item())
 
-plt.figure(figsize=(8, 6))
-sns.heatmap(attn[0][:, [366]], cmap='Reds')
-plt.savefig('cell_0_pax8.png')
+dat_raw = attn[0][:, gene_idx_lst]
+dat = pd.DataFrame((dat_raw-dat_raw.min())/(dat_raw.max()-dat_raw.min()))
+dat.columns = gene_lst
+
+import random
+random.seed(0)
+peak_idx = sorted(random.sample(list(range(dat.shape[0])), 1000))
+
+#np.argwhere(atac.var.index.map(lambda x: x.split(':')[0])=='chr1')[-1]  # 96582
+
+#sns.clustermap(dat.iloc[:200, :200], cmap='Reds', row_cluster=False, col_cluster=True, figsize=(100, 20))
+plt.figure(figsize=(100, 20))
+sns.heatmap(dat.iloc[:200, :200], cmap='Reds')
+plt.savefig('cell_0.png')
 plt.close()
+
+
+
+gene_lst = ['PAX8', 'MECOM', 'SOX17', 'WT1']
+dat = torch.Tensor()
+zeros = torch.zeros([atac.shape[1], 1])
+for g in gene_lst:
+    idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
+    if len(idx)!=0:
+        dat = torch.cat([dat, attn[0][:, [idx.item()]]], axis=1)
+    else:
+        dat = torch.cat([dat, zeros], axis=1)
+
+dat = pd.DataFrame(dat)
+dat.columns = gene_lst
+
+#sns.clustermap(dat.iloc[:200, :200], cmap='Reds', row_cluster=False, col_cluster=True, figsize=(100, 20))
+plt.figure(figsize=(5, 20))
+sns.heatmap(dat, cmap='Reds')
+plt.savefig('cell_0.png')
+plt.close()
+
+
 
 chrom = atac.var.index.map(lambda x: x.split(':')[0])
 start = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0])
