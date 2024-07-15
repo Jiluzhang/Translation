@@ -1581,6 +1581,7 @@ model.to(device)
 rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
 atac = sc.read_h5ad('VF026V1-S1_atac.h5ad')
 
+###### different tfs in same cell
 i = 0
 p = 0
 #gene_lst = ['PAX8', 'MECOM', 'SOX17', 'WT1']
@@ -1620,14 +1621,71 @@ for inputs in loader:
     p += 1
 
 
+###### same tfs in different cell
+i = 0
+p = 0
+dat = torch.Tensor()
+zeros = torch.zeros([atac.shape[1], 1])
+for inputs in loader:
+    if rna.obs.cell_anno.values[p] in ['Tumor']:
+        rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+        attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+        attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+        
+        idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index=='PAX8')[0][0]+1))
+        if len(idx)!=0:
+            dat = torch.cat([dat, attn[:, [idx.item()]]], axis=1)
+        else:
+            dat = torch.cat([dat, zeros], axis=1)
+        
+        i += 1
+        torch.cuda.empty_cache()
+        print(str(i), 'cell done')
+    
+    if i==6:
+        break
+
+    p += 1
 
 
+dat = pd.DataFrame(dat)
+dat.columns = ['cell_'+str(i) for i in range(6)]
+plt.figure(figsize=(5, 5))
+sns.heatmap(dat, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
+#sns.heatmap(np.log(dat), cmap='Reds', vmin=-10, vmax=0, yticklabels=False)
+plt.savefig('Tumor_PAX8_2.png')
+plt.close()
 
 
+dat.index = atac.var.index.values
+dat_agg = dat.sum(axis=1)
+
+out_lst = dat_agg.nlargest(5000).index
+chrom = out_lst.map(lambda x: x.split(':')[0])
+start = out_lst.map(lambda x: x.split(':')[1].split('-')[0])
+end = out_lst.map(lambda x: x.split(':')[1].split('-')[1])
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end})
+out.to_csv('PAX8/pax8_predicted_peaks_5000.bed', index=False, header=False, sep='\t')
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_5000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 381 (381/5000=0.0762)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_10000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 741 (741/10000=0.0741)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_20000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 1415 (1415/20000=0.07075)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_30000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 2060 (2060/30000=0.0687)
+
+bedtools intersect -a pax8_hg38.bed -b human_cCREs.bed -wa | sort | uniq | wc -l  # 21220
+
+## randomly select cCREs
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 5000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
+# (297+344+296+313+332+305+325+289+275+313)/10/5000=0.0618
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 10000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
+# (651+619+667+604+622+631+626+659+627+601)/10/10000=0.06307
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
+# (1279+1273+1295+1253+1300+1234+1229+1314+1227+1229)/10/20000=0.063165
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
+# (1922+1881+1842+1928+1838+1835+1932+1926+1837+1899)/10/30000=0.0628
 
 
-
-
+################## PRDM3 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 # gene_lst = []
