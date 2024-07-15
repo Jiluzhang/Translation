@@ -1627,12 +1627,12 @@ p = 0
 dat = torch.Tensor()
 zeros = torch.zeros([atac.shape[1], 1])
 for inputs in loader:
-    if rna.obs.cell_anno.values[p] in ['Tumor']:
+    if rna.obs.cell_anno.values[p] == 'Tumor':
         rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
         attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
         attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
         
-        idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index=='PAX8')[0][0]+1))
+        idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index=='MECOM')[0][0]+1))
         if len(idx)!=0:
             dat = torch.cat([dat, attn[:, [idx.item()]]], axis=1)
         else:
@@ -1642,7 +1642,7 @@ for inputs in loader:
         torch.cuda.empty_cache()
         print(str(i), 'cell done')
     
-    if i==6:
+    if i==20:
         break
 
     p += 1
@@ -1657,22 +1657,26 @@ plt.savefig('Tumor_PAX8_2.png')
 plt.close()
 
 
+## PAX8 in tumor cells
+# liftOver pax8_hg19.bed hg19ToHg38.over.chain.gz pax18_hg38.bed unmapped.bed
+
+dat = pd.DataFrame(dat)
 dat.index = atac.var.index.values
 dat_agg = dat.sum(axis=1)
 
-out_lst = dat_agg.nlargest(5000).index
+out_lst = dat_agg.nlargest(30000).index
 chrom = out_lst.map(lambda x: x.split(':')[0])
 start = out_lst.map(lambda x: x.split(':')[1].split('-')[0])
 end = out_lst.map(lambda x: x.split(':')[1].split('-')[1])
 out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end})
-out.to_csv('PAX8/pax8_predicted_peaks_5000.bed', index=False, header=False, sep='\t')
+out.to_csv('PAX8/pax8_predicted_peaks_30000.bed', index=False, header=False, sep='\t')
 
-awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_5000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 381 (381/5000=0.0762)
-awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_10000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 741 (741/10000=0.0741)
-awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_20000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 1415 (1415/20000=0.07075)
-awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_30000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 2060 (2060/30000=0.0687)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_5000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 379 (379/5000=0.0758)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_10000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 748 (748/10000=0.0748)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_20000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 1419 (1419/20000=0.07095)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' pax8_predicted_peaks_30000.bed | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l  # 2051 (2051/30000=0.06837)
 
-bedtools intersect -a pax8_hg38.bed -b human_cCREs.bed -wa | sort | uniq | wc -l  # 21220
+# bedtools intersect -a pax8_hg38.bed -b human_cCREs.bed -wa | sort | uniq | wc -l  # 21220
 
 ## randomly select cCREs
 for i in `seq 10`;do shuf human_cCREs.bed | head -n 5000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
@@ -1685,7 +1689,35 @@ for i in `seq 10`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" 
 # (1922+1881+1842+1928+1838+1835+1932+1926+1837+1899)/10/30000=0.0628
 
 
-################## PRDM3 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+## MECOM in tumor cells
+# liftOver mecom_hg19.bed hg19ToHg38.over.chain.gz mecom_hg38.bed unmapped.bed
+
+out_lst = dat_agg.nlargest(30000).index
+chrom = out_lst.map(lambda x: x.split(':')[0])
+start = out_lst.map(lambda x: x.split(':')[1].split('-')[0])
+end = out_lst.map(lambda x: x.split(':')[1].split('-')[1])
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end})
+out.to_csv('MECOM/mecom_predicted_peaks_30000.bed', index=False, header=False, sep='\t')
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' mecom_predicted_peaks_5000.bed | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l  # 78 (78/5000=0.0156)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' mecom_predicted_peaks_10000.bed | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l  # 190 (190/10000=0.019)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' mecom_predicted_peaks_20000.bed | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l  # 422 (422/20000=0.0211)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' mecom_predicted_peaks_30000.bed | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l  # 583 (583/30000=0.01943)
+
+## randomly select cCREs
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 5000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l; done
+# (82+89+87+90+99+102+96+77+108+77)/10/5000=0.01814
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 10000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l; done
+# (151+161+166+168+155+175+170+157+148+144)/10/10000=0.01595
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l; done
+# (353+336+301+308+325+311+334+339+339+332)/10/20000=0.01639
+for i in `seq 10`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l; done
+# (524+500+485+502+487+459+500+504+484+512)/10/30000=0.01652
+
+
+# Calculate P-value for overlapping rate!!!!
+
+
 
 
 # gene_lst = []
@@ -1727,7 +1759,6 @@ out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
 out.to_csv('cell_0_pax8.bedgraph', index=False, header=False, sep='\t')
 
 
-liftOver pax8_hg19.bed hg19ToHg38.over.chain.gz pax18_hg38.bed unmapped.bed
 
 
 
