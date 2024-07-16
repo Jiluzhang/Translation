@@ -1688,6 +1688,15 @@ for i in `seq 10`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" 
 for i in `seq 10`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l; done
 # (1922+1881+1842+1928+1838+1835+1932+1926+1837+1899)/10/30000=0.0628
 
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 5000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l >> random_5000.txt; done
+awk '{if($1>379) print $0}' random_5000.txt | wc -l  # 0
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 10000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l >> random_10000.txt; done
+awk '{if($1>748) print $0}' random_10000.txt | wc -l  # 0
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l >> random_20000.txt; done
+awk '{if($1>1419) print $0}' random_20000.txt | wc -l  # 0
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b pax8_hg38.bed -wa | sort | uniq | wc -l >> random_30000.txt; done
+awk '{if($1>2051) print $0}' random_30000.txt | wc -l  # 0
+
 
 ## MECOM in tumor cells
 # liftOver mecom_hg19.bed hg19ToHg38.over.chain.gz mecom_hg38.bed unmapped.bed
@@ -1714,87 +1723,106 @@ for i in `seq 10`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" 
 for i in `seq 10`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l; done
 # (524+500+485+502+487+459+500+504+484+512)/10/30000=0.01652
 
-
-# Calculate P-value for overlapping rate!!!!
-
-
-
-
-# gene_lst = []
-# gene_idx_lst = []
-# for g in rna[:, (rna.X[0].toarray()!=0)[0]].var.index:
-# #for g in ['PAX8', 'MECOM', 'SOX17', 'WT1']:
-#     idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
-#     if len(idx)!=0:
-#         gene_lst.append(g)
-#         gene_idx_lst.append(idx.item())
-
-# dat_raw = attn[0][:, gene_idx_lst]
-# dat = pd.DataFrame((dat_raw-dat_raw.min())/(dat_raw.max()-dat_raw.min()))
-# dat.columns = gene_lst
-
-# import random
-# random.seed(0)
-# peak_idx = sorted(random.sample(list(range(dat.shape[0])), 1000))
-
-# #np.argwhere(atac.var.index.map(lambda x: x.split(':')[0])=='chr1')[-1]  # 96582
-
-# #sns.clustermap(dat.iloc[:200, :200], cmap='Reds', row_cluster=False, col_cluster=True, figsize=(100, 20))
-# plt.figure(figsize=(100, 20))
-# sns.heatmap(dat.iloc[:200, :200], cmap='Reds')
-# plt.savefig('cell_0.png')
-# plt.close()
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 5000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l >> random_5000.txt; done
+awk '{if($1>78) print $0}' random_5000.txt | wc -l  # 673
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 10000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l >> random_10000.txt; done
+awk '{if($1>190) print $0}' random_10000.txt | wc -l  # 29
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 20000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l >> random_20000.txt; done
+awk '{if($1>422) print $0}' random_20000.txt | wc -l  # 0
+for i in `seq 1000`;do shuf human_cCREs.bed | head -n 30000 | awk '{print $1 "\t" $2-500 "\t" $2+500}' | bedtools intersect -a stdin -b mecom_hg38.bed -wa | sort | uniq | wc -l >> random_30000.txt; done
+awk '{if($1>583) print $0}' random_30000.txt | wc -l  # 0
 
 
 
 
+## Generate bedgraph files
+import scanpy as sc
+from tqdm import tqdm
+import pandas as pd
+
+true = sc.read_h5ad('VF026V1-S1_atac.h5ad')
+for i in tqdm(range(10), ncols=80):
+    chrom = true.var.index.map(lambda x: x.split(':')[0])
+    start = true.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+    end = true.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+    val = true.X[i].toarray()[0]
+    out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+    out.to_csv('Tracks/tumor_cell_'+str(i)+'_true.bedgraph', index=False, header=False, sep='\t')
+
+pred = sc.read_h5ad('rna2atac_scm2m_binary_epoch_1.h5ad')
+for i in tqdm(range(10), ncols=80):
+    chrom = pred.var.index.map(lambda x: x.split(':')[0])
+    start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+    end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+    val = pred.X[i].toarray()[0]
+    out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+    out.to_csv('Tracks/tumor_cell_'+str(i)+'_pred.bedgraph', index=False, header=False, sep='\t')
+
+pred = sc.read_h5ad('rna2atac_scm2m_epoch_1.h5ad')
+for i in tqdm(range(10), ncols=80):
+    chrom = pred.var.index.map(lambda x: x.split(':')[0])
+    start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+    end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+    val = pred.X[i]
+    out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+    out.to_csv('Tracks/tumor_cell_'+str(i)+'_pred_prob.bedgraph', index=False, header=False, sep='\t')
 
 
-
-chrom = atac.var.index.map(lambda x: x.split(':')[0])
-start = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0])
-end = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1])
-val = attn[0][:, [366]][:, 0]
+true = sc.read_h5ad('VF026V1-S1_atac.h5ad')
+chrom = true.var.index.map(lambda x: x.split(':')[0])
+start = true.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+end = true.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+val = true.X[true.obs.cell_anno=='Tumor'].toarray().mean(axis=0)
 out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
-out.to_csv('cell_0_pax8.bedgraph', index=False, header=False, sep='\t')
+out.to_csv('Tracks/tumor_cell_true.bedgraph', index=False, header=False, sep='\t')
+val = true.X[true.obs.cell_anno=='Fibroblasts'].toarray().mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('Tracks/fibroblasts_true.bedgraph', index=False, header=False, sep='\t')
+
+pred = sc.read_h5ad('rna2atac_scm2m_epoch_1.h5ad')
+chrom = pred.var.index.map(lambda x: x.split(':')[0])
+start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+val = pred.X[pred.obs.cell_anno=='Tumor'].mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('Tracks/tumor_cell_pred.bedgraph', index=False, header=False, sep='\t')
+val = pred.X[pred.obs.cell_anno=='Fibroblasts'].mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('Tracks/fibroblasts_pred.bedgraph', index=False, header=False, sep='\t')
+
+pred = sc.read_h5ad('rna2atac_scm2m_binary_epoch_1.h5ad')
+chrom = pred.var.index.map(lambda x: x.split(':')[0])
+start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+val = pred.X.toarray()[pred.obs.cell_anno=='Tumor'].mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('Tracks/tumor_cell_pred_binary.bedgraph', index=False, header=False, sep='\t')
+val = pred.X.toarray()[pred.obs.cell_anno=='Fibroblasts'].mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
+out.to_csv('Tracks/fibroblasts_pred_binary.bedgraph', index=False, header=False, sep='\t')
+
+
+pred = sc.read_h5ad('rna2atac_scm2m_binary_epoch_1.h5ad')
+chrom = pred.var.index.map(lambda x: x.split(':')[0])
+start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+val_tumor = pred.X.toarray()[pred.obs.cell_anno=='Tumor'].mean(axis=0)
+val_fibro = pred.X.toarray()[pred.obs.cell_anno=='Fibroblasts'].mean(axis=0)
+out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val_tumor':val_tumor, 'val_fibro':val_fibro})
 
 
 
 
+## predict using model with more epoch (similar with epoch_1)
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-07-11_rna2atac_train_5/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true VF026V1-S1_atac.h5ad
+#python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
+#python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true VF026V1-S1_atac.h5ad
 
-np.array(attn[1][:, 2813:2814][:, 0]).argsort()[-3:][::-1]
 
-
-x = self.dec.iConv_enc(seq_out) #Luz x = self.enc.iConv_enc(seq_out)
-
-def plot_attn_weight(attns, cell_names=None, xlabels=None, ylabels=None, up_percentile=95, down_percentile=5):
-    if type(attns) != list:
-        attns = [attns]
-    if xlabels is None:
-        xlabels = [xlabels] * len(attns)
-    if ylabels is None:
-        ylabels = [ylabels] * len(attns)
-    if cell_names is None:
-        cell_names = [cell_names] * len(attns)
-    items = zip(attns, cell_names, xlabels, ylabels)
-    for attn, cell_name, xlabel, ylabel in items:
-        numpy_matrix = attn.numpy() * (1/attn.mean().item()) # normalize到均值为1
-        # 设置数值范围，使用数据的分位数来去除极端值
-        vmin = np.percentile(numpy_matrix, down_percentile)  # 下边界设为第5个分位数
-        vmax = np.percentile(numpy_matrix, up_percentile)  # 上边界设为第95个分位数
-        # 使用Seaborn绘制热图
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(numpy_matrix, annot=False, cmap='viridis', vmin=vmin, vmax=vmax)
-        title = 'Attention Weight' if cell_name is None else f'Attention Weight of {cell_name}'
-        plt.title(title)
-        # 添加刻度
-        if exists(xlabel):
-            plt.xticks(ticks=np.arange(len(xlabel)), labels=xlabel, rotation=60)
-        if exists(ylabel):
-            plt.yticks(ticks=np.arange(len(ylabel)), labels=ylabel)
-
-        plt.savefig('tmp.pdf')
-        plt.close()
 
 
 
