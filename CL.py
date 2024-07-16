@@ -1780,15 +1780,18 @@ out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
 out.to_csv('Tracks/fibroblasts_true.bedgraph', index=False, header=False, sep='\t')
 
 pred = sc.read_h5ad('rna2atac_scm2m_epoch_1.h5ad')
+pred.X[pred.X>0.6]=1
+pred.X[pred.X<=0.6]=0
 chrom = pred.var.index.map(lambda x: x.split(':')[0])
 start = pred.var.index.map(lambda x: x.split(':')[1].split('-')[0])
 end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
 val = pred.X[pred.obs.cell_anno=='Tumor'].mean(axis=0)
 out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
-out.to_csv('Tracks/tumor_cell_pred.bedgraph', index=False, header=False, sep='\t')
+out.to_csv('Tracks/tumor_cell_pred_0.6.bedgraph', index=False, header=False, sep='\t')
 val = pred.X[pred.obs.cell_anno=='Fibroblasts'].mean(axis=0)
 out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val':val})
-out.to_csv('Tracks/fibroblasts_pred.bedgraph', index=False, header=False, sep='\t')
+out.to_csv('Tracks/fibroblasts_pred_0.6.bedgraph', index=False, header=False, sep='\t')
+
 
 pred = sc.read_h5ad('rna2atac_scm2m_binary_epoch_1.h5ad')
 chrom = pred.var.index.map(lambda x: x.split(':')[0])
@@ -1809,7 +1812,14 @@ end = pred.var.index.map(lambda x: x.split(':')[1].split('-')[1])
 val_tumor = pred.X.toarray()[pred.obs.cell_anno=='Tumor'].mean(axis=0)
 val_fibro = pred.X.toarray()[pred.obs.cell_anno=='Fibroblasts'].mean(axis=0)
 out = pd.DataFrame({'chrom':chrom, 'start':start, 'end':end, 'val_tumor':val_tumor, 'val_fibro':val_fibro})
+out[(out['val_tumor']/out['val_fibro']>3) & (out['val_tumor']>0.97)]
 
+## plot gene expression box
+rna = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+sc.pp.normalize_total(rna, target_sum=1e4)
+sc.pp.log1p(rna)
+sc.pl.violin(rna[rna.obs.cell_anno.isin(['Tumor', 'Fibroblasts'])], keys=['PAX8', 'MECOM', 'ZEB2', 'COL1A1'], groupby="cell_anno", 
+             save='_PAX8_MECOM_ZEB2_COL1A1.pdf')
 
 
 
