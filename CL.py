@@ -1834,6 +1834,271 @@ python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true VF026V1-S1_atac.h5ad
 
 
 
+############ motif enrichment analysis ############
+######## True ########
+import snapatac2 as snap
+import scanpy as sc
+import numpy as np
+import random
+
+atac = snap.read('VF026V1-S1_atac.h5ad', backed=None)
+
+atac_tumor = atac[atac.obs.cell_anno=='Tumor'].copy()
+atac_fibro = atac[atac.obs.cell_anno=='Fibroblasts'].copy()
+
+snap.pp.select_features(atac_tumor)  # 103724
+snap.pp.select_features(atac_fibro)  # 72124
+
+peaks = atac.var.index.values
+
+atac_tumor.var.index = list(range(atac_tumor.n_vars))
+atac_tumor_peak_idx = atac_tumor.var[atac_tumor.var['count']>atac_tumor.n_obs*0.10].index.values  # 23546
+
+atac_fibro.var.index = list(range(atac_fibro.n_vars))
+atac_fibro_peak_idx = atac_fibro.var[atac_fibro.var['count']>atac_fibro.n_obs*0.10].index.values  # 24279
+
+atac_tumor_sp = peaks[np.setdiff1d(atac_tumor_peak_idx, atac_fibro_peak_idx)]
+atac_fibro_sp = peaks[np.setdiff1d(atac_fibro_peak_idx, atac_tumor_peak_idx)]
+
+# random.seed(0)
+# peaks_shuf = peaks.copy()
+# random.shuffle(peaks_shuf)
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                 regions={'tumor': peaks[atac_tumor_peak_idx], 'fibro': peaks[atac_fibro_peak_idx],
+                                          'tumor_sp': atac_tumor_sp, 'fibro_sp': atac_fibro_sp},
+                                 genome_fasta=snap.genome.hg38,
+                                 background=None, #peaks_shuf[:50000],
+                                 method='hypergeometric')
+
+motifs_tumor = motifs['tumor'].to_pandas()
+del motifs_tumor['family']
+motifs_tumor.to_csv('Motifs/tumor_true_motif.txt', sep='\t', index=False)
+
+motifs_fibro = motifs['fibro'].to_pandas()
+del motifs_fibro['family']
+motifs_fibro.to_csv('Motifs/fibro_true_motif.txt', sep='\t', index=False)
+
+motifs_tumor_sp = motifs['tumor_sp'].to_pandas()
+del motifs_tumor_sp['family']
+motifs_tumor_sp.to_csv('Motifs/tumor_sp_true_motif.txt', sep='\t', index=False)
+
+motifs_fibro_sp = motifs['fibro_sp'].to_pandas()
+del motifs_fibro_sp['family']
+motifs_fibro_sp.to_csv('Motifs/fibro_sp_true_motif.txt', sep='\t', index=False)
+
+
+
+## Plot top enriched motifs
+import pandas as pd
+from plotnine import *
+import numpy as np
+
+## tumor cells
+motifs_tumor = pd.read_table('tumor_true_motif.txt')
+motifs_tumor.index = motifs_tumor['name'].values
+motifs_tumor = motifs_tumor.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_tumor[motifs_tumor['adjusted p-value']<0.05][:10].index.values)
+tfs.reverse()
+motifs_tumor_stat = motifs_tumor.loc[tfs]
+motifs_tumor_stat['name'] = pd.Categorical(motifs_tumor_stat['name'], categories=tfs)
+dat = motifs_tumor_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightcoral', high='darkred', limits=[3, 10]) + xlab('Motif') + ylab('log2FC') + labs(title='Tumor cells')  + \
+                                                        scale_y_continuous(limits=[0, 0.4], breaks=np.arange(0, 0.41, 0.1)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='tumor_true_motif.pdf', dpi=600, height=4, width=5)
+
+
+## fibroblasts
+motifs_fibro = pd.read_table('fibro_true_motif.txt')
+motifs_fibro.index = motifs_fibro['name'].values
+motifs_fibro = motifs_fibro.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_fibro[motifs_fibro['adjusted p-value']<0.05][:11].index.values)
+tfs.reverse()
+motifs_fibro_stat = motifs_fibro.loc[tfs]
+motifs_fibro_stat['name'] = pd.Categorical(motifs_fibro_stat['name'], categories=tfs)
+dat = motifs_fibro_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+dat.drop(index=['AC023509.3'], inplace=True)
+dat.loc['CUX2', '-log(p-value)'] = 20  # replace inf
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightblue', high='darkblue', limits=[3, 20]) + xlab('Motif') + ylab('log2FC') + labs(title='Fibroblasts') + \
+                                                        scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.51, 0.1)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='fibro_true_motif.pdf', dpi=600, height=4, width=5)
+
+
+## tumor cells specific
+motifs_tumor_sp = pd.read_table('tumor_sp_true_motif.txt')
+motifs_tumor_sp.index = motifs_tumor_sp['name'].values
+motifs_tumor_sp = motifs_tumor_sp.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_tumor_sp[motifs_tumor_sp['adjusted p-value']<0.05][:10].index.values)
+tfs.reverse()
+motifs_tumor_sp_stat = motifs_tumor_sp.loc[tfs]
+motifs_tumor_sp_stat['name'] = pd.Categorical(motifs_tumor_sp_stat['name'], categories=tfs)
+dat = motifs_tumor_sp_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightcoral', high='darkred', limits=[3, 15]) + xlab('Motif') + ylab('log2FC') + labs(title='Tumor cell specific')  + \
+                                                        scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='tumor_sp_true_motif.pdf', dpi=600, height=4, width=5)
+
+
+## fibroblasts
+motifs_fibro_sp = pd.read_table('fibro_sp_true_motif.txt')
+motifs_fibro_sp.index = motifs_fibro_sp['name'].values
+motifs_fibro_sp = motifs_fibro_sp.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_fibro_sp[motifs_fibro_sp['adjusted p-value']<0.05][:11].index.values)
+tfs.reverse()
+motifs_fibro_sp_stat = motifs_fibro_sp.loc[tfs]
+motifs_fibro_sp_stat['name'] = pd.Categorical(motifs_fibro_sp_stat['name'], categories=tfs)
+dat = motifs_fibro_sp_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+# dat.drop(index=['AC023509.3'], inplace=True)
+# dat.loc['CUX2', '-log(p-value)'] = 20  # replace inf
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightblue', high='darkblue', limits=[3, 15]) + xlab('Motif') + ylab('log2FC') + labs(title='Fibroblast specific') + \
+                                                        scale_y_continuous(limits=[0, 1.2], breaks=np.arange(0, 1.21, 0.2)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='fibro_sp_true_motif.pdf', dpi=600, height=4, width=5)
+
+
+
+######## Pred ########
+import snapatac2 as snap
+import scanpy as sc
+import numpy as np
+import random
+
+#atac = snap.read('rna2atac_scm2m_binary_epoch_1.h5ad', backed=None)
+atac = snap.read('rna2atac_scm2m_epoch_1.h5ad', backed=None)
+atac.X[atac.X>0.9]=1
+atac.X[atac.X<=0.9]=0
+
+atac_tumor = atac[atac.obs.cell_anno=='Tumor'].copy()
+atac_fibro = atac[atac.obs.cell_anno=='Fibroblasts'].copy()
+
+snap.pp.select_features(atac_tumor)  # 11857
+snap.pp.select_features(atac_fibro)  # 10245
+
+peaks = atac.var.index.values
+
+atac_tumor.var.index = list(range(atac_tumor.n_vars))
+atac_tumor_peak_idx = atac_tumor.var[atac_tumor.var['count']>atac_tumor.n_obs*0.10].index.values  # 9091
+
+atac_fibro.var.index = list(range(atac_fibro.n_vars))
+atac_fibro_peak_idx = atac_fibro.var[atac_fibro.var['count']>atac_fibro.n_obs*0.10].index.values  # 9178
+
+atac_tumor_sp = peaks[np.setdiff1d(atac_tumor_peak_idx, atac_fibro_peak_idx)]  # 432
+atac_fibro_sp = peaks[np.setdiff1d(atac_fibro_peak_idx, atac_tumor_peak_idx)]  # 519
+
+random.seed(0)
+peaks_shuf = peaks.copy()
+random.shuffle(peaks_shuf)
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                 regions={'tumor': peaks[atac_tumor_peak_idx], 'fibro': peaks[atac_fibro_peak_idx],
+                                          'tumor_sp': atac_tumor_sp, 'fibro_sp': atac_fibro_sp},
+                                 genome_fasta=snap.genome.hg38,
+                                 background=peaks_shuf[:5000],
+                                 method='binomial')
+
+motifs_tumor = motifs['tumor'].to_pandas()
+del motifs_tumor['family']
+motifs_tumor.to_csv('Motifs/tumor_pred_motif.txt', sep='\t', index=False)
+
+motifs_fibro = motifs['fibro'].to_pandas()
+del motifs_fibro['family']
+motifs_fibro.to_csv('Motifs/fibro_pred_motif.txt', sep='\t', index=False)
+
+motifs_tumor_sp = motifs['tumor_sp'].to_pandas()
+del motifs_tumor_sp['family']
+motifs_tumor_sp.to_csv('Motifs/tumor_sp_pred_motif.txt', sep='\t', index=False)
+
+motifs_fibro_sp = motifs['fibro_sp'].to_pandas()
+del motifs_fibro_sp['family']
+motifs_fibro_sp.to_csv('Motifs/fibro_sp_pred_motif.txt', sep='\t', index=False)
+
+
+
+## Plot top enriched motifs
+import pandas as pd
+from plotnine import *
+import numpy as np
+
+## tumor cells
+motifs_tumor = pd.read_table('tumor_pred_motif.txt')
+motifs_tumor.index = motifs_tumor['name'].values
+motifs_tumor = motifs_tumor.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_tumor[motifs_tumor['adjusted p-value']<0.05][:10].index.values)
+tfs.reverse()
+motifs_tumor_stat = motifs_tumor.loc[tfs]
+motifs_tumor_stat['name'] = pd.Categorical(motifs_tumor_stat['name'], categories=tfs)
+dat = motifs_tumor_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightcoral', high='darkred', limits=[3, 10]) + xlab('Motif') + ylab('log2FC') + labs(title='Tumor cells')  + \
+                                                        scale_y_continuous(limits=[0, 0.4], breaks=np.arange(0, 0.41, 0.1)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='tumor_pred_motif.pdf', dpi=600, height=4, width=5)
+
+
+## fibroblasts
+motifs_fibro = pd.read_table('fibro_pred_motif.txt')
+motifs_fibro.index = motifs_fibro['name'].values
+motifs_fibro = motifs_fibro.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_fibro[motifs_fibro['adjusted p-value']<0.05][:11].index.values)
+tfs.reverse()
+motifs_fibro_stat = motifs_fibro.loc[tfs]
+motifs_fibro_stat['name'] = pd.Categorical(motifs_fibro_stat['name'], categories=tfs)
+dat = motifs_fibro_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+dat.drop(index=['AC023509.3'], inplace=True)
+dat.loc['CUX2', '-log(p-value)'] = 20  # replace inf
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightblue', high='darkblue', limits=[3, 20]) + xlab('Motif') + ylab('log2FC') + labs(title='Fibroblasts') + \
+                                                        scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.51, 0.1)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='fibro_pred_motif.pdf', dpi=600, height=4, width=5)
+
+
+## tumor cells specific
+motifs_tumor_sp = pd.read_table('tumor_sp_pred_motif.txt')
+motifs_tumor_sp.index = motifs_tumor_sp['name'].values
+motifs_tumor_sp = motifs_tumor_sp.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_tumor_sp[motifs_tumor_sp['adjusted p-value']<0.05][:10].index.values)
+tfs.reverse()
+motifs_tumor_sp_stat = motifs_tumor_sp.loc[tfs]
+motifs_tumor_sp_stat['name'] = pd.Categorical(motifs_tumor_sp_stat['name'], categories=tfs)
+dat = motifs_tumor_sp_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightcoral', high='darkred', limits=[3, 15]) + xlab('Motif') + ylab('log2FC') + labs(title='Tumor cell specific')  + \
+                                                        scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='tumor_sp_pred_motif.pdf', dpi=600, height=4, width=5)
+
+
+## fibroblasts
+motifs_fibro_sp = pd.read_table('fibro_sp_pred_motif.txt')
+motifs_fibro_sp.index = motifs_fibro_sp['name'].values
+motifs_fibro_sp = motifs_fibro_sp.sort_values('log2(fold change)', ascending=False)
+tfs = list(motifs_fibro_sp[motifs_fibro_sp['adjusted p-value']<0.05][:11].index.values)
+tfs.reverse()
+motifs_fibro_sp_stat = motifs_fibro_sp.loc[tfs]
+motifs_fibro_sp_stat['name'] = pd.Categorical(motifs_fibro_sp_stat['name'], categories=tfs)
+dat = motifs_fibro_sp_stat[['name', 'log2(fold change)', 'adjusted p-value']]
+dat['-log(p-value)'] = -np.log(dat['adjusted p-value'])
+# dat.drop(index=['AC023509.3'], inplace=True)
+# dat.loc['CUX2', '-log(p-value)'] = 20  # replace inf
+
+p = ggplot(dat, aes(x='name', y='log2(fold change)', fill='-log(p-value)')) + geom_bar(stat='identity', position=position_dodge()) + coord_flip() + \
+                                                        scale_fill_gradient(low='lightblue', high='darkblue', limits=[3, 15]) + xlab('Motif') + ylab('log2FC') + labs(title='Fibroblast specific') + \
+                                                        scale_y_continuous(limits=[0, 1.2], breaks=np.arange(0, 1.21, 0.2)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='fibro_sp_pred_motif.pdf', dpi=600, height=4, width=5)
 
 
 
@@ -1841,6 +2106,80 @@ python csr2array.py --pred rna2atac_scm2m_raw.h5ad  --true VF026V1-S1_atac.h5ad
 
 
 
+## Comparison between predicted and true results
+# total 1165 TFs
+import pandas as pd
+import numpy as np
+#from plotnine import *
+
+pred_0 = pd.read_table('atac_236_motif_scm2mft2123_cluster_0.txt')
+pred_0.index = pred_0['name'].values
+sum((pred_0['adjusted p-value']<0.01) & (pred_0['log2(fold change)']>0))  # 157
+pred_0_tf = pred_0[(pred_0['adjusted p-value']<0.01) & (pred_0['log2(fold change)']>0)]['name'].values
+
+true_0 = pd.read_table('atac_236_motif_cluster_0.txt')
+true_0.index = true_0['name'].values
+sum((true_0['adjusted p-value']<0.01) & (true_0['log2(fold change)']>0))  # 432
+true_0_tf = true_0[(true_0['adjusted p-value']<0.01) & (true_0['log2(fold change)']>0)]['name'].values
+
+pred_1 = pd.read_table('atac_236_motif_scm2mft2123_cluster_1.txt')
+pred_1.index = pred_1['name'].values
+sum((pred_1['adjusted p-value']<0.01) & (pred_1['log2(fold change)']>0))  # 197
+pred_1_tf = pred_1[(pred_1['adjusted p-value']<0.01) & (pred_1['log2(fold change)']>0)]['name'].values
+
+true_1 = pd.read_table('atac_236_motif_cluster_1.txt')
+true_1.index = true_1['name'].values
+sum((true_1['adjusted p-value']<0.01) & (true_1['log2(fold change)']>0))  # 346
+true_1_tf = true_1[(true_1['adjusted p-value']<0.01) & (true_1['log2(fold change)']>0)]['name'].values
+
+np.intersect1d(pred_0_tf, true_0_tf).shape[0]  # 156
+np.intersect1d(pred_1_tf, true_1_tf).shape[0]  # 191
+
+import matplotlib.pyplot as plt
+from matplotlib_venn import venn2
+plt.figure()
+venn2(subsets = [set(pred_0_tf), set(true_0_tf)], set_labels=('Pred','True'), set_colors=('darkred','midnightblue'))
+plt.savefig('pred_0_true_0_tf_venn.pdf')
+
+plt.figure()
+venn2(subsets = [set(pred_1_tf), set(true_1_tf)], set_labels=('Pred','True'), set_colors=('darkred','midnightblue'))
+plt.savefig('pred_1_true_1_tf_venn.pdf')
+
+
+############################### p-value=0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+## pychromVAR
+# pip install pychromVAR
+# pip install pyjaspar
+# https://github.com/pinellolab/pychromVAR
+# preprocessing.py: "reads_per_peak = np.log10(np.sum(adata.X, axis=0))" -> "reads_per_peak = np.log1p(adata.X.sum(axis=0)) / np.log(10)"
+import pychromvar as pc
+import snapatac2 as snap
+import scanpy as sc
+
+atac = snap.read('rna2atac_scm2m_epoch_1.h5ad', backed=None)[:, :10000]
+atac.X[atac.X>0.9]=1
+atac.X[atac.X<=0.9]=0
+
+atac_tumor = atac[atac.obs.cell_anno=='Tumor'].copy()
+atac_fibro = atac[atac.obs.cell_anno=='Fibroblasts'].copy()
+
+snap.pp.select_features(atac_tumor)  # 11857
+snap.pp.select_features(atac_fibro)  # 10245
+
+atac.var.index = atac.var.index.map(lambda x: x.replace(':', '-')).values
+pc.add_peak_seq(atac, genome_file="Motifs/hg38.fa")
+pc.add_gc_bias(atac)
+pc.get_bg_peaks(atac)
+
+jdb_obj = jaspardb(release='JASPAR2020')
+motifs = jdb_obj.fetch_motifs(
+    collection = 'CORE',
+    tax_group = ['vertebrates'])
+
+pc.match_motif(adata, motifs=motifs, p_value=5e-05)
 
 
 
