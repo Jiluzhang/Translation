@@ -2058,6 +2058,11 @@ pearsonr(dat['True'], dat['Pred'])  # PearsonRResult(statistic=0.075114264660420
 # dev = pc.compute_deviations(atac)  # treat motif score as expression value & differential analysis
 
 
+## Attention based chromatin accessibility regulator screening & ranking
+
+
+
+## TF in silico perturbation
 
 
 
