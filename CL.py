@@ -2058,8 +2058,124 @@ pearsonr(dat['True'], dat['Pred'])  # PearsonRResult(statistic=0.075114264660420
 # dev = pc.compute_deviations(atac)  # treat motif score as expression value & differential analysis
 
 
-## Attention based chromatin accessibility regulator screening & ranking
 
+## Attention based chromatin accessibility regulator screening & ranking
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2M import M2M_rna2atac
+import h5py
+
+data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
+# from config
+with open("rna2atac_config_train.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+
+model.load_state_dict(torch.load('./save/2024-07-11_rna2atac_train_1/pytorch_model.bin'))
+
+dataset = PreDataset(data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+device = select_least_used_gpu()
+model.to(device)
+
+rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+atac = sc.read_h5ad('VF026V1-S1_atac.h5ad')
+
+###### same tfs in different cell
+i = 0
+p = 0
+for inputs in loader:
+    if rna.obs.cell_anno.values[p] == 'Tumor':
+        rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+        attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+        attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+        attn[attn<(1e-5)] = 0
+        attn = attn.to(torch.float16)
+        with h5py.File('attn_tumor_'+str(i)+'.h5', 'w') as f:
+            f.create_dataset('attn', data=attn)
+        
+        i += 1
+        torch.cuda.empty_cache()
+        print(str(i), 'cell done')
+    
+    if i==20:
+        break
+    
+    p += 1
+
+
+i = 0
+p = 0
+q = 0
+attn_tf = torch.zeros([atac.shape[1], 1])
+for inputs in loader:
+    if rna.obs.cell_anno.values[p] == 'Tumor':
+        rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each for each in inputs]
+        
+        with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+            attn = f['attn'][:]
+            
+            idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index=='MECOM')[0][0]+1))
+            if len(idx)!=0:
+                attn_tf += attn[:, [idx.item()]]
+                q += 1
+
+            i += 1
+        
+        print(str(i), 'cell done')
+    
+    if i==20:
+        break
+
+    p += 1
+
+sum((attn_tf/q)>0.01)  # MECOM: 20046    PAX8: 16367
+
+
+
+
+
+dat = pd.DataFrame(dat)
+dat.columns = ['cell_'+str(i) for i in range(6)]
+plt.figure(figsize=(5, 5))
+sns.heatmap(dat, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
+#sns.heatmap(np.log(dat), cmap='Reds', vmin=-10, vmax=0, yticklabels=False)
+plt.savefig('Tumor_PAX8_2.png')
+plt.close()
 
 
 ## TF in silico perturbation
