@@ -2143,24 +2143,33 @@ for inputs in loader:
 
 rna_tumor_20 = rna[tumor_idx].copy()
 nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
-rna.var.index[nonzero!=0]
+tf_lst = rna.var.index[nonzero>=5]
 
+tf_attn = {}
+tf_exp_cnt = {}
+for tf in tf_lst:
+    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16')
+    tf_exp_cnt[tf] = 0
+
+for i in range(3):
+    rna_sequence = tumor_data[0][i].flatten()
+    with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
+            if len(idx)!=0:
+                tf_attn[tf] += attn[:, [idx.item()]]
+                tf_exp_cnt[tf] += 1
+            
+np.squeeze(np.array(list(tf_attn.values()))) / np.expand_dims(np.array(list(tf_exp_cnt.values())), axis=1)
 
 tf_peak_cnt = {}
-
-for tf in tf_lst:
-    attn_tf = np.zeros([atac.shape[1], 1])
-    tf_idx = np.argwhere(rna_tumor_20[:, 'EP300'].X.toarray().flatten()!=0).flatten()
-    for i in tqdm(tf_idx, ncols=80, desc='EP300'):
-        rna_sequence = tumor_data[0][i].flatten()
-        
-        with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
-            attn = f['attn'][:]
-            
-            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index=='EP300'))[0][0]+1).item()
-            attn_tf += attn[:, [idx]]
+for tf in tqdm(tf_lst, ncols=80):
+    #tf_peak_cnt[tf] = sum(((tf_attn[tf]/tf_exp_cnt[tf]).flatten())>0.01)
+    tf_peak_cnt[tf] = sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
     
-    tf_peak_cnt['EP300'] = sum((attn_tf/len(tf_idx)).flatten()>0.01)
+
+
 
 
 
