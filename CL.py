@@ -2168,6 +2168,8 @@ def cnt(tf):
 with Pool(20) as p:
     tf_peak_cnt = p.map(cnt, tf_lst)
 
+df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+
 
 dat = pd.DataFrame(dat)
 dat.columns = ['cell_'+str(i) for i in range(6)]
