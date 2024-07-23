@@ -2151,7 +2151,7 @@ for tf in tf_lst:
     tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16')
     tf_exp_cnt[tf] = 0
 
-for i in range(3):
+for i in range(20):
     rna_sequence = tumor_data[0][i].flatten()
     with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
         attn = f['attn'][:]
@@ -2161,18 +2161,12 @@ for i in range(3):
                 tf_attn[tf] += attn[:, [idx.item()]]
                 tf_exp_cnt[tf] += 1
             
-np.squeeze(np.array(list(tf_attn.values()))) / np.expand_dims(np.array(list(tf_exp_cnt.values())), axis=1)
+from multiprocessing import Pool
+def cnt(tf):
+    return sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
 
-tf_peak_cnt = {}
-for tf in tqdm(tf_lst, ncols=80):
-    #tf_peak_cnt[tf] = sum(((tf_attn[tf]/tf_exp_cnt[tf]).flatten())>0.01)
-    tf_peak_cnt[tf] = sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
-    
-
-
-
-
-
+with Pool(20) as p:
+    tf_peak_cnt = p.map(cnt, tf_lst)
 
 
 dat = pd.DataFrame(dat)
