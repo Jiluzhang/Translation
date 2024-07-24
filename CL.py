@@ -2111,6 +2111,7 @@ model.load_state_dict(torch.load('./save/2024-07-11_rna2atac_train_1/pytorch_mod
 rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
 atac = sc.read_h5ad('VF026V1-S1_atac.h5ad')
 
+## tumor cells
 tumor_idx = np.argwhere(rna.obs.cell_anno=='Tumor')[:20].flatten()
 tumor_data = []
 for i in range(len(data)):
@@ -2169,16 +2170,228 @@ with Pool(20) as p:
     tf_peak_cnt = p.map(cnt, tf_lst)
 
 df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+df.to_csv('tumor_tf_peak_0.01.txt', sep='\t', header=None, index=None)
+
+## plot lollipop
+import pandas as pd
+import numpy as np
+from plotnine import *
+
+df = pd.read_csv('tumor_tf_peak_0.01.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df_top20 = df.sort_values('cnt', ascending=False)[:20]
+tf_top20 = list(df_top20['tf'])
+tf_top20.reverse()
+df_top20['tf'] = pd.Categorical(df_top20['tf'], categories=tf_top20)
+
+p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf', y=0, yend='cnt'), color='red', size=1) + \
+                                              geom_point(color='red', size=3) + coord_flip() + \
+                                              xlab('Genes') + ylab('Count') + labs(title='Tumor cells') + \
+                                              scale_y_continuous(limits=[0, 50000], breaks=np.arange(0, 50000+1, 10000)) + \
+                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+p.save(filename='tumor_top20_lollipp.pdf', dpi=600, height=4, width=5)
 
 
-dat = pd.DataFrame(dat)
-dat.columns = ['cell_'+str(i) for i in range(6)]
-plt.figure(figsize=(5, 5))
-sns.heatmap(dat, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
-#sns.heatmap(np.log(dat), cmap='Reds', vmin=-10, vmax=0, yticklabels=False)
-plt.savefig('Tumor_PAX8_2.png')
-plt.close()
+## fibroblasts
+data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
+for i in range(1, 5):
+    data_tmp = torch.load('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_'+str(i)+'.pt')
+    data[0] = torch.cat([data[0], data_tmp[0]], axis=0)
+    data[1] = torch.cat([data[1], data_tmp[1]], axis=0)
+    data[2] = torch.cat([data[2], data_tmp[2]], axis=0)
+    data[3] = torch.cat([data[3], data_tmp[3]], axis=0)
+    data[4] = torch.cat([data[4], data_tmp[4]], axis=0)
+    
+fibro_idx = np.argwhere(rna.obs.cell_anno=='Fibroblasts')[:20].flatten()
+fibro_data = []
+for i in range(len(data)):
+    fibro_data.append(data[i][fibro_idx])
 
+dataset = PreDataset(fibro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+device = select_least_used_gpu()
+model.to(device)
+
+###### same tfs in different cell
+i = 0
+for inputs in loader:
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+    # attn[attn<(1e-5)] = 0
+    attn = attn.to(torch.float16)
+    with h5py.File('attn_fibro_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    
+    i += 1
+    torch.cuda.empty_cache()
+    print(str(i), 'cell done')
+    
+    if i==20:
+        break
+
+
+rna_fibro_20 = rna[fibro_idx].copy()
+nonzero = np.count_nonzero(rna_fibro_20.X.toarray(), axis=0)
+tf_lst = rna.var.index[nonzero>=5]
+
+tf_attn = {}
+tf_exp_cnt = {}
+for tf in tf_lst:
+    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16')
+    tf_exp_cnt[tf] = 0
+
+for i in range(20):
+    rna_sequence = fibro_data[0][i].flatten()
+    with h5py.File('attn_fibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
+            if len(idx)!=0:
+                tf_attn[tf] += attn[:, [idx.item()]]
+                tf_exp_cnt[tf] += 1
+            
+from multiprocessing import Pool
+def cnt(tf):
+    return sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
+
+with Pool(20) as p:
+    tf_peak_cnt = p.map(cnt, tf_lst)
+
+df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+df.to_csv('fibro_tf_peak_0.01.txt', sep='\t', header=None, index=None)
+
+## plot lollipop
+import pandas as pd
+import numpy as np
+from plotnine import *
+
+df = pd.read_csv('fibro_tf_peak_0.01.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df_top20 = df.sort_values('cnt', ascending=False)[:20]
+tf_top20 = list(df_top20['tf'])
+tf_top20.reverse()
+df_top20['tf'] = pd.Categorical(df_top20['tf'], categories=tf_top20)
+
+p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf', y=0, yend='cnt'), color='blue', size=1) + \
+                                              geom_point(color='blue', size=3) + coord_flip() + \
+                                              xlab('Genes') + ylab('Count') + labs(title='Fibroblasts') + \
+                                              scale_y_continuous(limits=[0, 50000], breaks=np.arange(0, 50000+1, 10000)) + \
+                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+p.save(filename='fibro_top20_lollipp.pdf', dpi=600, height=4, width=5)
+
+
+## plot sankey (holoviews not support cyclic graph)
+# pip install holoviews selenium
+# import pandas as pd
+# import holoviews as hv
+# from holoviews import opts
+# hv.extension('bokeh')
+
+# data = pd.DataFrame({
+#     'source': ['A', 'B', 'C'],
+#     'target': ['A_1', 'B_1', 'C_1'],
+#     'value': [1, 1, 1]
+# })
+
+# sankey_data = hv.Sankey(data)
+# sankey_plot = sankey_data.opts(labels='index', width=600, height=400, node_color='index', edge_color='source')
+# hv.save(sankey_plot, 'sankey_plot.png', fmt='png')
+
+## plot rank (too many points to show)
+# https://plotnine.org/reference/examples/geom_segment-preview.html
+# from plotnine import *
+# import pandas as pd
+
+# df_tumor = pd.read_table('tumor_tf_peak_0.01.txt', header=None)
+# df_tumor.columns = ['tf', 'cnt_tumor']
+
+# df_fibro = pd.read_table('fibro_tf_peak_0.01.txt', header=None)
+# df_fibro.columns = ['tf', 'cnt_fibro']
+
+# df = pd.merge(df_tumor, df_fibro, how='outer')
+# df.fillna(0, inplace=True)
+
+# df['rank_tumor'] = df['cnt_tumor'].rank(ascending=True, method='first').values
+# df['rank_fibro'] = df['cnt_fibro'].rank(ascending=True, method='first').values
+
+# df = df.sort_values('cnt_tumor', ascending=False)
+
+# p = ggplot(df[:100]) + geom_text(aes(1, 'rank_tumor', label='tf'), nudge_x=-0.01, ha='right', size=5) + \
+#                  geom_text(aes(2, 'rank_fibro', label='tf'), nudge_x=0.01, ha='left', size=5) + \
+#                  geom_point(aes(1, 'rank_tumor')) + geom_point(aes(2, 'rank_fibro')) + \
+#                  geom_segment(aes(x=1, y='rank_tumor', xend=2, yend='rank_fibro')) + theme_void()
+# p.save(filename='tumor_fibro_tf_rank.pdf', dpi=600, height=8, width=8)
+
+
+## plot sankey (bin-based seperation)
+import pandas as pd
+import holoviews as hv
+from holoviews import opts
+hv.extension('bokeh')
+
+df_tumor = pd.read_table('tumor_tf_peak_0.01.txt', header=None)
+df_tumor.columns = ['tf', 'cnt_tumor']
+
+df_fibro = pd.read_table('fibro_tf_peak_0.01.txt', header=None)
+df_fibro.columns = ['tf', 'cnt_fibro']
+
+df = pd.merge(df_tumor, df_fibro, how='outer')
+df.fillna(0, inplace=True)
+
+df['rank_tumor'] = df['cnt_tumor'].rank(ascending=False, method='first').values
+df['rank_fibro'] = df['cnt_fibro'].rank(ascending=False, method='first').values
+
+df = df.sort_values('cnt_tumor', ascending=False)
+df['label_tumor'] = pd.cut(df['rank_tumor'], bins=[0,1000,2000,3000,4000,5000,6153], labels=['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153'])
+df['label_fibro'] = pd.cut(df['rank_fibro'], bins=[0,1000,2000,3000,4000,5000,6153], labels=['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153'])
+
+stats = (df['label_tumor'].astype(str)+'-'+df['label_fibro'].astype(str)).value_counts().to_frame()
+stats['source'] = stats.index.map(lambda x: 'tumor_'+x.split('-')[0])
+stats['target'] = stats.index.map(lambda x: 'fibro_'+x.split('-')[1])
+stats.rename(columns={'count': 'value'}, inplace=True)
+stats = stats[['source', 'target', 'value']]
+stats = stats.sort_values(['source', 'target'])
+
+tumor_idx = ['tumor_'+i for i in ['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153']]
+fibro_idx = ['fibro_'+i for i in ['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153']]
+tumor_fibro_idx = pd.DataFrame([[i,j] for i in tumor_idx for j in fibro_idx])
+tumor_fibro_idx.columns = ['source', 'target']
+
+stats_all = pd.merge(tumor_fibro_idx, stats, how='left')
+stats_all.fillna(0, inplace=True)
+
+sankey_data = hv.Sankey(stats_all)
+sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', node_sort=False)
+hv.save(sankey_plot, 'tumor_fibro_all_sankey_plot.png', fmt='png')
+
+
+## plot only for top100 genes
+df_100 = df[:100].copy()
+df_100['label_tumor'] = pd.cut(df_100['rank_tumor'], bins=[0,20,40,60,80,100], labels=['0001_0020','0021_0040','0041_0060','0061_0080', '0081_0100'])
+df_100['label_fibro'] = pd.cut(df_100['rank_fibro'], bins=[0,20,40,60,80,100,6153], labels=['0001_0020','0021_0040','0041_0060','0061_0080', '0081_0100', '0100_6153'])
+
+stats = (df_100['label_tumor'].astype(str)+'-'+df_100['label_fibro'].astype(str)).value_counts().to_frame()
+stats['source'] = stats.index.map(lambda x: 'tumor_'+x.split('-')[0])
+stats['target'] = stats.index.map(lambda x: 'fibro_'+x.split('-')[1])
+stats.rename(columns={'count': 'value'}, inplace=True)
+stats = stats[['source', 'target', 'value']]
+stats = stats.sort_values(['source', 'target'])
+
+tumor_idx = ['tumor_'+i for i in ['0001_0020','0021_0040','0041_0060','0061_0080', '0081_0100']]
+fibro_idx = ['fibro_'+i for i in ['0001_0020','0021_0040','0041_0060','0061_0080', '0081_0100', '0100_6153']]
+tumor_fibro_idx = pd.DataFrame([[i,j] for i in tumor_idx for j in fibro_idx])
+tumor_fibro_idx.columns = ['source', 'target']
+
+stats_all = pd.merge(tumor_fibro_idx, stats, how='left')
+stats_all.fillna(0, inplace=True)
+
+sankey_data = hv.Sankey(stats_all)
+sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', node_sort=False)
+hv.save(sankey_plot, 'tumor_fibro_top100_sankey_plot.png', fmt='png')
+
+########################################## value=0!!! ##########################################
 
 ## TF in silico perturbation
 
