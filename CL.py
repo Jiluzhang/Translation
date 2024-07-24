@@ -2342,8 +2342,8 @@ df.fillna(0, inplace=True)
 
 df['rank_tumor'] = df['cnt_tumor'].rank(ascending=False, method='first').values
 df['rank_fibro'] = df['cnt_fibro'].rank(ascending=False, method='first').values
-
 df = df.sort_values('cnt_tumor', ascending=False)
+
 df['label_tumor'] = pd.cut(df['rank_tumor'], bins=[0,1000,2000,3000,4000,5000,6153], labels=['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153'])
 df['label_fibro'] = pd.cut(df['rank_fibro'], bins=[0,1000,2000,3000,4000,5000,6153], labels=['0001_1000','1001_2000','2001_3000','3001_4000', '4001_5000', '5001_6153'])
 
@@ -2363,7 +2363,7 @@ stats_all = pd.merge(tumor_fibro_idx, stats, how='left')
 stats_all.fillna(0, inplace=True)
 
 sankey_data = hv.Sankey(stats_all)
-sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', node_sort=False)
+sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', edge_line_width=0, node_sort=False)
 hv.save(sankey_plot, 'tumor_fibro_all_sankey_plot.png', fmt='png')
 
 
@@ -2384,12 +2384,42 @@ fibro_idx = ['fibro_'+i for i in ['0001_0020','0021_0040','0041_0060','0061_0080
 tumor_fibro_idx = pd.DataFrame([[i,j] for i in tumor_idx for j in fibro_idx])
 tumor_fibro_idx.columns = ['source', 'target']
 
-stats_all = pd.merge(tumor_fibro_idx, stats, how='left')
-stats_all.fillna(0, inplace=True)
+stats_top100 = pd.merge(tumor_fibro_idx, stats, how='left')
+stats_top100.fillna(0, inplace=True)
 
-sankey_data = hv.Sankey(stats_all)
-sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', node_sort=False)
+sankey_data = hv.Sankey(stats_top100)
+sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', edge_line_width=0, node_sort=False)
+# "edge_line_width=0" makes value=0 not show
+# "node_sort=False" makes not changing node order
 hv.save(sankey_plot, 'tumor_fibro_top100_sankey_plot.png', fmt='png')
+
+
+## plot only for top20 genes
+df_20 = df[:20].copy()
+df_20['rank_tumor'] = (df_20['rank_tumor']).astype('int')
+df_20['rank_fibro'] = (df_20['rank_fibro']).astype('int')
+df_20['label_tumor'] = df_20['rank_tumor']
+df_20['label_fibro'] = df_20['rank_fibro']
+
+stats = (df_20['label_tumor'].astype(str)+'-'+df_20['label_fibro'].astype(str)).value_counts().to_frame()
+stats['source'] = stats.index.map(lambda x: 'tumor_'+x.split('-')[0])
+stats['target'] = stats.index.map(lambda x: 'fibro_'+x.split('-')[1])
+stats.rename(columns={'count': 'value'}, inplace=True)
+stats = stats[['source', 'target', 'value']]
+stats = stats.sort_values(['source', 'target'])
+
+tumor_idx = ['tumor_'+str(i) for i in np.sort(df_20['rank_tumor'].values)]
+fibro_idx = ['fibro_'+str(i) for i in np.sort(df_20['rank_fibro'].values)]
+tumor_fibro_idx = pd.DataFrame([[i,j] for i in tumor_idx for j in fibro_idx])
+tumor_fibro_idx.columns = ['source', 'target']
+
+stats_top20 = pd.merge(tumor_fibro_idx, stats, how='left')
+stats_top20.fillna(0, inplace=True)
+
+sankey_data = hv.Sankey(stats_top20)
+sankey_plot = sankey_data.opts(labels='index', width=700, height=400, node_color='index', edge_color='source', edge_line_width=0, node_sort=False)
+hv.save(sankey_plot, 'tumor_fibro_top20_sankey_plot.png', fmt='png')
+
 
 ########################################## value=0!!! ##########################################
 
