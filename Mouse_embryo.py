@@ -155,7 +155,7 @@ nohup accelerate launch --config_file accelerator_config_train.yaml --main_proce
 python data_preprocess.py -r rna_wt_3_types.h5ad -a atac_wt_3_types.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-07-26_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python csr2array.py --pred rna2atac_scm2m_raw.h5ad --true atac_wt_3_types.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true atac_wt_3_types.h5ad
@@ -179,8 +179,29 @@ rna = snap.read('rna_wt_3_types.h5ad', backed=None)
 np.count_nonzero(rna.X.toarray(), axis=1).max()  # 9516
 
 
-## 
+## in silico ko
 import scanpy as sc
+import numpy as np
+
+wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+T_idx = np.argwhere(wt_rna.var.index=='Sox2').item()
+ko_rna = wt_rna[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
+ko_rna.X[:, T_idx] = 0
+ko_rna.write('rna_T_ko_nmp.h5ad')
+
+wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
+wt_atac[ko_rna.obs.index].write('atac_T_ko_nmp.h5ad')
+
+
+python data_preprocess.py -r rna_T_ko_nmp.h5ad -a atac_T_ko_nmp.h5ad -s preprocessed_data_test_T_KO --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test_T_KO \
+                  -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
+
+
+import scanpy as sc
+from scipy.stats import pearsonr
+import numpy as np
 
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
 wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
@@ -191,23 +212,26 @@ wt_som_dat = wt_som.X.toarray().sum(axis=0)
 wt_spi_dat = wt_spi.X.toarray().sum(axis=0)
 print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
 print(pearsonr(wt_nmp_dat, wt_spi_dat)[0])  # 0.9099217958585805
-print(pearsonr(wt_som_dat, wt_spi_dat)[0])  # 0.876225047852518
-
-ko_atac = sc.read_h5ad('atac_ko_3_types.h5ad')
-ko_nmp = ko_atac[ko_atac.obs['cell_anno']=='NMP'].copy()
-ko_som = ko_atac[ko_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
-ko_spi = ko_atac[ko_atac.obs['cell_anno']=='Spinal_cord'].copy()
-ko_nmp_dat = ko_nmp.X.toarray().sum(axis=0)
-ko_som_dat = ko_som.X.toarray().sum(axis=0)
-ko_spi_dat = ko_spi.X.toarray().sum(axis=0)
-print(pearsonr(ko_nmp_dat, ko_som_dat)[0])  # 0.7511545902192369
-print(pearsonr(ko_nmp_dat, ko_spi_dat)[0])  # 0.9327534941920238
-print(pearsonr(ko_som_dat, ko_spi_dat)[0])  # 0.7077882632570766
-
-print(pearsonr(ko_nmp_dat, wt_nmp_dat)[0])  # 0.9605882550550422
-print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.9227530012347057
-print(pearsonr(ko_nmp_dat, wt_spi_dat)[0])  # 0.9078843125614751
 
 
+ko_atac = np.load('predict.npy')
+ko_atac[ko_atac>0.5] = 1
+ko_atac[ko_atac<=0.5] = 0
+ko_nmp_dat = ko_atac.sum(axis=0)
+print(pearsonr(ko_nmp_dat, wt_nmp_dat)[0])  # 0.5620200785188573
+print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.5482014271730806
+print(pearsonr(ko_nmp_dat, wt_spi_dat)[0])  # 0.5441936923674902
 
+# Sox2
+# 0.5674673009034524
+# 0.5535342709392107
+# 0.550447645543202
+
+
+################################### KO data is necessary? ##################################
+
+# wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+# T_idx = np.argwhere(wt_rna.var.index=='T').item()
+# wt_nmp = wt_atac[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
+# wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
 
