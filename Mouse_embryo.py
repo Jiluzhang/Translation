@@ -126,20 +126,87 @@ wt_atac_out.obs['cell_anno'] = wt_rna_out.obs['cell_anno']
 wt_atac_out.write('atac_wt_3_types.h5ad')  # 1214 × 271529
 
 
+ko_info = meta_info[(meta_info['sample']=='E8.5_CRISPR_T_KO')][['barcode', 'celltype']]  # 7741
+ko_info.index = ko_info['barcode'].values
+del ko_info['barcode']
+
+ko_rna = sc.read_h5ad('rna_ko.h5ad')  # 7359
+ko_rna.obs['cell_anno'] = ko_info.loc[ko_rna.obs.index.values]['celltype'].values
+ko_rna_out =  ko_rna[ko_rna.obs['cell_anno'].isin(['NMP', 'Spinal_cord', 'Somitic_mesoderm'])].copy()
+# NMP                 745
+# Spinal_cord         436
+# Somitic_mesoderm      5
+ko_rna_out.write('rna_ko_3_types.h5ad')  # 1186 × 30364
+
+ko_atac = sc.read_h5ad('atac_ko.h5ad')  # 7359
+ko_atac_out = ko_atac[ko_rna_out.obs.index, :].copy()
+ko_atac_out.obs['cell_anno'] = ko_rna_out.obs['cell_anno']
+ko_atac_out.write('atac_ko_3_types.h5ad')  # 1186 × 271529
+
+
+
 ## preprocess & train model
 python split_train_val.py --RNA rna_wt_3_types.h5ad --ATAC atac_wt_3_types.h5ad --train_pct 0.9
 python data_preprocess.py -r rna_wt_3_types_train.h5ad -a atac_wt_3_types_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml   # list_digits: 6 -> 7
 python data_preprocess.py -r rna_wt_3_types_val.h5ad -a atac_wt_3_types_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240725.log &  
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240726.log &  
+
+python data_preprocess.py -r rna_wt_3_types.h5ad -a atac_wt_3_types.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-07-26_rna2atac_train_10/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad --true atac_wt_3_types.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true atac_wt_3_types.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true atac_wt_3_types.h5ad
+
+## evaluation
+## ground truth
+import snapatac2 as snap
+import scanpy as sc
+import numpy as np
+
+true = snap.read('atac_wt_3_types.h5ad', backed=None)
+snap.pp.select_features(true)
+snap.tl.spectral(true)
+snap.tl.umap(true)
+sc.pl.umap(true, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_atac_3_types_true.pdf')
+true[:550, :].write('rna2atac_true.h5ad')
+
+rna = snap.read('rna_wt_3_types.h5ad', backed=None)
+np.count_nonzero(rna.X.toarray(), axis=1).max()  # 9516
 
 
+## 
+import scanpy as sc
 
+wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
+wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
+wt_som = wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
+wt_spi = wt_atac[wt_atac.obs['cell_anno']=='Spinal_cord'].copy()
+wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
+wt_som_dat = wt_som.X.toarray().sum(axis=0)
+wt_spi_dat = wt_spi.X.toarray().sum(axis=0)
+print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
+print(pearsonr(wt_nmp_dat, wt_spi_dat)[0])  # 0.9099217958585805
+print(pearsonr(wt_som_dat, wt_spi_dat)[0])  # 0.876225047852518
 
+ko_atac = sc.read_h5ad('atac_ko_3_types.h5ad')
+ko_nmp = ko_atac[ko_atac.obs['cell_anno']=='NMP'].copy()
+ko_som = ko_atac[ko_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
+ko_spi = ko_atac[ko_atac.obs['cell_anno']=='Spinal_cord'].copy()
+ko_nmp_dat = ko_nmp.X.toarray().sum(axis=0)
+ko_som_dat = ko_som.X.toarray().sum(axis=0)
+ko_spi_dat = ko_spi.X.toarray().sum(axis=0)
+print(pearsonr(ko_nmp_dat, ko_som_dat)[0])  # 0.7511545902192369
+print(pearsonr(ko_nmp_dat, ko_spi_dat)[0])  # 0.9327534941920238
+print(pearsonr(ko_som_dat, ko_spi_dat)[0])  # 0.7077882632570766
 
-
-
-
+print(pearsonr(ko_nmp_dat, wt_nmp_dat)[0])  # 0.9605882550550422
+print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.9227530012347057
+print(pearsonr(ko_nmp_dat, wt_spi_dat)[0])  # 0.9078843125614751
 
 
 
