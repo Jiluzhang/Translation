@@ -184,7 +184,7 @@ import scanpy as sc
 import numpy as np
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='Gapdh').item()
+T_idx = np.argwhere(wt_rna.var.index=='T').item()
 ko_rna = wt_rna[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
 ko_rna.X[:, T_idx] = 0
 ko_rna.write('rna_T_ko_nmp.h5ad')
@@ -202,6 +202,8 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
 import scanpy as sc
 from scipy.stats import pearsonr
 import numpy as np
+import snapatac2 as snap
+#from sklearn.metrics.pairwise import cosine_similarity
 
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
 wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
@@ -211,12 +213,19 @@ wt_som_dat = wt_som.X.toarray().sum(axis=0)
 print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
 
 
+
+wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+T_idx = np.argwhere(wt_rna.var.index=='T').item()
+
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
-wt_nmp_pred = wt_atac_pred[wt_atac_pred.obs['cell_anno']=='NMP'].copy()
-wt_som_pred = wt_atac_pred[wt_atac_pred.obs['cell_anno']=='Somitic_mesoderm'].copy()
+wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
 wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
-wt_som_dat_pred = wt_som_pred.X.toarray().sum(axis=0)
 print(pearsonr(wt_nmp_dat_pred, wt_som_dat)[0])  # 0.553214528754214
+#cosine_similarity(wt_nmp_dat_pred.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
+
+# snap.pp.select_features(wt_nmp_pred)
+# snap.tl.spectral(wt_nmp_pred)
+
 
 
 ko_atac = np.load('predict.npy')
@@ -224,14 +233,17 @@ ko_atac[ko_atac>0.5] = 1
 ko_atac[ko_atac<=0.5] = 0
 ko_nmp_dat = ko_atac.sum(axis=0)
 print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.5482014271730806
+#cosine_similarity(ko_nmp_dat.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
+
 
 # Sox2:    0.5535342709392107
-# T:       0.5482014271730806
+# T:       0.5481016622692945  ->  0.5482014271730806
 # Topors:  0.5504626938663995
 # Foxc2:   0.549615402837736
 # Pax6:    0.5488411971160208
 # Meox1:   0.5514782279644563
 # Gapdh:   0.5531658071787755
+# Cdx2:    0.5524539682534925  ->  0.5524502050378333
 
 
 ## KO & OE
