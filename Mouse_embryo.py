@@ -179,6 +179,38 @@ rna = snap.read('rna_wt_3_types.h5ad', backed=None)
 np.count_nonzero(rna.X.toarray(), axis=1).max()  # 9516
 
 
+
+# ## output nmp rna & atac
+# import scanpy as sc
+
+# wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+# wt_rna_nmp = wt_rna[wt_rna.obs['cell_anno']=='NMP']  # 326
+# wt_rna_nmp.write('rna_wt_nmp.h5ad')
+# wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
+# wt_atac[wt_rna_nmp.obs.index].copy().write('atac_wt_nmp.h5ad')
+# np.count_nonzero(wt_rna_nmp.X.toarray(), axis=1).max()  # 8533
+
+# ## preprocess nmp
+# python data_preprocess.py -r rna_wt_nmp.h5ad -a atac_wt_nmp.h5ad -s ./preprocessed_data_test_nmp --dt test --config rna2atac_config_test.yaml
+
+# ## ko genes
+# import scanpy as sc
+# import torch
+# import numpy as np
+
+# wt_rna_nmp = sc.read_h5ad('rna_wt_nmp.h5ad')
+
+# gene_idx = np.argwhere(np.count_nonzero(wt_rna_nmp.X.toarray(), axis=0)>(326/2)).flatten()  # 4203
+
+# # rna_idx & rna_value & atac_idx & atac_val & rna_mask
+# dat_0 = torch.load('preprocessed_data_test_nmp/preprocessed_data_0.pt')
+# dat_0_ko = dat_0[]
+
+
+
+
+
+
 mkdir gene_files/preprocessed_data_test_gene_KO
 ## in silico ko
 # python out_ko_h5ad.py
@@ -188,15 +220,15 @@ from multiprocessing import Pool
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 wt_rna_nmp = wt_rna[wt_rna.obs['cell_anno']=='NMP']  # 326
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
+#sum(np.count_nonzero(wt_rna_nmp.X.toarray(), axis=0)>(326/2)) # 4203
 
 def out_ko_rna_atac(i):
     gene = wt_rna.var.index[i]
     ko_rna = wt_rna_nmp[wt_rna_nmp.X[:, i].toarray().flatten()!=0].copy()
-    if ko_rna.shape[0]>=100:
+    if ko_rna.shape[0]>(326/2):
         ko_rna.X[:, i] = 0
         ko_rna.write('gene_files/rna_'+gene+'_ko_nmp.h5ad')
         wt_atac[ko_rna.obs.index].write('gene_files/atac_'+gene+'_ko_nmp.h5ad')
-    #print(gene, 'done')
 
 with Pool(40) as p:
     p.map(out_ko_rna_atac, list(range(wt_rna.n_vars)))
@@ -205,31 +237,42 @@ with Pool(40) as p:
 ## get genes
 import scanpy as sc
 import pandas as pd
+import numpy as np
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-df = pd.DataFrame(wt_rna.var.index.values)
+wt_rna_nmp = wt_rna[wt_rna.obs['cell_anno']=='NMP'] 
+df = pd.DataFrame(wt_rna_nmp.var.index[np.count_nonzero(wt_rna_nmp.X.toarray(), axis=0)>(326/2)])
 df.to_csv('genes.txt', index=None, header=None)
 
-for gene in `cat genes.txt`;do
-    if [ -e gene_files/rna_$gene\_ko_nmp.h5ad ];then\
-        python data_preprocess.py -r gene_files/rna_$gene\_ko_nmp.h5ad -a gene_files/atac_$gene\_ko_nmp.h5ad -s gene_files/preprocessed_data_test_$gene\_KO --dt test --config rna2atac_config_test.yaml
-        accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
-                          -d gene_files/preprocessed_data_test_$gene\_KO \
-                          -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
-        mv predict.npy gene_files/predict_$gene.npy
-    fi
-    echo $gene done
+
+## split genes list files
+split -l 200 genes.txt -d -a 2 genes_p
+ls | grep genes_p | xargs -i{} mv {} {}.txt  # genes_p00.txt -> genes_p21.txt
+
+## preprocess genes ko rna & atac
+# ./prc_ko.sh
+for i in `printf "%02d\n" $(seq 00 21)`;do
+{
+    for gene in `cat genes_p$i.txt`;do
+        python data_preprocess.py -r gene_files/h5ad/rna_$gene\_ko_nmp.h5ad -a gene_files/h5ad/atac_$gene\_ko_nmp.h5ad -s gene_files/preprocessed_data_test_ko/$gene --dt test --config rna2atac_config_test.yaml
+    done
+}&
 done
+wait
 
 
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d gene_files/preprocessed_data_test_$gene\_KO \
+                  -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
+mv predict.npy gene_files/predict_$gene.npy
+echo $gene done
 
 
-
-
-
-
-
-
+###############################################
+###############################################
+############################################### directly modify rna value before inputting to model ###############################################
+###############################################
+###############################################
 
 import scanpy as sc
 import numpy as np
