@@ -179,71 +179,116 @@ rna = snap.read('rna_wt_3_types.h5ad', backed=None)
 np.count_nonzero(rna.X.toarray(), axis=1).max()  # 9516
 
 
+mkdir gene_files/preprocessed_data_test_gene_KO
 ## in silico ko
+# python out_ko_h5ad.py
 import scanpy as sc
-import numpy as np
+from multiprocessing import Pool
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='T').item()
-ko_rna = wt_rna[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
-ko_rna.X[:, T_idx] = 0
-ko_rna.write('rna_T_ko_nmp.h5ad')
-
+wt_rna_nmp = wt_rna[wt_rna.obs['cell_anno']=='NMP']  # 326
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
-wt_atac[ko_rna.obs.index].write('atac_T_ko_nmp.h5ad')
 
-rm -r preprocessed_data_test_T_KO
-python data_preprocess.py -r rna_T_ko_nmp.h5ad -a atac_T_ko_nmp.h5ad -s preprocessed_data_test_T_KO --dt test --config rna2atac_config_test.yaml
-accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
-                  -d ./preprocessed_data_test_T_KO \
-                  -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
+def out_ko_rna_atac(i):
+    gene = wt_rna.var.index[i]
+    ko_rna = wt_rna_nmp[wt_rna_nmp.X[:, i].toarray().flatten()!=0].copy()
+    if ko_rna.shape[0]>=100:
+        ko_rna.X[:, i] = 0
+        ko_rna.write('gene_files/rna_'+gene+'_ko_nmp.h5ad')
+        wt_atac[ko_rna.obs.index].write('gene_files/atac_'+gene+'_ko_nmp.h5ad')
+    #print(gene, 'done')
+
+with Pool(40) as p:
+    p.map(out_ko_rna_atac, list(range(wt_rna.n_vars)))
+
+
+## get genes
+import scanpy as sc
+import pandas as pd
+
+wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+df = pd.DataFrame(wt_rna.var.index.values)
+df.to_csv('genes.txt', index=None, header=None)
+
+for gene in `cat genes.txt`;do
+    if [ -e gene_files/rna_$gene\_ko_nmp.h5ad ];then\
+        python data_preprocess.py -r gene_files/rna_$gene\_ko_nmp.h5ad -a gene_files/atac_$gene\_ko_nmp.h5ad -s gene_files/preprocessed_data_test_$gene\_KO --dt test --config rna2atac_config_test.yaml
+        accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                          -d gene_files/preprocessed_data_test_$gene\_KO \
+                          -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
+        mv predict.npy gene_files/predict_$gene.npy
+    fi
+    echo $gene done
+done
+
+
+
+
+
+
+
+
+
 
 
 import scanpy as sc
-from scipy.stats import pearsonr
 import numpy as np
 import snapatac2 as snap
-#from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import csr_matrix
+from sklearn.metrics.pairwise import cosine_similarity
 
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
 wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
 wt_som = wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
-wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
-wt_som_dat = wt_som.X.toarray().sum(axis=0)
-print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
-
+#wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
+#wt_som_dat = wt_som.X.toarray().sum(axis=0)
+#print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
 
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 T_idx = np.argwhere(wt_rna.var.index=='T').item()
-
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
-wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
-wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
-print(pearsonr(wt_nmp_dat_pred, wt_som_dat)[0])  # 0.553214528754214
+wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()==0)].copy() # wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
+#wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
+#print(pearsonr(wt_nmp_dat_pred, wt_som_dat)[0])  # 0.553214528754214
 #cosine_similarity(wt_nmp_dat_pred.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
-
-# snap.pp.select_features(wt_nmp_pred)
-# snap.tl.spectral(wt_nmp_pred)
-
-
 
 ko_atac = np.load('predict.npy')
 ko_atac[ko_atac>0.5] = 1
 ko_atac[ko_atac<=0.5] = 0
-ko_nmp_dat = ko_atac.sum(axis=0)
-print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.5482014271730806
+#ko_nmp_dat = ko_atac.sum(axis=0)
+#print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.5482014271730806
 #cosine_similarity(ko_nmp_dat.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
 
 
-# Sox2:    0.5535342709392107
-# T:       0.5481016622692945  ->  0.5482014271730806
-# Topors:  0.5504626938663995
-# Foxc2:   0.549615402837736
-# Pax6:    0.5488411971160208
-# Meox1:   0.5514782279644563
-# Gapdh:   0.5531658071787755
-# Cdx2:    0.5524539682534925  ->  0.5524502050378333
+dat = sc.AnnData(X=np.vstack([wt_som.X.toarray(), wt_nmp_pred.X.toarray(), ko_atac]),
+                 obs={'cell_anno': ['wt_som']*wt_som.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_atac.shape[0]}, 
+                 var=wt_som.var)
+dat.X = csr_matrix(dat.X)
+snap.pp.select_features(dat)
+snap.tl.spectral(dat)
+# snap.tl.umap(dat)
+# sc.pl.umap(dat, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True, save='_tmp.pdf')
+
+
+# wt_som_emb = dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'].mean(axis=0)
+# wt_nmp_emb = dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'].mean(axis=0)
+# ko_nmp_emb = dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'].mean(axis=0)
+
+
+# euclidean_distances(wt_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.510548742662955
+# euclidean_distances(ko_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.50987578529218
+
+tmp_wt = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
+tmp_ko = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
+(tmp_ko-tmp_wt).mean()  # 
+
+# T:       -1.3963882410711364e-05    6.576728361856176e-05(OE=30)
+# Foxc2:   -2.251992408442428e-05
+# Cdx2:    -4.121063161944933e-05
+# Topors； 6.717889443587699e-06
+
 
 
 ## KO & OE
