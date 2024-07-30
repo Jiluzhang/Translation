@@ -434,6 +434,9 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
                         -d preprocessed_data_test_nmp \
                         -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
 
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29824 rna2atac_test_ko.py \
+                        -d preprocessed_data_test_nmp_9516 \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
 
 import scanpy as sc
 import numpy as np
@@ -451,7 +454,7 @@ wt_som_dat = wt_som.X.toarray().sum(axis=0)
 
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='Ctcf').item()
+T_idx = np.argwhere(wt_rna.var.index=='T').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
 # wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
@@ -480,8 +483,6 @@ snap.tl.spectral(dat)
 # wt_som_emb = dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'].mean(axis=0)
 # wt_nmp_emb = dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'].mean(axis=0)
 # ko_nmp_emb = dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'].mean(axis=0)
-
-
 # euclidean_distances(wt_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.510548742662955
 # euclidean_distances(ko_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.50987578529218
 
