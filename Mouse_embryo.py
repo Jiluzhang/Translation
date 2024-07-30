@@ -283,6 +283,18 @@ nohup accelerate launch --config_file accelerator_config_test_2.yaml --main_proc
 # 2713293
 
 
+python data_preprocess.py -r rna_wt_nmp.h5ad -a atac_wt_nmp.h5ad -s ./preprocessed_data_test_nmp_9516 --dt test --config rna2atac_config_test.yaml  # 9516
+
+nohup accelerate launch --config_file accelerator_config_test_1.yaml --main_process_port 29822 rna2atac_test_ko_1.py \
+                        -d preprocessed_data_test_nmp_9516 \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml > predict_ko_1.log &
+# 3875769
+
+nohup accelerate launch --config_file accelerator_config_test_2.yaml --main_process_port 29823 rna2atac_test_ko_2.py \
+                        -d preprocessed_data_test_nmp_9516 \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml > predict_ko_2.log &
+# 3877373
+
 import sys
 import tqdm
 import argparse
@@ -439,62 +451,55 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
                         -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
 
 import scanpy as sc
+wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
+wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy().write('atac_wt_nmp.h5ad')
+wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy().write('atac_wt_som.h5ad')
+
+
+import argparse
+import scanpy as sc
 import numpy as np
 import snapatac2 as snap
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.stats import pearsonr
 
-wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
-wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
-wt_som = wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
-wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
-wt_som_dat = wt_som.X.toarray().sum(axis=0)
-#print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
+parser = argparse.ArgumentParser(description='In silico KO infers cell differentiation')
+parser.add_argument('-g', '--gene', type=str, help='gene name')
 
+wt_nmp_true = sc.read_h5ad('atac_wt_nmp.h5ad')
+wt_som_true = sc.read_h5ad('atac_wt_som.h5ad')
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='T').item()
+T_idx = np.argwhere(wt_rna.var.index=='Got2').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
-# wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
-# print(pearsonr(wt_nmp_dat_pred, wt_som_dat)[0])  # 0.553214528754214
-# cosine_similarity(wt_nmp_dat_pred.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
 
-ko_atac = np.load('predict_T.npy')
-ko_atac[ko_atac>0.5] = 1
-ko_atac[ko_atac<=0.5] = 0
-# ko_nmp_dat = ko_atac.sum(axis=0)
-# print(pearsonr(ko_nmp_dat, wt_som_dat)[0])  # 0.5482014271730806
-# cosine_similarity(ko_nmp_dat.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
+ko_nmp = np.load('gene_files/npy/Got2_predict.npy')
+ko_nmp[ko_nmp>0.5] = 1
+ko_nmp[ko_nmp<=0.5] = 0
 
-
-dat = sc.AnnData(X=np.vstack([wt_som.X.toarray(), wt_nmp_pred.X.toarray(), ko_atac]),
-                 obs={'cell_anno': ['wt_som']*wt_som.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_atac.shape[0]}, 
-                 var=wt_som.var)
+dat = sc.AnnData(X=np.vstack([wt_som_true.X.toarray(), wt_nmp_pred.X.toarray(), ko_nmp]),
+                 obs={'cell_anno': ['wt_som']*wt_som_true.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_nmp.shape[0]}, 
+                 var=wt_som_true.var)
 dat.X = csr_matrix(dat.X)
-snap.pp.select_features(dat)
+snap.pp.select_features(dat) #, n_features=10000)
 snap.tl.spectral(dat)
-# snap.tl.umap(dat)
-# sc.pl.umap(dat, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-#            title='', frameon=True, save='_tmp.pdf')
+
+wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
+ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
+(ko_r-wt_r).mean()  # 
 
 
-# wt_som_emb = dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'].mean(axis=0)
-# wt_nmp_emb = dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'].mean(axis=0)
-# ko_nmp_emb = dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'].mean(axis=0)
-# euclidean_distances(wt_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.510548742662955
-# euclidean_distances(ko_nmp_emb.reshape(1, -1), wt_som_emb.reshape(1, -1)).item()  # 13.50987578529218
+# from scipy import stats
+# stats.ttest_rel(ko_r.flatten(), wt_r.flatten())
 
-tmp_wt = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
-tmp_ko = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
-(tmp_ko-tmp_wt).mean()  # 
-
-# T:       -1.3963882410711364e-05    6.576728361856176e-05(OE=30)
-# Foxc2:   -2.251992408442428e-05
-# Cdx2:    -4.121063161944933e-05
-# Topors:  6.717889443587699e-06
-
+# enc_length: 8534
+# T:       -1.54024272004445e-05
+# Topors:  5.243919720902774e-06
+# Cdx2:    -3.87178734486313e-05
+# Ctcf:    0.0001503606044919368
+# Got2:    2.7477864537743706e-05
+# Tcea1:   -1.4352654955767388e-05
 
 
 ## KO & OE
