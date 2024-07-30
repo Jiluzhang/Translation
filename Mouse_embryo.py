@@ -283,11 +283,6 @@ nohup accelerate launch --config_file accelerator_config_test_2.yaml --main_proc
 # 2713293
 
 
-accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29824 rna2atac_test_ko.py \
-                        -d preprocessed_data_test_nmp \
-                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
-
-
 import sys
 import tqdm
 import argparse
@@ -435,6 +430,11 @@ if __name__ == "__main__":
     main()
 
 
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29824 rna2atac_test_ko.py \
+                        -d preprocessed_data_test_nmp \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml
+
+
 import scanpy as sc
 import numpy as np
 import snapatac2 as snap
@@ -445,13 +445,13 @@ from scipy.stats import pearsonr
 wt_atac = sc.read_h5ad('atac_wt_3_types.h5ad')
 wt_nmp = wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy()
 wt_som = wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
-#wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
-#wt_som_dat = wt_som.X.toarray().sum(axis=0)
+wt_nmp_dat = wt_nmp.X.toarray().sum(axis=0)
+wt_som_dat = wt_som.X.toarray().sum(axis=0)
 #print(pearsonr(wt_nmp_dat, wt_som_dat)[0])  # 0.9272885433004112
 
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='T').item()
+T_idx = np.argwhere(wt_rna.var.index=='Topors').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
 # wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
