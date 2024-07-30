@@ -268,11 +268,166 @@ mv predict.npy gene_files/predict_$gene.npy
 echo $gene done
 
 
-###############################################
-###############################################
-############################################### directly modify rna value before inputting to model ###############################################
-###############################################
-###############################################
+
+## KO genes directly before inputting to model
+python data_preprocess.py -r rna_wt_nmp.h5ad -a atac_wt_nmp.h5ad -s ./preprocessed_data_test_nmp --dt test --config rna2atac_config_test.yaml  # 8534 (8533+1)
+
+nohup accelerate launch --config_file accelerator_config_test_1.yaml --main_process_port 29822 rna2atac_test_ko_1.py \
+                        -d preprocessed_data_test_nmp \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml > predict_ko_1.log &
+# 347069
+
+nohup accelerate launch --config_file accelerator_config_test_2.yaml --main_process_port 29823 rna2atac_test_ko_2.py \
+                        -d preprocessed_data_test_nmp \
+                        -l save_mlt_40/2024-07-26_rna2atac_train_300/pytorch_model.bin --config_file rna2atac_config_test.yaml > predict_ko_2.log &
+# 347636
+
+import sys
+import tqdm
+import argparse
+import os
+import yaml
+import torch
+import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
+import torch.nn.functional as F
+
+sys.path.append("M2Mmodel")
+from M2M import M2M_rna2atac
+import datetime
+import time
+from torch.utils.tensorboard import SummaryWriter
+from sklearn.metrics import precision_score, roc_auc_score
+from utils import *
+
+torch.autograd.set_detect_anomaly=True
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+import scanpy as sc
+
+def main():
+    parser = argparse.ArgumentParser(description='evaluating script of M2M') #Luz parser = argparse.ArgumentParser(description='pretrain script of M2M')
+    
+    parser.add_argument('-d', '--data_dir', type=str, default=None, help="dir of preprocessed paired data")
+    parser.add_argument('-s', '--save', type=str, default="save", help="where tht model's state_dict should be saved at")
+    parser.add_argument('-n', '--name', type=str, help="the name of this project")
+    parser.add_argument('-c', '--config_file', type=str, default="rna2atac_config.yaml", help="config file for model parameters")
+    parser.add_argument('-l', '--load', type=str, default=None, help="if set, load previous model, path to previous model state_dict")
+    
+    args = parser.parse_args()
+    data_dir = args.data_dir
+    save_path = args.save
+    save_name = args.name
+    saved_model_path = args.load
+    config_file = args.config_file
+    
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
+    
+    batch_size = config["training"].get('batch_size')
+    SEED = config["training"].get('SEED')
+    lr = float(config["training"].get('lr'))
+    gamma_step = config["training"].get('gamma_step')
+    gamma = config["training"].get('gamma')
+    num_workers = config["training"].get('num_workers')
+    epoch = config["training"].get('epoch')
+    log_every = config["training"].get('log_every')
+
+    setup_seed(SEED)
+    accelerator = New_Accelerator(step_scheduler_with_optimizer = False)
+    
+    if os.path.isdir(data_dir):
+        files = os.listdir(data_dir)
+    else:
+        data_dir, files = os.path.split(data_dir)
+        files = [files]
+    
+    dataloader_kwargs = {'batch_size': batch_size, 'shuffle': False}
+    cuda_kwargs = {
+        "num_workers": num_workers,
+        'prefetch_factor': 2
+    }  
+    dataloader_kwargs.update(cuda_kwargs)
+    
+    with accelerator.main_process_first():
+        
+        model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1,
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +special tokens
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+            
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+        
+        if saved_model_path:
+            model.load_state_dict(torch.load(saved_model_path), strict=False)
+            accelerator.print("previous model loaded!")
+        else:
+            accelerator.print("warning: you haven't load previous model!")
+        
+    device = accelerator.device
+    model = accelerator.prepare(model)
+    model.eval()
+
+    wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+    wt_rna_nmp = wt_rna[wt_rna.obs['cell_anno']=='NMP']
+    gene_idx_lst = np.argwhere(np.count_nonzero(wt_rna_nmp.X.toarray(), axis=0)>(326/2)).flatten()  # 4203
+    
+    for gene_idx in gene_idx_lst:
+        gene_name = wt_rna_nmp.var.index[gene_idx]
+        y_hat_out = torch.Tensor()
+        with torch.no_grad():
+            files_iter = tqdm.tqdm(files, desc='Predicting KO '+gene_name, ncols=80, total=len(files)) if accelerator.is_main_process else files
+            for file in files_iter:
+                test_data = torch.load(os.path.join(data_dir, file))
+                idx = torch.where(test_data[0]==gene_idx)
+                if len(idx[0])!=0:
+                    test_data[0][idx] = 0  # rna idx ko
+                    test_data[1][idx] = 0  # rna val ko
+                    test_data[4][idx] = 0  # rna mask
+                    
+                    test_data[0] = test_data[0][idx[0]]
+                    test_data[1] = test_data[1][idx[0]]
+                    test_data[2] = test_data[2][idx[0]]
+                    test_data[3] = test_data[3][idx[0]]
+                    test_data[4] = test_data[4][idx[0]]
+                    
+                    test_dataset = PreDataset(test_data)
+                    test_loader = torch.utils.data.DataLoader(test_dataset, **dataloader_kwargs)
+                    test_loader = accelerator.prepare(test_loader)
+                    data_iter = enumerate(test_loader)
+                    
+                    for _, (rna_sequence, rna_value, atac_sequence, tgt, enc_pad_mask) in data_iter:
+                        # rna_value: b, n
+                        # rna_sequence: b, n, 6
+                        # rna_pad_mask: b, n
+                        # atac_sequence: b, n, 6
+                        # tgt: b, n (A 01 sequence)
+                        
+                        logist = model(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask) # b, n
+                        logist_hat = torch.sigmoid(logist)
+                        y_hat_out = torch.cat((y_hat_out, accelerator.gather_for_metrics(logist_hat).to('cpu')), dim=0)
+                        accelerator.wait_for_everyone()
+                    accelerator.free_dataloader()
+        
+        np.save('gene_files/npy/'+gene_name+'_predict.npy', y_hat_out.numpy())
+
+if __name__ == "__main__":
+    main()
+
 
 import scanpy as sc
 import numpy as np
@@ -291,7 +446,7 @@ wt_som = wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy()
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 T_idx = np.argwhere(wt_rna.var.index=='T').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
-wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()==0)].copy() # wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
+wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()==0)].copy()
 #wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
 #print(pearsonr(wt_nmp_dat_pred, wt_som_dat)[0])  # 0.553214528754214
 #cosine_similarity(wt_nmp_dat_pred.reshape([1, 271529]), wt_som_dat.reshape([1, 271529])).item()
