@@ -451,7 +451,7 @@ wt_som_dat = wt_som.X.toarray().sum(axis=0)
 
 
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='Topors').item()
+T_idx = np.argwhere(wt_rna.var.index=='Ctcf').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
 # wt_nmp_dat_pred = wt_nmp_pred.X.toarray().sum(axis=0)
@@ -492,7 +492,7 @@ tmp_ko = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'
 # T:       -1.3963882410711364e-05    6.576728361856176e-05(OE=30)
 # Foxc2:   -2.251992408442428e-05
 # Cdx2:    -4.121063161944933e-05
-# Topors； 6.717889443587699e-06
+# Topors:  6.717889443587699e-06
 
 
 
