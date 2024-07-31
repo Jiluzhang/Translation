@@ -465,7 +465,8 @@ from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import pandas as pd
-
+from multiprocessing import Pool
+    
 parser = argparse.ArgumentParser(description='In silico KO infers cell differentiation')
 parser.add_argument('-g', '--genes', type=str, help='gene files')
 
@@ -482,8 +483,7 @@ wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 delta_r = []
 
-#for gene in tqdm(gene_lst, ncols=80, desc='In silico KO'):
-def cal_delta_r(gene):
+for gene in tqdm(gene_lst, ncols=80, desc='In silico KO'):
     gene_idx = np.argwhere(wt_rna.var.index==gene).item()
     wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, gene_idx].toarray().flatten()!=0)].copy()
     
@@ -495,14 +495,30 @@ def cal_delta_r(gene):
                      obs={'cell_anno': ['wt_som']*wt_som_true.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_nmp.shape[0]}, 
                      var=wt_som_true.var)
     dat.X = csr_matrix(dat.X)
-    snap.pp.select_features(dat)
+    snap.pp.select_features(dat, verbose=False)
     snap.tl.spectral(dat)
     
     wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
     ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
-    delta_r.append((ko_r-wt_r).mean())
+    pd.DataFrame({'gene':[gene], 'delta_r':[(ko_r-wt_r).mean()]}).to_csv('gene_files/delta_r/'+gene+'_delta_r_out.txt', index=None, header=None, sep='\t')
 
-pd.DataFrame({'gene':gene_lst, 'delta_r':delta_r}).to_csv(gene_file.replace('.txt', '')+'_out.txt', index=None, header=None, sep='\t')
+
+sed -n '1,1000p' gene_lst.txt > gene_lst_p1.txt
+sed -n '1001,2000p' gene_lst.txt > gene_lst_p2.txt
+sed -n '2001,3000p' gene_lst.txt > gene_lst_p3.txt
+sed -n '3001,4000p' gene_lst.txt > gene_lst_p4.txt
+sed -n '4001,4203p' gene_lst.txt > gene_lst_p5.txt
+
+nohup python cal_delt_r.py -g gene_lst_p1.txt > gene_lst_p1.log &   # 1003529
+nohup python cal_delt_r.py -g gene_lst_p2.txt > gene_lst_p2.log &   # 1003530
+nohup python cal_delt_r.py -g gene_lst_p3.txt > gene_lst_p3.log &   # 1003531
+nohup python cal_delt_r.py -g gene_lst_p4.txt > gene_lst_p4.log &   # 1003532
+nohup python cal_delt_r.py -g gene_lst_p5.txt > gene_lst_p5.log &   # 1003533
+
+# with Pool(1) as p:
+#     p.map(cal_delta_r, gene_lst[:1])
+
+
 
 
 # from sklearn.manifold import SpectralEmbedding
