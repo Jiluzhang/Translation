@@ -456,38 +456,68 @@ wt_atac[wt_atac.obs['cell_anno']=='NMP'].copy().write('atac_wt_nmp.h5ad')
 wt_atac[wt_atac.obs['cell_anno']=='Somitic_mesoderm'].copy().write('atac_wt_som.h5ad')
 
 
+## python cal_delt_r.py -g gene_lst.txt 
 import argparse
 import scanpy as sc
 import numpy as np
 import snapatac2 as snap
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
+import pandas as pd
 
 parser = argparse.ArgumentParser(description='In silico KO infers cell differentiation')
-parser.add_argument('-g', '--gene', type=str, help='gene name')
+parser.add_argument('-g', '--genes', type=str, help='gene files')
+
+args = parser.parse_args()
+gene_file = args.genes
+gene_lst = []
+with open(gene_file, 'r') as f:
+    for line in f:
+        gene_lst.append(line.strip('\n'))
 
 wt_nmp_true = sc.read_h5ad('atac_wt_nmp.h5ad')
 wt_som_true = sc.read_h5ad('atac_wt_som.h5ad')
-
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
-T_idx = np.argwhere(wt_rna.var.index=='Got2').item()
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
-wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, T_idx].toarray().flatten()!=0)].copy()
+delta_r = []
 
-ko_nmp = np.load('gene_files/npy/Got2_predict.npy')
-ko_nmp[ko_nmp>0.5] = 1
-ko_nmp[ko_nmp<=0.5] = 0
+#for gene in tqdm(gene_lst, ncols=80, desc='In silico KO'):
+def cal_delta_r(gene):
+    gene_idx = np.argwhere(wt_rna.var.index==gene).item()
+    wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, gene_idx].toarray().flatten()!=0)].copy()
+    
+    ko_nmp = np.load('gene_files/npy/'+gene+'_predict.npy')
+    ko_nmp[ko_nmp>0.5] = 1
+    ko_nmp[ko_nmp<=0.5] = 0
+    
+    dat = sc.AnnData(X=np.vstack([wt_som_true.X.toarray(), wt_nmp_pred.X.toarray(), ko_nmp]),
+                     obs={'cell_anno': ['wt_som']*wt_som_true.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_nmp.shape[0]}, 
+                     var=wt_som_true.var)
+    dat.X = csr_matrix(dat.X)
+    snap.pp.select_features(dat)
+    snap.tl.spectral(dat)
+    
+    wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
+    ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
+    delta_r.append((ko_r-wt_r).mean())
 
-dat = sc.AnnData(X=np.vstack([wt_som_true.X.toarray(), wt_nmp_pred.X.toarray(), ko_nmp]),
-                 obs={'cell_anno': ['wt_som']*wt_som_true.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_nmp.shape[0]}, 
-                 var=wt_som_true.var)
-dat.X = csr_matrix(dat.X)
-snap.pp.select_features(dat) #, n_features=10000)
-snap.tl.spectral(dat)
+pd.DataFrame({'gene':gene_lst, 'delta_r':delta_r}).to_csv(gene_file.replace('.txt', '')+'_out.txt', index=None, header=None, sep='\t')
 
-wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
-ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
-(ko_r-wt_r).mean()  # 
+
+# from sklearn.manifold import SpectralEmbedding
+# embedding = SpectralEmbedding(n_components=20)
+# spec_model = embedding.fit(wt_som_true.X.toarray())
+# som = spec_model.fit_transform(wt_som_true.X.toarray())
+# wt = spec_model.fit_transform(wt_nmp_pred.X.toarray())
+# ko = spec_model.fit_transform(ko_nmp)
+# wt_r = cosine_similarity(wt, som)
+# ko_r = cosine_similarity(ko, som)
+# (ko_r-wt_r).mean()
+
+# wt_r = cosine_similarity(wt_nmp_pred.X.toarray(), wt_som_true.X.toarray())
+# ko_r = cosine_similarity(ko_nmp, wt_som_true.X.toarray())
+# (ko_r-wt_r).mean()
 
 
 # from scipy import stats
