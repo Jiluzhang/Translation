@@ -534,6 +534,8 @@ nohup python cal_delt_r.py -g gene_lst_p3.txt > gene_lst_p3.log &   # 1003531
 nohup python cal_delt_r.py -g gene_lst_p4.txt > gene_lst_p4.log &   # 1003532
 nohup python cal_delt_r.py -g gene_lst_p5.txt > gene_lst_p5.log &   # 1003533
 nohup python cal_delt_r.py -g gene_lst_p2_rest.txt > gene_lst_p2_rest.log &   # 1149453
+nohup python cal_delt_r.py -g gene_lst_p3_rest.txt > gene_lst_p3_rest.log &   # 1186945
+nohup python cal_delt_r.py -g gene_lst_p4_rest.txt > gene_lst_p4_rest.log &   # 1187294
 
 # with Pool(1) as p:
 #     p.map(cal_delta_r, gene_lst[:1])
