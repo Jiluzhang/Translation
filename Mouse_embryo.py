@@ -499,9 +499,9 @@ for gene in tqdm(gene_lst, ncols=80, desc='In silico KO'):
     snap.tl.spectral(dat)
     
     wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
-    # pd.DataFrame(wt_r).to_csv('wt_r_T.txt', header=False, index=False, sep='\t')
+    # pd.DataFrame(wt_r).to_csv('wt_r_'+gene+'.txt', header=False, index=False, sep='\t')
     ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
-    # pd.DataFrame(ko_r).to_csv('ko_r_T.txt', header=False, index=False, sep='\t')
+    # pd.DataFrame(ko_r).to_csv('ko_r_'+gene+'.txt', header=False, index=False, sep='\t')
     
     pd.DataFrame({'gene':[gene], 'delta_r':[(ko_r-wt_r).mean()]}).to_csv('gene_files/delta_r/'+gene+'_delta_r_out.txt', index=None, header=None, sep='\t')
 
@@ -511,32 +511,14 @@ from plotnine import *
 import pandas as pd
 import numpy as np
 
-wt = pd.read_table('wt_r_T.txt', header=None)
-ko = pd.read_table('ko_r_T.txt', header=None)
-df = pd.DataFrame({'type':(['wt']*wt.shape[0]*wt.shape[1]+['ko']*ko.shape[0]*wt.shape[1]),
-                   'val': list(wt.values.flatten())+list(ko.values.flatten())})
-p = ggplot(df, aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False, outlier_shape='') + \
-                                                      scale_y_continuous(limits=[0.2, 0.4], breaks=np.arange(0.2, 0.4+0.01, 0.05)) + theme_bw()
-p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
-
-
-wt = pd.read_table('wt_r_T.txt', header=None)
-ko = pd.read_table('ko_r_T.txt', header=None)
-df = pd.DataFrame({'type':(['wt']*wt.shape[0]+['ko']*ko.shape[0]),
-                   'val': list(wt.mean(axis=1).values)+list(ko.mean(axis=1).values)})
-p = ggplot(df, aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False, outlier_shape='') + \
-                                                      scale_y_continuous(limits=[0.2, 0.4], breaks=np.arange(0.2, 0.4+0.01, 0.05)) + theme_bw()
-p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
-
-
-########################################################################################################################################################################
-wt = pd.read_table('wt_r_T.txt', header=None)
-ko = pd.read_table('ko_r_T.txt', header=None)
-df = pd.DataFrame({'type':(['wt']*wt.shape[0]),
-                   'val': wt.mean(axis=1).values-ko.mean(axis=1).values})
-p = ggplot(df, aes(x='type', y='val')) + geom_boxplot(show_legend=False, outlier_shape='') + \
-                                         scale_y_continuous(limits=[-0.0001, 0.0001], breaks=np.arange(-0.0001, 0.0001+0.00001, 0.00002)) + theme_bw()
-p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
+gene = 'Nop56'
+wt = pd.read_table('wt_r_'+gene+'.txt', header=None)
+ko = pd.read_table('ko_r_'+gene+'.txt', header=None)
+df = pd.DataFrame({'type':([gene]*wt.shape[0]*wt.shape[1]),
+                   'Delta_r': (ko.values-wt.values).flatten()})
+p = ggplot(df, aes(x='type', y='Delta_r')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                             scale_y_continuous(limits=[-0.0010, 0.0008], breaks=np.arange(-0.0010, 0.0008+0.00001, 0.0002)) + theme_bw()
+p.save(filename='wt_ko_r_'+gene+'.pdf', dpi=100, height=4, width=4)
 ########################################################################################################################################################################
 
 
