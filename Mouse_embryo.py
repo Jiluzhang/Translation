@@ -499,8 +499,45 @@ for gene in tqdm(gene_lst, ncols=80, desc='In silico KO'):
     snap.tl.spectral(dat)
     
     wt_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='wt_nmp'].obsm['X_spectral'])
+    # pd.DataFrame(wt_r).to_csv('wt_r_T.txt', header=False, index=False, sep='\t')
     ko_r = cosine_similarity(dat[dat.obs['cell_anno']=='wt_som'].obsm['X_spectral'], dat[dat.obs['cell_anno']=='ko_nmp'].obsm['X_spectral'])
+    # pd.DataFrame(ko_r).to_csv('ko_r_T.txt', header=False, index=False, sep='\t')
+    
     pd.DataFrame({'gene':[gene], 'delta_r':[(ko_r-wt_r).mean()]}).to_csv('gene_files/delta_r/'+gene+'_delta_r_out.txt', index=None, header=None, sep='\t')
+
+
+## plot box
+from plotnine import *
+import pandas as pd
+import numpy as np
+
+wt = pd.read_table('wt_r_T.txt', header=None)
+ko = pd.read_table('ko_r_T.txt', header=None)
+df = pd.DataFrame({'type':(['wt']*wt.shape[0]*wt.shape[1]+['ko']*ko.shape[0]*wt.shape[1]),
+                   'val': list(wt.values.flatten())+list(ko.values.flatten())})
+p = ggplot(df, aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False, outlier_shape='') + \
+                                                      scale_y_continuous(limits=[0.2, 0.4], breaks=np.arange(0.2, 0.4+0.01, 0.05)) + theme_bw()
+p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
+
+
+wt = pd.read_table('wt_r_T.txt', header=None)
+ko = pd.read_table('ko_r_T.txt', header=None)
+df = pd.DataFrame({'type':(['wt']*wt.shape[0]+['ko']*ko.shape[0]),
+                   'val': list(wt.mean(axis=1).values)+list(ko.mean(axis=1).values)})
+p = ggplot(df, aes(x='type', y='val', fill='type')) + geom_boxplot(show_legend=False, outlier_shape='') + \
+                                                      scale_y_continuous(limits=[0.2, 0.4], breaks=np.arange(0.2, 0.4+0.01, 0.05)) + theme_bw()
+p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
+
+
+########################################################################################################################################################################
+wt = pd.read_table('wt_r_T.txt', header=None)
+ko = pd.read_table('ko_r_T.txt', header=None)
+df = pd.DataFrame({'type':(['wt']*wt.shape[0]),
+                   'val': wt.mean(axis=1).values-ko.mean(axis=1).values})
+p = ggplot(df, aes(x='type', y='val')) + geom_boxplot(show_legend=False, outlier_shape='') + \
+                                         scale_y_continuous(limits=[-0.0001, 0.0001], breaks=np.arange(-0.0001, 0.0001+0.00001, 0.00002)) + theme_bw()
+p.save(filename='wt_ko_r_T.pdf', dpi=100, height=4, width=4)
+########################################################################################################################################################################
 
 
 sed -n '1,1000p' gene_lst.txt > gene_lst_p1.txt
@@ -514,6 +551,7 @@ nohup python cal_delt_r.py -g gene_lst_p2.txt > gene_lst_p2.log &   # 1003530
 nohup python cal_delt_r.py -g gene_lst_p3.txt > gene_lst_p3.log &   # 1003531
 nohup python cal_delt_r.py -g gene_lst_p4.txt > gene_lst_p4.log &   # 1003532
 nohup python cal_delt_r.py -g gene_lst_p5.txt > gene_lst_p5.log &   # 1003533
+nohup python cal_delt_r.py -g gene_lst_p2_rest.txt > gene_lst_p2_rest.log &   # 1149453
 
 # with Pool(1) as p:
 #     p.map(cal_delta_r, gene_lst[:1])
@@ -552,14 +590,20 @@ nohup python cal_delt_r.py -g gene_lst_p5.txt > gene_lst_p5.log &   # 1003533
 ## stablize cell identity
 ################################### KO data is necessary? ##################################
 
-
+import scanpy as sc
+import numpy as np
+import snapatac2 as snap
+from scipy.sparse import csr_matrix
+from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
+import matplotlib.pyplot as plt
 
 wt_nmp_true = sc.read_h5ad('atac_wt_nmp.h5ad')
 wt_som_true = sc.read_h5ad('atac_wt_som.h5ad')
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 
-gene = 'Cdx2'
+gene = 'Nop56' 
 gene_idx = np.argwhere(wt_rna.var.index==gene).item()
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, gene_idx].toarray().flatten()!=0)].copy()
 
@@ -574,29 +618,67 @@ dat.X = csr_matrix(dat.X)
 snap.pp.select_features(dat, verbose=False)
 snap.tl.spectral(dat)
 snap.tl.umap(dat)
-sc.pl.umap(dat, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_tmp_new.pdf')
 
-import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(10, 8))
+sc.pl.umap(dat, ax=ax, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True)
+
 start_indices = list(range(wt_som_true.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]))
 end_indices = list(range(wt_som_true.shape[0]+wt_nmp_pred.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]+ko_nmp.shape[0]))
+# red_cnt = 0
+# blue_cnt = 0
 for start_idx, end_idx in zip(start_indices, end_indices):
     arrow_start = dat.obsm['X_umap'][start_idx]
     arrow_end = dat.obsm['X_umap'][end_idx]
+    # if arrow_start[0]<arrow_end[0]:
+    #     arrow_color = 'red'
+    #     red_cnt += 1
+    # else:
+    #     arrow_color = 'blue'
+    #     blue_cnt += 1
     arrow_vector = arrow_end - arrow_start
-    plt.arrow(arrow_start[0], arrow_start[1],
-              arrow_vector[0], arrow_vector[1],
-              head_width=0.1, head_length=0.1, fc='k', ec='k')
-plt.savefig('umap_tmp_new.pdf')
+    ax.arrow(arrow_start[0], arrow_start[1],
+             arrow_vector[0], arrow_vector[1],
+             head_width=0.1, head_length=0.1, edgecolor='black')
+plt.savefig('figures/umap_'+gene+'_ko.pdf')
 plt.close()
 
 
+# Average cells
+# fig, ax = plt.subplots(figsize=(10, 8))
+# sc.pl.umap(dat, ax=ax, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True)
+
+# start_indices = list(range(wt_som_true.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]))
+# end_indices = list(range(wt_som_true.shape[0]+wt_nmp_pred.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]+ko_nmp.shape[0]))
+# arrow_start = dat.obsm['X_umap'][start_indices].mean(axis=0)
+# arrow_end = dat.obsm['X_umap'][end_indices].mean(axis=0)
+# arrow_vector = arrow_end - arrow_start
+# ax.arrow(arrow_start[0], arrow_start[1],
+#           arrow_vector[0], arrow_vector[1],
+#           head_width=0.1, head_length=0.1, edgecolor='red')
+# plt.savefig('figures/umap_'+gene+'_ko_agg.pdf')
+# plt.close()
 
 
 
+## Extract top TFs
+# cat * > TFs_delta_r.txt  # 3058
+import pandas as pd
 
+df = pd.read_table('TFs_delta_r.txt', header=None)
+df.index = df[0].values
+del df[0]
+df.columns = ['delta_r']
+df.sort_values('delta_r').head(1)                       # Nop56 -0.000193
+df.sort_values('delta_r', ascending=False).head(1)      # Snrpa  0.000323
 
+df.sort_values('delta_r').head(10)
+pd.DataFrame({'gene': df.sort_values('delta_r').index[:100]}).to_csv('TFs_top100_neg.txt', header=None, index=None)
 
+df.sort_values('delta_r', ascending=False).head(10)
+pd.DataFrame({'gene': df.sort_values('delta_r', ascending=False).index[:100]}).to_csv('TFs_top100_pos.txt', header=None, index=None)
 
 
 
