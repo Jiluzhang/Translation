@@ -554,10 +554,41 @@ nohup python cal_delt_r.py -g gene_lst_p5.txt > gene_lst_p5.log &   # 1003533
 
 
 
+wt_nmp_true = sc.read_h5ad('atac_wt_nmp.h5ad')
+wt_som_true = sc.read_h5ad('atac_wt_som.h5ad')
+wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
+wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 
+gene = 'Cdx2'
+gene_idx = np.argwhere(wt_rna.var.index==gene).item()
+wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, gene_idx].toarray().flatten()!=0)].copy()
 
+ko_nmp = np.load('gene_files/npy/'+gene+'_predict.npy')
+ko_nmp[ko_nmp>0.5] = 1
+ko_nmp[ko_nmp<=0.5] = 0
 
+dat = sc.AnnData(X=np.vstack([wt_som_true.X.toarray(), wt_nmp_pred.X.toarray(), ko_nmp]),
+                 obs={'cell_anno': ['wt_som']*wt_som_true.shape[0]+['wt_nmp']*wt_nmp_pred.shape[0]+['ko_nmp']*ko_nmp.shape[0]}, 
+                 var=wt_som_true.var)
+dat.X = csr_matrix(dat.X)
+snap.pp.select_features(dat, verbose=False)
+snap.tl.spectral(dat)
+snap.tl.umap(dat)
+sc.pl.umap(dat, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_tmp_new.pdf')
 
+import matplotlib.pyplot as plt
+start_indices = list(range(wt_som_true.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]))
+end_indices = list(range(wt_som_true.shape[0]+wt_nmp_pred.shape[0], wt_som_true.shape[0]+wt_nmp_pred.shape[0]+ko_nmp.shape[0]))
+for start_idx, end_idx in zip(start_indices, end_indices):
+    arrow_start = dat.obsm['X_umap'][start_idx]
+    arrow_end = dat.obsm['X_umap'][end_idx]
+    arrow_vector = arrow_end - arrow_start
+    plt.arrow(arrow_start[0], arrow_start[1],
+              arrow_vector[0], arrow_vector[1],
+              head_width=0.1, head_length=0.1, fc='k', ec='k')
+plt.savefig('umap_tmp_new.pdf')
+plt.close()
 
 
 
