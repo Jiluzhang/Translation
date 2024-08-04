@@ -511,13 +511,13 @@ from plotnine import *
 import pandas as pd
 import numpy as np
 
-gene = 'Nop56'
+gene = 'G2e3'
 wt = pd.read_table('wt_r_'+gene+'.txt', header=None)
 ko = pd.read_table('ko_r_'+gene+'.txt', header=None)
 df = pd.DataFrame({'type':([gene]*wt.shape[0]*wt.shape[1]),
                    'Delta_r': (ko.values-wt.values).flatten()})
 p = ggplot(df, aes(x='type', y='Delta_r')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                             scale_y_continuous(limits=[-0.0010, 0.0008], breaks=np.arange(-0.0010, 0.0008+0.00001, 0.0002)) + theme_bw()
+                                             scale_y_continuous(limits=[-0.0006, 0.0010], breaks=np.arange(-0.0006, 0.0010+0.00001, 0.0002)) + theme_bw()
 p.save(filename='wt_ko_r_'+gene+'.pdf', dpi=100, height=4, width=4)
 ########################################################################################################################################################################
 
@@ -587,7 +587,7 @@ wt_som_true = sc.read_h5ad('atac_wt_som.h5ad')
 wt_rna = sc.read_h5ad('rna_wt_3_types.h5ad')
 wt_atac_pred = sc.read_h5ad('mlt_40_predict/rna2atac_scm2m_binary.h5ad')
 
-gene = 'Nop56' 
+gene = 'G2e3' 
 gene_idx = np.argwhere(wt_rna.var.index==gene).item()
 wt_nmp_pred = wt_atac_pred[(wt_rna.obs['cell_anno']=='NMP') & (wt_rna.X[:, gene_idx].toarray().flatten()!=0)].copy()
 
@@ -648,7 +648,7 @@ plt.close()
 
 
 ## Extract top TFs
-# cat * > TFs_delta_r.txt  # 3058
+# cat out/* > TFs_delta_r.txt  # 4203
 import pandas as pd
 
 df = pd.read_table('TFs_delta_r.txt', header=None)
@@ -656,16 +656,10 @@ df.index = df[0].values
 del df[0]
 df.columns = ['delta_r']
 df.sort_values('delta_r').head(1)                       # Nop56 -0.000193
-df.sort_values('delta_r', ascending=False).head(1)      # Snrpa  0.000323
+df.sort_values('delta_r', ascending=False).head(1)      # G2e3  0.000342
 
 df.sort_values('delta_r').head(10)
 pd.DataFrame({'gene': df.sort_values('delta_r').index[:100]}).to_csv('TFs_top100_neg.txt', header=None, index=None)
 
 df.sort_values('delta_r', ascending=False).head(10)
 pd.DataFrame({'gene': df.sort_values('delta_r', ascending=False).index[:100]}).to_csv('TFs_top100_pos.txt', header=None, index=None)
-
-
-
-
-
-
