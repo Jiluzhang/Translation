@@ -1575,7 +1575,7 @@ model.load_state_dict(torch.load('./save/2024-07-11_rna2atac_train_1/pytorch_mod
 dataset = PreDataset(data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = select_least_used_gpu()
+device = torch.device('cuda:2') #device = select_least_used_gpu()
 model.to(device)
 
 rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
@@ -1619,6 +1619,66 @@ for inputs in loader:
         break
 
     p += 1
+
+
+
+i = 0
+p = 0
+gene_lst = rna.var.iloc[np.argwhere(rna.X[0].toarray()[0]!=0).flatten()].index
+zeros = torch.zeros([atac.shape[1], 1])
+
+from tqdm import tqdm
+for inputs in loader:
+    if rna.obs.cell_anno.values[p]=='Tumor':
+        rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+        attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+        attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+        
+        dat = torch.Tensor()
+        for g in tqdm(gene_lst, ncols=80):
+            idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
+            if len(idx)!=0:
+                dat = torch.cat([dat, attn[:, [idx.item()]]], axis=1)
+            else:
+                dat = torch.cat([dat, zeros], axis=1)
+    torch.cuda.empty_cache()
+    break
+
+        import random
+        random.seed(0)
+        rad_idx = random.sample(list(range(atac.shape[1])), k=10000)
+        df = pd.DataFrame(dat[rad_idx, :][:, ([366, 698]+list(range(200)))])
+        df.columns = gene_lst[[366, 698]+list(range(200))]
+        # df_rank = df.rank(axis=0)
+
+        from sklearn.metrics.pairwise import cosine_similarity
+        cosine_similarity(df['PAX8'].values.reshape(1, -1), df['MECOM'].values.reshape(1, -1)).item()  # 0.038373351097106934
+        pax8_lst = [cosine_similarity(df['PAX8'].values.reshape(1, -1), df.iloc[:, i].values.reshape(1, -1)).item() for i in range(100)]
+
+        from scipy.stats import pearsonr
+        pearsonr(df['PAX8'], df['MECOM'])[0]  # 0.018551660027068803
+        pax8_lst = [pearsonr(df['PAX8'], df.iloc[:, i])[0] for i in range(100)]
+        sum(np.array(pax8_lst)>pearsonr(df['PAX8'], df['MECOM'])[0])  # 2
+
+        # from sklearn.cluster import KMeans
+        # kmeans = KMeans(n_clusters=2)
+        # clusters = kmeans.fit_predict(df)
+        #plt.figure(figsize=(20, 5))
+        sns.clustermap(df, metric='correlation', cmap='Reds', row_cluster=False, vmin=0, vmax=0.001, yticklabels=False, figsize=[40, 5])  #sns.heatmap(df, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
+        plt.savefig('tmp.png')
+        plt.close()
+        
+        i += 1
+        torch.cuda.empty_cache()
+        print(str(i), 'cell done')
+    
+    if i==3:
+        break
+
+    p += 1
+
+
+
 
 
 ###### same tfs in different cell
