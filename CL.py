@@ -1575,7 +1575,7 @@ model.load_state_dict(torch.load('./save/2024-07-11_rna2atac_train_1/pytorch_mod
 dataset = PreDataset(data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = torch.device('cuda:2') #device = select_least_used_gpu()
+device = torch.device('cuda:7') #device = select_least_used_gpu()
 model.to(device)
 
 rna  = sc.read_h5ad('VF026V1-S1_rna.h5ad')
@@ -1647,8 +1647,8 @@ for inputs in loader:
         import random
         random.seed(0)
         rad_idx = random.sample(list(range(atac.shape[1])), k=10000)
-        df = pd.DataFrame(dat[rad_idx, :][:, ([366, 698]+list(range(200)))])
-        df.columns = gene_lst[[366, 698]+list(range(200))]
+        df = pd.DataFrame(dat[rad_idx, :])
+        df.columns = gene_lst[:df.shape[1]]
         # df_rank = df.rank(axis=0)
 
         from sklearn.metrics.pairwise import cosine_similarity
@@ -1657,7 +1657,7 @@ for inputs in loader:
 
         from scipy.stats import pearsonr
         pearsonr(df['PAX8'], df['MECOM'])[0]  # 0.018551660027068803
-        pax8_lst = [pearsonr(df['PAX8'], df.iloc[:, i])[0] for i in range(100)]
+        pax8_lst = [pearsonr(df['PAX8'], df.iloc[:, i])[0] for i in range(500)]
         sum(np.array(pax8_lst)>pearsonr(df['PAX8'], df['MECOM'])[0])  # 2
 
         # from sklearn.cluster import KMeans
