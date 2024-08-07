@@ -1627,22 +1627,33 @@ p = 0
 gene_lst = rna.var.iloc[np.argwhere(rna.X[0].toarray()[0]!=0).flatten()].index
 zeros = torch.zeros([atac.shape[1], 1])
 
+a = 0
 from tqdm import tqdm
 for inputs in loader:
     if rna.obs.cell_anno.values[p]=='Tumor':
-        rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
-        attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
-        attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
-        
-        dat = torch.Tensor()
-        for g in tqdm(gene_lst, ncols=80):
-            idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
-            if len(idx)!=0:
-                dat = torch.cat([dat, attn[:, [idx.item()]]], axis=1)
-            else:
-                dat = torch.cat([dat, zeros], axis=1)
+        a += 1
+        if a==2:
+            rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+            attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+            # attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+            
+            dat = torch.Tensor()
+            for g in tqdm(gene_lst, ncols=80):
+                idx = torch.argwhere(rna_sequence[0]==(np.argwhere(rna.var.index==g)[0][0]+1))
+                if len(idx)!=0:
+                    dat = torch.cat([dat, attn[:, [idx.item()]]], axis=1)
+                else:
+                    dat = torch.cat([dat, zeros], axis=1)
     torch.cuda.empty_cache()
     break
+
+
+# dat_df = pd.DataFrame(dat)
+# df = dat_df[0][(dat_df[0]<1) & (dat_df[0]>0.001)]
+# #df = dat_df[3].apply(np.log)
+# df.hist(bins=200)
+# plt.savefig('hist.png')
+# plt.close()  # close to normal distribution
 
         import random
         random.seed(0)
@@ -1651,20 +1662,24 @@ for inputs in loader:
         df.columns = gene_lst[:df.shape[1]]
         # df_rank = df.rank(axis=0)
 
-        from sklearn.metrics.pairwise import cosine_similarity
-        cosine_similarity(df['PAX8'].values.reshape(1, -1), df['MECOM'].values.reshape(1, -1)).item()  # 0.038373351097106934
-        pax8_lst = [cosine_similarity(df['PAX8'].values.reshape(1, -1), df.iloc[:, i].values.reshape(1, -1)).item() for i in range(100)]
+        # from sklearn.metrics.pairwise import cosine_similarity
+        # cosine_similarity(df['PAX8'].values.reshape(1, -1), df['MECOM'].values.reshape(1, -1)).item()  # 0.038373351097106934
+        # pax8_lst = [cosine_similarity(df['PAX8'].values.reshape(1, -1), df.iloc[:, i].values.reshape(1, -1)).item() for i in range(100)]
 
-        from scipy.stats import pearsonr
-        pearsonr(df['PAX8'], df['MECOM'])[0]  # 0.018551660027068803
-        pax8_lst = [pearsonr(df['PAX8'], df.iloc[:, i])[0] for i in range(500)]
-        sum(np.array(pax8_lst)>pearsonr(df['PAX8'], df['MECOM'])[0])  # 2
+        # from scipy.stats import pearsonr
+        # pearsonr(df['PAX8'], df['MECOM'])[0]  # 0.018551660027068803
+        # pax8_lst = [pearsonr(df['PAX8'], df.iloc[:, i])[0] for i in range(500)]
+        # sum(np.array(pax8_lst)>pearsonr(df['PAX8'], df['MECOM'])[0])  # 2
 
         # from sklearn.cluster import KMeans
         # kmeans = KMeans(n_clusters=2)
         # clusters = kmeans.fit_predict(df)
         #plt.figure(figsize=(20, 5))
-        sns.clustermap(df, metric='correlation', cmap='Reds', row_cluster=False, vmin=0, vmax=0.001, yticklabels=False, figsize=[40, 5])  #sns.heatmap(df, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
+        df = pd.DataFrame(dat[:, :10]).copy()
+        df.columns = gene_lst[:df.shape[1]]
+        df[df>0.001] = 1
+        df[df<0.001] = 0
+        sns.clustermap(df, cmap='Reds', row_cluster=False, col_cluster=False, vmin=0, vmax=0.01, yticklabels=False, figsize=[40, 5])  #sns.heatmap(df, cmap='Reds', vmin=0, vmax=0.01, yticklabels=False)
         plt.savefig('tmp.png')
         plt.close()
         
@@ -2180,10 +2195,10 @@ for i in range(len(data)):
 dataset = PreDataset(tumor_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = select_least_used_gpu()
+device = torch.device('cuda:7')  # device = select_least_used_gpu()
 model.to(device)
 
-###### same tfs in different cell
+###### with min-max normalization
 i = 0
 for inputs in loader:
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
@@ -2250,6 +2265,77 @@ p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf'
                                               scale_y_continuous(limits=[0, 50000], breaks=np.arange(0, 50000+1, 10000)) + \
                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
 p.save(filename='tumor_top20_lollipp.pdf', dpi=600, height=4, width=5)
+
+
+###### without min-max normalization
+i = 0
+for inputs in loader:
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    # attn = (attn[0]-attn[0].min())/(attn[0].max()-attn[0].min())
+    # attn[attn<(1e-5)] = 0
+    attn = attn[0].to(torch.float16)
+    with h5py.File('attn_tumor_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    
+    i += 1
+    torch.cuda.empty_cache()
+    print(str(i), 'cell done')
+    
+    if i==20:
+        break
+
+
+rna_tumor_20 = rna[tumor_idx].copy()
+nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
+tf_lst = rna.var.index[nonzero>=5]
+
+tf_attn = {}
+tf_exp_cnt = {}
+for tf in tf_lst:
+    tf_attn[tf] = set()
+    #tf_exp_cnt[tf] = 0
+
+for i in range(3):#for i in range(20):
+    rna_sequence = tumor_data[0][i].flatten()
+    with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
+            if len(idx)!=0:
+                tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
+                #tf_exp_cnt[tf] += 1
+            
+# from multiprocessing import Pool
+# def cnt(tf):
+#     return sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
+
+# with Pool(20) as p:
+#     tf_peak_cnt = p.map(cnt, tf_lst)
+
+tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
+
+df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+df.to_csv('tumor_tf_peak_0.01_no_norm.txt', sep='\t', header=None, index=None)
+
+## plot lollipop
+import pandas as pd
+import numpy as np
+from plotnine import *
+
+df = pd.read_csv('tumor_tf_peak_0.01_no_norm.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df_top20 = df.sort_values('cnt', ascending=False)[:20]
+tf_top20 = list(df_top20['tf'])
+tf_top20.reverse()
+df_top20['tf'] = pd.Categorical(df_top20['tf'], categories=tf_top20)
+
+p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf', y=0, yend='cnt'), color='red', size=1) + \
+                                              geom_point(color='red', size=3) + coord_flip() + \
+                                              xlab('Genes') + ylab('Count') + labs(title='Tumor cells') + \
+                                              scale_y_continuous(limits=[0, 50000], breaks=np.arange(0, 50000+1, 10000)) + \
+                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+p.save(filename='tumor_top20_lollipp_no_norm.pdf', dpi=600, height=4, width=5)
 
 
 ## fibroblasts
