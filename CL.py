@@ -2195,7 +2195,7 @@ for i in range(len(data)):
 dataset = PreDataset(tumor_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = torch.device('cuda:0')  # device = select_least_used_gpu()
+device = torch.device('cuda:4')  # device = select_least_used_gpu()
 model.to(device)
 
 ###### with min-max normalization
@@ -2293,29 +2293,32 @@ tf_lst = rna.var.index[nonzero>=5]
 tf_attn = {}
 tf_exp_cnt = {}
 for tf in tf_lst:
-    tf_attn[tf] = set()
-    #tf_exp_cnt[tf] = 0
+    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') #set()
+    tf_exp_cnt[tf] = 0
 
 for i in range(3):#for i in range(20):
     rna_sequence = tumor_data[0][i].flatten()
     with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
         attn = f['attn'][:]
+        # attn[attn>0]=1
         for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
             idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
             if len(idx)!=0:
-                tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0).flatten()) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
-                #tf_exp_cnt[tf] += 1
+                tf_attn[tf] += attn[:, [idx.item()]] #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0).flatten()) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
+                tf_exp_cnt[tf] += 1
             
-# from multiprocessing import Pool
-# def cnt(tf):
-#     return sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
+from multiprocessing import Pool
+def cnt(tf):
+    return sum((tf_attn[tf].flatten())>((0)*tf_exp_cnt[tf]))
 
-# with Pool(20) as p:
-#     tf_peak_cnt = p.map(cnt, tf_lst)
+with Pool(40) as p:
+    tf_peak_cnt = p.map(cnt, tf_lst)
 
-tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
+# tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
 
 df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
+
 df.to_csv('tumor_tf_peak_0_no_norm.txt', sep='\t', header=None, index=None)
 
 ## plot lollipop
@@ -2323,7 +2326,7 @@ import pandas as pd
 import numpy as np
 from plotnine import *
 
-df = pd.read_csv('tumor_tf_peak_0.01_no_norm.txt', header=None, sep='\t')
+df = pd.read_csv('tumor_tf_peak_0_no_norm.txt', header=None, sep='\t')
 df.columns = ['tf', 'cnt']
 df_top20 = df.sort_values('cnt', ascending=False)[:20]
 tf_top20 = list(df_top20['tf'])
@@ -2333,10 +2336,11 @@ df_top20['tf'] = pd.Categorical(df_top20['tf'], categories=tf_top20)
 p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf', y=0, yend='cnt'), color='red', size=1) + \
                                               geom_point(color='red', size=3) + coord_flip() + \
                                               xlab('Genes') + ylab('Count') + labs(title='Tumor cells') + \
-                                              scale_y_continuous(limits=[0, 50000], breaks=np.arange(0, 50000+1, 10000)) + \
+                                              scale_y_continuous(limits=[0, 900000], breaks=np.arange(0, 900000+1, 100000)) + \
                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
-p.save(filename='tumor_top20_lollipp_no_norm.pdf', dpi=600, height=4, width=5)
+p.save(filename='tumor_top20_lollipp_0_no_norm.pdf', dpi=600, height=4, width=8)
 
+df.sort_values('cnt', ascending=False).iloc[:100]['tf'].to_csv('tumor_tf_peak_0_no_norm_top100.txt')
 
 ## fibroblasts
 data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
@@ -2356,7 +2360,7 @@ for i in range(len(data)):
 dataset = PreDataset(fibro_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = torch.device('cuda:0') 
+device = torch.device('cuda:4') 
 model.to(device)
 
 ###### with min-max normalization
@@ -2451,10 +2455,10 @@ rna_fibro_20 = rna[fibro_idx].copy()
 nonzero = np.count_nonzero(rna_fibro_20.X.toarray(), axis=0)
 tf_lst = rna.var.index[nonzero>=5]
 
-#tf_attn = {}
+tf_attn = {}
 tf_exp_cnt = {}
 for tf in tf_lst:
-    #tf_attn[tf] = set() #tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16')
+    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') # set()
     tf_exp_cnt[tf] = 0
 
 for i in range(3): #for i in range(20):
@@ -2464,17 +2468,17 @@ for i in range(3): #for i in range(20):
         for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
             idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
             if len(idx)!=0:
-                tf_exp_cnt[tf] = sum(attn[:, [idx.item()]].flatten()>0) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten()) #tf_attn[tf] += attn[:, [idx.item()]]
-                #tf_exp_cnt[tf] += 1
+                tf_attn[tf] += attn[:, [idx.item()]] #tf_exp_cnt[tf] = sum(attn[:, [idx.item()]].flatten()>0) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
+                tf_exp_cnt[tf] += 1
             
-# from multiprocessing import Pool
-# def cnt(tf):
-#     return sum((tf_attn[tf].flatten())>(0.01*tf_exp_cnt[tf]))
+from multiprocessing import Pool
+def cnt(tf):
+    return sum((tf_attn[tf].flatten())>(0*tf_exp_cnt[tf]))
 
-# with Pool(20) as p:
-#     tf_peak_cnt = p.map(cnt, tf_lst)
+with Pool(40) as p:
+    tf_peak_cnt = p.map(cnt, tf_lst)
 
-tf_peak_cnt = tf_exp_cnt.values() #tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
+# tf_peak_cnt = tf_exp_cnt.values() #tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
 
 df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
 df.to_csv('fibro_tf_peak_0_no_norm.txt', sep='\t', header=None, index=None)
@@ -2494,9 +2498,9 @@ df_top20['tf'] = pd.Categorical(df_top20['tf'], categories=tf_top20)
 p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf', y=0, yend='cnt'), color='blue', size=1) + \
                                               geom_point(color='blue', size=3) + coord_flip() + \
                                               xlab('Genes') + ylab('Count') + labs(title='Fibroblasts') + \
-                                              scale_y_continuous(limits=[0, 60000], breaks=np.arange(0, 60000+1, 10000)) + \
+                                              scale_y_continuous(limits=[0, 900000], breaks=np.arange(0, 900000+1, 100000)) + \
                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
-p.save(filename='fibro_top20_lollipp_no_norm.pdf', dpi=600, height=4, width=5)
+p.save(filename='fibro_top20_lollipp_no_norm.pdf', dpi=600, height=4, width=8)
 
 ## plot sankey (holoviews not support cyclic graph)
 # pip install holoviews selenium
