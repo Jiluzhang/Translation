@@ -2502,6 +2502,11 @@ p = ggplot(df_top20) + aes(x='tf', y='cnt') + geom_segment(aes(x='tf', xend='tf'
                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
 p.save(filename='fibro_top20_lollipp_no_norm.pdf', dpi=600, height=4, width=8)
 
+
+df.to_csv('tmp.txt', index=False, header=False)
+random.sample(range(1,4428),149)
+
+
 ## plot sankey (holoviews not support cyclic graph)
 # pip install holoviews selenium
 # import pandas as pd
