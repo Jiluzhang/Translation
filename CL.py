@@ -2352,10 +2352,19 @@ df.sort_values('cnt', ascending=False).iloc[:100]['tf'].to_csv('tumor_tf_peak_0_
 
 
 
+
+
+import scanpy as sc
 import pandas as pd
 import numpy as np
 from plotnine import *
 from scipy import stats
+
+rna = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+cnt_lst = np.count_nonzero(rna.X[:3].toarray(), axis=0)
+gene_cnt_1 = rna.var.index[cnt_lst==1]  # 3239
+gene_cnt_2 = rna.var.index[cnt_lst==2]  # 1734
+gene_cnt_3 = rna.var.index[cnt_lst==3]  # 1215
 
 # 0: chromatin remodeler
 # 1: chromatin remodeling
@@ -2378,12 +2387,8 @@ cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'SSRP1', 'SUPT16H',
       'EP400',
       'SMARCD1', 'SMARCD2', 'SMARCD3']
-cr = ['DTYMK', 'GINS2', 'DHFR', 'TYMS', 'MCM5', 'PSMA7', 'MCM2', 'SKP2', 'TFDP1', 'CDC7', 'PPP4C', 'MCM3', 'MCM7', 'CCND3', 'GINS4', 'NCBP1', 'TRRAP', 'DNAJC9', 'TXN', 'POLD1', 'GINS1', 'EP400', 'ALDOA', 'TRAIP', 'WDHD1', 'GINS3', 'ISCU', 'CPSF2', 'CPSF3', 'MTBP', 'NUDT21', 'CCNA2', 'ACTL6A', 'NARFL', 'RAD51C', 'AK2', 'RBX1', 'TIMM9', 'CDK1', 'CTPS1', 'HNRNPH1', 'PSMD13', 'CNOT3', 'CDC45']
-cr = ['TYMS', 'NAA20', 'TFDP1', 'PPP4C', 'CIAO1', 'LSM11', 'NAA10', 'PSMG3', 'ORC3', 'UHRF1', 'DHFR', 'XRCC3', 'MCMBP', 'CKS1B', 'RAD51C', 'USP14', 'NAA15', 'WDR77', 'CDC37', 'CNOT3', 'NAA25', 'CCND3', 'PRMT5', 'SKP2', 'CTPS1', 'XRCC2', 'RNF20', 'PRMT1', 'BTF3', 'NAA30', 'SOD1', 'PSMD13', 'RNF40', 'CCNA2', 'DDX6', 'TXNRD1', 'UBA1', 'AP2S1', 'LSM10', 'AK2', 'GINS2', 'UBE2N', 'UBE2T', 'CNOT1']
-cr = ['RECQL4', 'MAD2L2', 'CHTF8', 'CHTF18', 'HSCB', 'CAD', 'EP400', 'FAM96B', 'HNRNPH1', 'UBA3', 'BUB3', 'RPRD1B', 'FNTA', 'ELP2', 'CCNH', 'TRRAP', 'POT1', 'KTI12', 'E2F3', 'HDAC3', 'RBBP4', 'PPP4R2', 'CDK6', 'SKP1', 'CDC7', 'NAE1', 'NR2C2AP', 'PSMD4', 'RHOA', 'ELP6', 'SDHA', 'C19orf40', 'NUBP2', 'TFRC', 'DNAJC9', 'AP2M1', 'USP17L24', 'XRN2', 'CTU1']
 cr = ['MECOM', 'PAX8', 'WT1', 'SOX17',
-      'FOXM1', 'STAT3', 'GATA4', 'SOX2', 'TWIST1', 'HOXA9', 'NFKB1', 'TP53', 'YAP1', 'TAZ', 'MYC', 'SNAI2',
-      'CEBPA', 'CREB1', 'E2F1', 'E2F4', 'ETS1', 'JUN', 'MYB', 'CTF1', 'NFKB1', 'SP1', 'TFAP2A', 'TP53', 'E2F2']
+      'ARHGAP6', 'CCPG1', 'CERK', 'EFEMP1', 'EID1', 'FAT4', 'GULP1', 'HERC1', 'IGFBP5', 'ITM2B', 'KCNAB1', 'KL', 'LEPR', 'LIMCH1', 'PDE8A', 'PEX3', 'PSD3', 'RAB2A', 'RB1CC1', 'RECK', 'REV3L', 'RUNX1T1', 'SEC63', 'SIRT1', 'SKIC3', 'SRSF11', 'TAX1BP1', 'THSD7A', 'TSPAN7', 'UBL3', 'ZBTB16']
 
 ## cutoff: 0
 df = pd.read_csv('tumor_tf_peak_0_no_norm.txt', header=None, sep='\t')
