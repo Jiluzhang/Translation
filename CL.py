@@ -2294,6 +2294,48 @@ tf_attn = {}
 tf_exp_cnt = {}
 for tf in tf_lst:
     tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') #set()
+    #tf_exp_cnt[tf] = 0
+
+for i in range(10):#for i in range(20):
+    rna_sequence = tumor_data[0][i].flatten()
+    with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        # attn[attn>0]=1
+        for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
+            if len(idx)!=0:
+                tf_attn[tf] += attn[:, [idx.item()]] #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0).flatten()) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
+                #tf_exp_cnt[tf] += 1
+            
+from multiprocessing import Pool
+def cnt(tf):
+    return sum((tf_attn[tf].flatten())>((0.01)*10))
+
+with Pool(40) as p:
+    tf_peak_cnt = p.map(cnt, tf_lst)
+
+# tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
+
+df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+# df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
+df.to_csv('tumor_tf_peak_0_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
+
+
+# tf_attn_df = dict()
+# for tf in tqdm(tf_attn.keys(), ncols=80):
+#     if tf_attn[tf].sum()!=0:
+#         tf_attn_df[tf] = tf_attn[tf].flatten()/tf_exp_cnt[tf]
+
+
+
+rna_tumor_20 = rna[tumor_idx].copy()
+nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
+tf_lst = rna.var.index[nonzero>=5]
+
+tf_attn = {}
+tf_exp_cnt = {}
+for tf in tf_lst:
+    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') #set()
     tf_exp_cnt[tf] = 0
 
 for i in range(3):#for i in range(20):
@@ -2321,10 +2363,6 @@ df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
 df.to_csv('tumor_tf_peak_0.000001_no_norm.txt', sep='\t', header=None, index=None)
 
 
-# tf_attn_df = dict()
-# for tf in tqdm(tf_attn.keys(), ncols=80):
-#     if tf_attn[tf].sum()!=0:
-#         tf_attn_df[tf] = tf_attn[tf].flatten()/tf_exp_cnt[tf]
 
 
 
@@ -2391,7 +2429,7 @@ cr = ['MECOM', 'PAX8', 'WT1', 'SOX17',
       'ARHGAP6', 'CCPG1', 'CERK', 'EFEMP1', 'EID1', 'FAT4', 'GULP1', 'HERC1', 'IGFBP5', 'ITM2B', 'KCNAB1', 'KL', 'LEPR', 'LIMCH1', 'PDE8A', 'PEX3', 'PSD3', 'RAB2A', 'RB1CC1', 'RECK', 'REV3L', 'RUNX1T1', 'SEC63', 'SIRT1', 'SKIC3', 'SRSF11', 'TAX1BP1', 'THSD7A', 'TSPAN7', 'UBL3', 'ZBTB16']
 
 ## cutoff: 0
-df = pd.read_csv('tumor_tf_peak_0_no_norm.txt', header=None, sep='\t')
+df = pd.read_csv('tumor_tf_peak_0_no_norm_cnt_3.txt', header=None, sep='\t')
 df.columns = ['tf', 'cnt']
 df = df.sort_values('cnt', ascending=False)
 df.index = range(df.shape[0])
@@ -2411,7 +2449,7 @@ p.save(filename='CR_Non_CR_0_box_3.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.000001
-df = pd.read_csv('tumor_tf_peak_0.000001_no_norm.txt', header=None, sep='\t')
+df = pd.read_csv('tumor_tf_peak_0.000001_no_norm_cnt_3.txt', header=None, sep='\t')
 df.columns = ['tf', 'cnt']
 df = df.sort_values('cnt', ascending=False)
 df.index = range(df.shape[0])
@@ -2431,7 +2469,7 @@ p.save(filename='CR_Non_CR_0.000001_box_3.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.001
-df = pd.read_csv('tumor_tf_peak_0.001_no_norm.txt', header=None, sep='\t')
+df = pd.read_csv('tumor_tf_peak_0.001_no_norm_cnt_3.txt', header=None, sep='\t')
 df.columns = ['tf', 'cnt']
 df = df.sort_values('cnt', ascending=False)
 df.index = range(df.shape[0])
@@ -2451,7 +2489,7 @@ p.save(filename='CR_Non_CR_0.001_box_3.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.01
-df = pd.read_csv('tumor_tf_peak_0.01_no_norm.txt', header=None, sep='\t')
+df = pd.read_csv('tumor_tf_peak_0.01_no_norm_cnt_3.txt', header=None, sep='\t')
 df.columns = ['tf', 'cnt']
 df = df.sort_values('cnt', ascending=False)
 df.index = range(df.shape[0])
