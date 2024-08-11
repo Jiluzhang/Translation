@@ -2195,7 +2195,7 @@ for i in range(len(data)):
 dataset = PreDataset(tumor_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = torch.device('cuda:4')  # device = select_least_used_gpu()
+device = torch.device('cuda:0')  # device = select_least_used_gpu()
 model.to(device)
 
 ###### with min-max normalization
@@ -2296,7 +2296,7 @@ for tf in tf_lst:
     tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') #set()
     #tf_exp_cnt[tf] = 0
 
-for i in range(10):#for i in range(20):
+for i in range(3):#for i in range(20):
     rna_sequence = tumor_data[0][i].flatten()
     with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
         attn = f['attn'][:]
@@ -2309,7 +2309,7 @@ for i in range(10):#for i in range(20):
             
 from multiprocessing import Pool
 def cnt(tf):
-    return sum((tf_attn[tf].flatten())>((0.01)*10))
+    return sum((tf_attn[tf].flatten())>((0.0000001)*3))
 
 with Pool(40) as p:
     tf_peak_cnt = p.map(cnt, tf_lst)
@@ -2318,7 +2318,7 @@ with Pool(40) as p:
 
 df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
 # df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
-df.to_csv('tumor_tf_peak_0_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
+df.to_csv('tumor_tf_peak_0.0000001_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
 
 
 # tf_attn_df = dict()
@@ -2425,8 +2425,7 @@ cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'SSRP1', 'SUPT16H',
       'EP400',
       'SMARCD1', 'SMARCD2', 'SMARCD3']
-cr = ['MECOM', 'PAX8', 'WT1', 'SOX17',
-      'ARHGAP6', 'CCPG1', 'CERK', 'EFEMP1', 'EID1', 'FAT4', 'GULP1', 'HERC1', 'IGFBP5', 'ITM2B', 'KCNAB1', 'KL', 'LEPR', 'LIMCH1', 'PDE8A', 'PEX3', 'PSD3', 'RAB2A', 'RB1CC1', 'RECK', 'REV3L', 'RUNX1T1', 'SEC63', 'SIRT1', 'SKIC3', 'SRSF11', 'TAX1BP1', 'THSD7A', 'TSPAN7', 'UBL3', 'ZBTB16']
+cr = ['MECOM', 'PAX8', 'WT1', 'SOX17'],
 
 ## cutoff: 0
 df = pd.read_csv('tumor_tf_peak_0_no_norm_cnt_3.txt', header=None, sep='\t')
@@ -2445,7 +2444,27 @@ df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                               scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw() +\
                                                               annotate("text", x=1.5, y=0.9, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0_box_3.pdf', dpi=100, height=4, width=4)
+p.save(filename='CR_Non_CR_0_box_tf_tumor.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.0000001
+df = pd.read_csv('tumor_tf_peak_0.0000001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.5+0.01, 0.1)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.4, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.0000001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.000001
@@ -2465,7 +2484,47 @@ df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                               scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.5+0.01, 0.1)) + theme_bw() +\
                                                               annotate("text", x=1.5, y=0.4, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.000001_box_3.pdf', dpi=100, height=4, width=4)
+p.save(filename='CR_Non_CR_0.000001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.00001
+df = pd.read_csv('tumor_tf_peak_0.00001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.25], breaks=np.arange(0, 0.25+0.01, 0.05)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.2, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.00001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.0001
+df = pd.read_csv('tumor_tf_peak_0.0001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.1], breaks=np.arange(0, 0.1+0.01, 0.02)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.08, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.0001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.001
@@ -2485,7 +2544,7 @@ df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                               scale_y_continuous(limits=[0, 0.05], breaks=np.arange(0, 0.05+0.001, 0.01)) + theme_bw() +\
                                                               annotate("text", x=1.5, y=0.04, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.001_box_3.pdf', dpi=100, height=4, width=4)
+p.save(filename='CR_Non_CR_0.001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.01
@@ -2503,9 +2562,9 @@ df_cr_non_cr = pd.concat([df_cr, df_non_cr])
 df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                              scale_y_continuous(limits=[0, 0.02], breaks=np.arange(0, 0.02+0.001, 0.005)) + theme_bw() +\
-                                                              annotate("text", x=1.5, y=0.015, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.01_box_3.pdf', dpi=100, height=4, width=4)
+                                                              scale_y_continuous(limits=[0, 0.015], breaks=np.arange(0, 0.015+0.001, 0.003)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.012, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.01_box_tf_tumor.pdf', dpi=100, height=4, width=4)
 
 
 
@@ -2539,7 +2598,7 @@ for i in range(len(data)):
 dataset = PreDataset(fibro_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
-device = torch.device('cuda:4') 
+device = torch.device('cuda:0') 
 model.to(device)
 
 ###### with min-max normalization
@@ -2638,7 +2697,7 @@ tf_attn = {}
 tf_exp_cnt = {}
 for tf in tf_lst:
     tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') # set()
-    tf_exp_cnt[tf] = 0
+    #tf_exp_cnt[tf] = 0
 
 for i in range(3): #for i in range(20):
     rna_sequence = fibro_data[0][i].flatten()
@@ -2648,19 +2707,185 @@ for i in range(3): #for i in range(20):
             idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
             if len(idx)!=0:
                 tf_attn[tf] += attn[:, [idx.item()]] #tf_exp_cnt[tf] = sum(attn[:, [idx.item()]].flatten()>0) #tf_attn[tf].update(np.argwhere(attn[:, [idx.item()]].flatten()>0.01).flatten())
-                tf_exp_cnt[tf] += 1
+                #tf_exp_cnt[tf] += 1
             
 from multiprocessing import Pool
 def cnt(tf):
-    return sum((tf_attn[tf].flatten())>(0*tf_exp_cnt[tf]))
+    return sum((tf_attn[tf].flatten())>(0.0000001*3))
 
 with Pool(40) as p:
     tf_peak_cnt = p.map(cnt, tf_lst)
 
-# tf_peak_cnt = tf_exp_cnt.values() #tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
-
 df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
-df.to_csv('fibro_tf_peak_0_no_norm.txt', sep='\t', header=None, index=None)
+df.to_csv('fibro_tf_peak_0.0000001_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
+
+
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+from scipy import stats
+
+rna = sc.read_h5ad('VF026V1-S1_rna.h5ad')
+cnt_lst = np.count_nonzero(rna.X[:3].toarray(), axis=0)
+gene_cnt_1 = rna.var.index[cnt_lst==1]  # 3239
+gene_cnt_2 = rna.var.index[cnt_lst==2]  # 1734
+gene_cnt_3 = rna.var.index[cnt_lst==3]  # 1215
+
+# cr_lst = pd.read_table('cr.txt', header=None)
+# cr_lst = pd.read_table('tf.txt', header=None)
+# cr_lst = pd.read_table('ov_tf.txt', header=None)
+# cr = cr_lst[0].values
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']
+cr = ['MECOM', 'PAX8', 'WT1', 'SOX17']
+
+## cutoff: 0
+df = pd.read_csv('fibro_tf_peak_0_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.9, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.0000001
+df = pd.read_csv('fibro_tf_peak_0.0000001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.5+0.01, 0.1)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.4, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.0000001_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.000001
+df = pd.read_csv('fibro_tf_peak_0.000001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.5+0.01, 0.1)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.4, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.000001_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.00001
+df = pd.read_csv('fibro_tf_peak_0.00001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.25], breaks=np.arange(0, 0.25+0.01, 0.05)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.2, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.00001_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.0001
+df = pd.read_csv('fibro_tf_peak_0.0001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.1], breaks=np.arange(0, 0.1+0.01, 0.02)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.08, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.0001_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.001
+df = pd.read_csv('fibro_tf_peak_0.001_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.05], breaks=np.arange(0, 0.05+0.001, 0.01)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.04, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.001_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
+## cutoff: 0.01
+df = pd.read_csv('fibro_tf_peak_0.01_no_norm_cnt_3.txt', header=None, sep='\t')
+df.columns = ['tf', 'cnt']
+df = df.sort_values('cnt', ascending=False)
+df.index = range(df.shape[0])
+df = df[df['cnt']!=0]
+
+p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+
+df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
+df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
+df_cr_non_cr = pd.concat([df_cr, df_non_cr])
+df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
+
+p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                              scale_y_continuous(limits=[0, 0.015], breaks=np.arange(0, 0.015+0.001, 0.003)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.012, label=f"P = {p_value:.3f}", ha='center')
+p.save(filename='CR_Non_CR_0.01_box_tf_fibro.pdf', dpi=100, height=4, width=4)
+
+
 
 ## plot lollipop
 import pandas as pd
