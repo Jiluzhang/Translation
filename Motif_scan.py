@@ -37,6 +37,8 @@ from M2M import M2M_rna2atac
 import h5py
 from tqdm import tqdm
 
+from multiprocessing import Pool
+
 data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
 # from config
 with open("rna2atac_config_train.yaml", "r") as f:
@@ -97,18 +99,17 @@ for i in range(3):#for i in range(20):
             if len(idx)!=0:
                 tf_attn[tf] += attn[:, [idx.item()]]
             
-from multiprocessing import Pool
-def cnt(tf):
-    return sum((tf_attn[tf].flatten())>((0.0000001)*3))
 
-with Pool(40) as p:
-    tf_peak_cnt = p.map(cnt, tf_lst)
+def write_bed(tf):
+    df = pd.DataFrame(atac.var.index[tf_attn[tf].flatten()/3>0.0001])
+    df['chrom'] = df[0].apply(lambda x: x.split(':')[0])
+    df['start'] = df[0].apply(lambda x: x.split(':')[1].split('-')[0])
+    df['end'] = df[0].apply(lambda x: x.split(':')[1].split('-')[1])
+    df[['chrom', 'start', 'end']].to_csv(tf+'_tumor.bed', sep='\t', index=None, header=None)
 
-# tf_peak_cnt = [len(tf_attn[tf]) for tf in tf_lst]
+with Pool(5) as p:
+    p.map(write_bed, tf_lst)
 
-df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
-# df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
-df.to_csv('tumor_tf_peak_0.0000001_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
 
 
 
