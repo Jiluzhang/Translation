@@ -144,6 +144,7 @@ sum(df['obs_exp']<=1)  # 122
 
 
 ## ChIP-seq data
+# Mercury (workdir: /fs/data/cistrome/peak)
 grep -i "ov" human_factor_full_QC.txt | grep -v LoVo | grep -v ENCSR | grep -v OVOL2 | grep -v overexpressing | sed '1d'
 # 39012	Homo sapiens	GSM1038268	CHRM2	SK-OV-3	Epithelium	Ovary	38.0	0.8069	0.992	58.0	0.008641	0.563218390805
 # 52249	Homo sapiens	GSM1415630	AR	None	Granulosa cell	Ovary	39.0	0.8019	0.937	57.0	0.00806475	0.6729999999999999
@@ -158,6 +159,55 @@ grep -i "ov" human_factor_full_QC.txt | grep -v LoVo | grep -v ENCSR | grep -v O
 # 73241	Homo sapiens	GSM2054575	BRD4	OVCAR3	None	None	39.0	0.899	0.9740000000000001	70.0	0.00445	0.816433566434
 # 76876	Homo sapiens	GSM2044817	TERT	A2780	Epithelium	Ovary	37.0	0.8673	0.98	126.0	0.00341275	0.541114058355
 # 88621	Homo sapiens	GSM1377693	YAP1	OVCAR5	None	ovarian	38.0	0.8968	0.9009999999999999	11.0	0.0196335	0.9684
+
+# cistrome_ov_tf.txt
+grep -w GRHL2 tumor_tf.txt  # GRHL2	65463 (select id 68002)
+grep -w BRD4 tumor_tf.txt   # BRD4	24615 (too few peaks)
+grep -w YAP1 tumor_tf.txt   # YAP1	61185 (select id 88621)
+
+# mercury to mac
+scp -P 6122 jiluzhang@10.10.196.55:/fs/data/cistrome/peak/human_factor/68002_sort_peaks.narrowPeak.bed .
+scp -P 6122 jiluzhang@10.10.196.55:/fs/data/cistrome/peak/human_factor/88621_sort_peaks.narrowPeak.bed .
+# mac to venus
+scp -P 6122 68002_sort_peaks.narrowPeak.bed jiluzhang@10.11.41.74:/fs/home/jiluzhang/TF_motifs
+scp -P 6122 88621_sort_peaks.narrowPeak.bed jiluzhang@10.11.41.74:/fs/home/jiluzhang/TF_motifs
+
+cut -f 1-3 68002_sort_peaks.narrowPeak.bed | sort -k1,1 -k2,2n > GRHL2_peaks.bed
+cut -f 1-3 88621_sort_peaks.narrowPeak.bed | sort -k1,1 -k2,2n > YAP1_peaks.bed
+
+## GRHL2
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/GRHL2_tumor.bed |\
+bedtools intersect -a stdin -b GRHL2_peaks.bed -wa | sort | uniq | wc -l   # 4137
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/GRHL2_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b GRHL2_peaks.bed -wa | sort | uniq | wc -l >> GRHL2_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/GRHL2_tumor.bed  # 65463
+awk '{sum+=$1} END {print sum/1000}' GRHL2_random.txt  # 4227.02
+awk '{if($1>4137) print$0}' GRHL2_random.txt | wc -l   # 932
+wc -l GRHL2_peaks.bed  # 34487
+
+
+## YAP1
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/YAP1_tumor.bed |\
+bedtools intersect -a stdin -b YAP1_peaks.bed -wa | sort | uniq | wc -l   # 969
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/YAP1_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b YAP1_peaks.bed -wa | sort | uniq | wc -l >> YAP1_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/TF_bed/YAP1_tumor.bed  # 61185
+awk '{sum+=$1} END {print sum/1000}' YAP1_random.txt  # 1211
+awk '{if($1>969) print$0}' YAP1_random.txt | wc -l   # 1000
 
 
 
