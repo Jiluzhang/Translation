@@ -189,9 +189,25 @@ df_cr_non_cr = pd.concat([df_cr, df_non_cr])
 df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                              scale_y_continuous(limits=[0, 0.001], breaks=np.arange(0, 0.001+0.0001, 0.0002)) + theme_bw() +\
-                                                              annotate("text", x=1.5, y=0.0008, label=f"P = {p_value:.3f}", ha='center')
+                                                              scale_y_continuous(limits=[0, 0.1], breaks=np.arange(0, 0.1+0.01, 0.02)) + theme_bw() +\
+                                                              annotate("text", x=1.5, y=0.08, label=f"P = {p_value:.3f}", ha='center')
 p.save(filename='CR_Non_CR_0.005_box_tf_tumor.pdf', dpi=100, height=4, width=4)
+
+
+sum(df['cnt']>1000)                       # 120 (120/863=0.13904982618771727)
+sum((df['cnt']>100) & (df['cnt']<=1000))  # 257 (257/863=0.29779837775202783)
+sum(df['cnt']<=100)                       # 486 (486/863=0.5631517960602549)
+
+sum(df_cr['cnt']>1000)                          # 12 (12/105=0.11428571428571428)
+sum((df_cr['cnt']>100) & (df_cr['cnt']<=1000))  # 32 (32/105=0.3047619047619048)
+sum(df_cr['cnt']<=100)                          # 61 (61/105=0.580952380952381)
+
+sum(df_non_cr['cnt']>1000)                              # 108 (108/758=0.1424802110817942)
+sum((df_non_cr['cnt']>100) & (df_non_cr['cnt']<=1000))  # 225 (225/758=0.29683377308707126)
+sum(df_non_cr['cnt']<=100)                              # 425 (425/758=0.5606860158311345)
+
+from scipy.stats import chi2_contingency
+chi2_contingency(np.array([[108, 225, 425], [12, 32, 61]]))
 
 
 ## cutoff: 0.001
