@@ -191,7 +191,7 @@ df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
 p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                               scale_y_continuous(limits=[0, 0.001], breaks=np.arange(0, 0.001+0.0001, 0.0002)) + theme_bw() +\
                                                               annotate("text", x=1.5, y=0.0008, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.005_box_tf_tumor_sum.pdf', dpi=100, height=4, width=4)
+p.save(filename='CR_Non_CR_0.005_box_tf_tumor.pdf', dpi=100, height=4, width=4)
 
 
 ## cutoff: 0.001
