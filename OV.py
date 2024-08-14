@@ -340,10 +340,79 @@ stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 0.0003680603810052755
 stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 1.122492152760193e-05
 
 
+########## motif checking ############
+## tumor cells
+import pickle
+import pandas as pd
+from multiprocessing import Pool
+import scanpy as sc
+
+with open('tumor_attn_20_cell.pkl', 'rb') as file:
+    tf_attn = pickle.load(file)
+
+tf_raw = pd.read_table('TF_jaspar.txt', header=None)
+tf_raw_lst = list(tf_raw[0].values)
+
+rna  = sc.read_h5ad('rna.h5ad')
+atac = sc.read_h5ad('atac.h5ad')
+
+tf_lst = [tf for tf in tf_raw_lst if tf in tf_attn.keys()]
+
+# def write_bed(tf):
+#     df = pd.DataFrame(atac.var.index[(tf_attn[tf].flatten()/20/len(tf_attn))>(1e-7)])
+#     if df.shape[0]>10000:
+#         df['chrom'] = df[0].apply(lambda x: x.split(':')[0])
+#         df['start'] = df[0].apply(lambda x: x.split(':')[1].split('-')[0])
+#         df['end'] = df[0].apply(lambda x: x.split(':')[1].split('-')[1])
+#         df[['chrom', 'start', 'end']].to_csv('TF_bed/'+tf+'_tumor.bed', sep='\t', index=None, header=None)
+
+# top 10000
+def write_bed(tf):
+    df = pd.DataFrame(atac.var.index[np.argsort(tf_attn[tf].flatten())[-10000:][::-1]])
+    df['chrom'] = df[0].apply(lambda x: x.split(':')[0])
+    df['start'] = df[0].apply(lambda x: x.split(':')[1].split('-')[0])
+    df['end'] = df[0].apply(lambda x: x.split(':')[1].split('-')[1])
+    df[['chrom', 'start', 'end']].to_csv('TF_bed/'+tf+'_tumor_tmp.bed', sep='\t', index=None, header=None)
+
+with Pool(5) as p:
+    p.map(write_bed, tf_lst)
 
 
 
+for filename in `ls /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed`;do
+    tf=${filename%_*}
+    true_cnt=$(sort -k1,1 -k2,2n /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/$tf\_tumor.bed | \
+               bedtools intersect -a stdin -b /fse/home/dongxin/Projects/0Finished/SCRIPT/motif/human/human_motif_bed/bed/$tf.bed -wa | uniq | wc -l)
+    #tf_cnt=$(cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/$tf\_tumor.bed | wc -l)
+    exp_cnt=$(bedtools intersect -a /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed \
+                                  -b /fse/home/dongxin/Projects/0Finished/SCRIPT/motif/human/human_motif_bed/bed/$tf.bed -wa | uniq | wc -l)
+    echo -e $tf"\t"$true_cnt"\t"10000"\t"$exp_cnt"\t"1033239 >> tumor_motif_tf_res.txt
+    echo $tf done
+done
 
+
+
+from scipy import stats
+from plotnine import *
+import pandas as pd
+import numpy as np
+#from scipy.stats import chi2_contingency
+
+
+df = pd.read_table('/mnt/Venus/home/jiluzhang/TF_motifs/v2/tumor_motif_tf_res.txt', header=None)
+df.columns = ['tf', 'true_cnt', 'true_total', 'exp_cnt', 'exp_total']
+df = df[df['exp_cnt']!=0]
+df['obs_exp'] = (df['true_cnt']/df['true_total']) / (df['exp_cnt']/df['exp_total'])
+#df['p_value'] = [chi2_contingency(np.array([[df.iloc[i]['true_cnt'], df.iloc[i]['true_total']], [df.iloc[i]['exp_cnt'], df.iloc[i]['exp_total']]]))[1] for i in range(df.shape[0])]
+df.sort_values('obs_exp', inplace=True)
+df.index = range(df.shape[0])
+# stats.ttest_1samp(df['obs_exp'], 1)[1]  # 0.04862921238018456
+
+p = ggplot(df, aes(x=df.index.values, y='obs_exp')) + geom_point(size=0.05) + scale_y_continuous(limits=[0.5, 1.5], breaks=np.arange(0.5, 1.5+0.01, 0.25)) + \
+                                                      geom_hline(yintercept=1, color="red", linetype="dashed") + xlab('TFs') + ylab('Observed / Random') + theme_bw()
+p.save(filename='tumor_motif_tf_res_scatter.pdf', dpi=300, height=4, width=4)
+print(sum(df['obs_exp']>1))   # 21
+print(sum(df['obs_exp']<=1))  # 27
 
 
 
