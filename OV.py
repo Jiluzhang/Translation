@@ -45,6 +45,10 @@ import h5py
 from tqdm import tqdm
 
 from multiprocessing import Pool
+import pickle
+
+rna  = sc.read_h5ad('rna.h5ad')
+atac = sc.read_h5ad('atac.h5ad')
 
 data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
 # from config
@@ -76,10 +80,7 @@ model = model.half()
 
 model.load_state_dict(torch.load('./save/2024-08-13_rna2atac_train_55/pytorch_model.bin'))
 
-rna  = sc.read_h5ad('rna.h5ad')
-atac = sc.read_h5ad('atac.h5ad')
-
-## tumor cells
+################################ tumor cells ################################
 tumor_idx = np.argwhere(rna.obs.cell_anno=='Tumor')[:20].flatten()
 tumor_data = []
 for i in range(len(data)):
@@ -91,8 +92,6 @@ loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 device = torch.device('cuda:0')  # device = select_least_used_gpu()
 model.to(device)
 
-
-###### without min-max normalization
 i = 0
 for inputs in loader:
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
@@ -107,41 +106,43 @@ for inputs in loader:
     torch.cuda.empty_cache()
     print(str(i), 'cell done')
     
-    if i==3:
+    if i==20:
         break
 
 rna_tumor_20 = rna[tumor_idx].copy()
 nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
-tf_lst = rna.var.index[nonzero>=5]
+gene_lst = rna.var.index[nonzero>0]  # 10956
 
-tf_attn = {}
-for tf in tf_lst:
-    tf_attn[tf] = np.zeros([atac.shape[1], 1], dtype='float16') #set()
+gene_attn = {}
+for gene in tqdm(gene_lst, ncols=80):
+    gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float16')
 
-
-for i in range(3):#for i in range(20):
+# ~ 40 min
+for i in range(20):
     rna_sequence = tumor_data[0][i].flatten()
     with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
         attn = f['attn'][:]
-        for tf in tqdm(tf_lst, ncols=80, desc='cell '+str(i)):
-            idx = torch.argwhere(rna_sequence==(np.argwhere(rna.var.index==tf))[0][0]+1)
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna.var.index==gene))[0][0]+1).flatten())
             if len(idx)!=0:
-                tf_attn[tf] += attn[:, [idx.item()]]
-            
-def cnt(tf):
-    return sum((tf_attn[tf].flatten())>((0.005)*3))
+                gene_attn[gene] += attn[:, [idx.item()]]
 
-with Pool(40) as p:
-    tf_peak_cnt = p.map(cnt, tf_lst)
+with open('tumor_attn_20_cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
 
-df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
-# df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
-df.to_csv('tumor_tf_peak_0.005_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('tumor_attn_no_norm_cnt_20.txt', sep='\t', header=None, index=None)
 
+# def cnt(tf):
+#     return sum((tf_attn[tf].flatten())>((0.000)*3))
 
-tf_attn_sum = [tf_attn[tf].flatten().sum() for tf in tf_lst]
-df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_attn_sum})
-df.to_csv('tumor_tf_peak_0.005_no_norm_cnt_3_sum.txt', sep='\t', header=None, index=None)
+# with Pool(40) as p:
+#     tf_peak_cnt = p.map(cnt, tf_lst)
+
+# df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+# # df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
+# df.to_csv('tumor_attn_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
 
 
 ## factor enrichment
@@ -153,17 +154,8 @@ from scipy import stats
 
 rna = sc.read_h5ad('rna.h5ad')
 
-# 0: chromatin remodeler
-# 1: chromatin remodeling
-# 2: transcription factor
-# 3: ovarian cancer specific transcription factor
-
-
-# cr_lst = pd.read_table('cr.txt', header=None)
-# cr_lst = pd.read_table('tf.txt', header=None)
-# cr_lst = pd.read_table('ov_tf.txt', header=None)
-# cr = cr_lst[0].values
-
+# wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt
+# grep ">" JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt | grep -v "::" | grep -v "-" | awk '{print toupper($2)}' | sort | uniq > TF_jaspar.txt
 
 cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
@@ -172,95 +164,180 @@ cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'SSRP1', 'SUPT16H',
       'EP400',
       'SMARCD1', 'SMARCD2', 'SMARCD3']
-cr = ['MECOM', 'PAX8', 'WT1', 'SOX17']
 
-## cutoff: 0.005
-df = pd.read_csv('tumor_tf_peak_0.005_no_norm_cnt_3.txt', header=None, sep='\t')
-df.columns = ['tf', 'cnt']
-df = df.sort_values('cnt', ascending=False)
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)
+
+df = pd.read_csv('tumor_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
 df.index = range(df.shape[0])
-df = df[df['cnt']!=0]
 
-p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 24
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 352
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 10580
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]*20)
 
-df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
-df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
-df_cr_non_cr = pd.concat([df_cr, df_non_cr])
-df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
-
-p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                              scale_y_continuous(limits=[0, 0.1], breaks=np.arange(0, 0.1+0.01, 0.02)) + theme_bw() +\
-                                                              annotate("text", x=1.5, y=0.08, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.005_box_tf_tumor.pdf', dpi=100, height=4, width=4)
-
-
-sum(df['cnt']>1000)                       # 120 (120/863=0.13904982618771727)
-sum((df['cnt']>100) & (df['cnt']<=1000))  # 257 (257/863=0.29779837775202783)
-sum(df['cnt']<=100)                       # 486 (486/863=0.5631517960602549)
-
-sum(df_cr['cnt']>1000)                          # 12 (12/105=0.11428571428571428)
-sum((df_cr['cnt']>100) & (df_cr['cnt']<=1000))  # 32 (32/105=0.3047619047619048)
-sum(df_cr['cnt']<=100)                          # 61 (61/105=0.580952380952381)
-
-sum(df_non_cr['cnt']>1000)                              # 108 (108/758=0.1424802110817942)
-sum((df_non_cr['cnt']>100) & (df_non_cr['cnt']<=1000))  # 225 (225/758=0.29683377308707126)
-sum(df_non_cr['cnt']<=100)                              # 425 (425/758=0.5606860158311345)
-
-from scipy.stats import chi2_contingency
-chi2_contingency(np.array([[108, 225, 425], [12, 32, 61]]))
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                      scale_y_continuous(limits=[0, 0.03], breaks=np.arange(0, 0.03+0.001, 0.005)) + theme_bw()
+                                                                      # + annotate("text", x=1.5, y=0.035, label=f"P = {p_value:.2e}", ha='center')
+p.save(filename='cr_tf_others_box_cnt_20_tumor.pdf', dpi=300, height=4, width=4)
+stats.ttest_ind(df_cr['attn'], df_tf['attn'])[1]      # 0.006237903399623997
+stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 3.583299943765924e-05
+stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 0.0025025401898605736
 
 
-## cutoff: 0.001
-df = pd.read_csv('tumor_tf_peak_0.001_no_norm_cnt_3.txt', header=None, sep='\t')
-df.columns = ['tf', 'cnt']
-df = df.sort_values('cnt', ascending=False)
+# all_genes = pd.DataFrame({'tf': rna.var.index.values})
+# tmp = pd.merge(all_genes, df, how='left')
+# tmp.fillna(0, inplace=True)
+# df = tmp.copy()
+
+# sum(df['cnt']>1000)                       # 120 (120/863=0.13904982618771727)
+# sum((df['cnt']>100) & (df['cnt']<=1000))  # 257 (257/863=0.29779837775202783)
+# sum(df['cnt']<=100)                       # 486 (486/863=0.5631517960602549)
+
+# sum(df_cr['cnt']>1000)                          # 12 (12/105=0.11428571428571428)
+# sum((df_cr['cnt']>100) & (df_cr['cnt']<=1000))  # 32 (32/105=0.3047619047619048)
+# sum(df_cr['cnt']<=100)                          # 61 (61/105=0.580952380952381)
+
+# sum(df_non_cr['cnt']>1000)                              # 108 (108/758=0.1424802110817942)
+# sum((df_non_cr['cnt']>100) & (df_non_cr['cnt']<=1000))  # 225 (225/758=0.29683377308707126)
+# sum(df_non_cr['cnt']<=100)                              # 425 (425/758=0.5606860158311345)
+
+# from scipy.stats import chi2_contingency
+# chi2_contingency(np.array([[108, 225, 425], [12, 32, 61]]))
+
+
+######################## Fibroblasts ###########################
+data = torch.load("/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_0.pt")
+for i in range(1, 5):
+    data_tmp = torch.load('/fs/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/preprocessed_data_test/preprocessed_data_'+str(i)+'.pt')
+    data[0] = torch.cat([data[0], data_tmp[0]], axis=0)
+    data[1] = torch.cat([data[1], data_tmp[1]], axis=0)
+    data[2] = torch.cat([data[2], data_tmp[2]], axis=0)
+    data[3] = torch.cat([data[3], data_tmp[3]], axis=0)
+    data[4] = torch.cat([data[4], data_tmp[4]], axis=0)
+    
+fibro_idx = np.argwhere(rna.obs.cell_anno=='Fibroblasts')[:20].flatten()
+fibro_data = []
+for i in range(len(data)):
+    fibro_data.append(data[i][fibro_idx])
+
+with open("rna2atac_config_train.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+
+model.load_state_dict(torch.load('./save/2024-08-13_rna2atac_train_55/pytorch_model.bin'))
+
+dataset = PreDataset(fibro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+device = torch.device('cuda:0') 
+model.to(device)
+
+i = 0
+for inputs in loader:
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0].to(torch.float16)
+    with h5py.File('attn_fibro_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    
+    i += 1
+    torch.cuda.empty_cache()
+    print(str(i), 'cell done')
+    
+    if i==20:
+        break
+
+rna_fibro_20 = rna[fibro_idx].copy()
+nonzero = np.count_nonzero(rna_fibro_20.X.toarray(), axis=0)
+gene_lst = rna.var.index[nonzero>0]  # 11222
+
+gene_attn = {}
+for gene in tqdm(gene_lst, ncols=80):
+    gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float16')
+
+# ~ 40 min
+for i in range(20):
+    rna_sequence = fibro_data[0][i].flatten()
+    with h5py.File('attn_fibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('fibro_attn_20_cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('fibro_attn_no_norm_cnt_20.txt', sep='\t', header=None, index=None)
+
+
+## factor enrichment
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+from scipy import stats
+
+rna = sc.read_h5ad('rna.h5ad')
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']
+
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)
+
+df = pd.read_csv('fibro_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
 df.index = range(df.shape[0])
-df = df[df['cnt']!=0]
 
-p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 24
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 352
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 10580
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]*20)
 
-df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
-df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
-df_cr_non_cr = pd.concat([df_cr, df_non_cr])
-df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
-
-p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                              scale_y_continuous(limits=[0, 0.1], breaks=np.arange(0, 0.1+0.01, 0.02)) + theme_bw() +\
-                                                              annotate("text", x=1.5, y=0.08, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
-
-
-## cutoff: 0.0001
-df = pd.read_csv('tumor_tf_peak_0.0001_no_norm_cnt_3.txt', header=None, sep='\t')
-df.columns = ['tf', 'cnt']
-df = df.sort_values('cnt', ascending=False)
-df.index = range(df.shape[0])
-df = df[df['cnt']!=0]
-
-p_value = stats.ttest_ind(df[~df['tf'].isin(cr)]['cnt'], df[df['tf'].isin(cr)]['cnt'])[1]
-
-df_cr = pd.DataFrame({'idx': 'CR', 'cnt': df[df['tf'].isin(cr)]['cnt'].values})
-df_non_cr = pd.DataFrame({'idx': 'Non_CR', 'cnt': df[~df['tf'].isin(cr)]['cnt'].values})
-df_cr_non_cr = pd.concat([df_cr, df_non_cr])
-df_cr_non_cr['Norm_cnt'] =  df_cr_non_cr['cnt']/1033239
-
-p = ggplot(df_cr_non_cr, aes(x='idx', y='Norm_cnt', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                              scale_y_continuous(limits=[0, 0.5], breaks=np.arange(0, 0.5+0.01, 0.1)) + theme_bw() +\
-                                                              annotate("text", x=1.5, y=0.4, label=f"P = {p_value:.3f}", ha='center')
-p.save(filename='CR_Non_CR_0.0001_box_tf_tumor.pdf', dpi=100, height=4, width=4)
-
-
-
-
-
-
-
-
-
-
-
-
-
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                      scale_y_continuous(limits=[0, 0.03], breaks=np.arange(0, 0.03+0.001, 0.005)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_fibro.pdf', dpi=300, height=4, width=4)
+stats.ttest_ind(df_cr['attn'], df_tf['attn'])[1]      # 0.006237903399623997
+stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 3.583299943765924e-05
+stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 0.0025025401898605736
 
 
 
