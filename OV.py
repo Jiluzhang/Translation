@@ -406,13 +406,14 @@ df['obs_exp'] = (df['true_cnt']/df['true_total']) / (df['exp_cnt']/df['exp_total
 #df['p_value'] = [chi2_contingency(np.array([[df.iloc[i]['true_cnt'], df.iloc[i]['true_total']], [df.iloc[i]['exp_cnt'], df.iloc[i]['exp_total']]]))[1] for i in range(df.shape[0])]
 df.sort_values('obs_exp', inplace=True)
 df.index = range(df.shape[0])
-# stats.ttest_1samp(df['obs_exp'], 1)[1]  # 0.04862921238018456
-
-p = ggplot(df, aes(x=df.index.values, y='obs_exp')) + geom_point(size=0.05) + scale_y_continuous(limits=[0.5, 1.5], breaks=np.arange(0.5, 1.5+0.01, 0.25)) + \
-                                                      geom_hline(yintercept=1, color="red", linetype="dashed") + xlab('TFs') + ylab('Observed / Random') + theme_bw()
+df['label'] = df['obs_exp'].apply(lambda x: '1' if x>1 else '0')
+# stats.ttest_1samp(df['obs_exp'], 1)[1]  
+p = ggplot(df, aes(x=df.index.values, y='obs_exp', color='label')) + geom_point(size=0.05) + scale_color_manual(values=['blue', 'red']) + \
+                                                                     scale_y_continuous(limits=[0, 2], breaks=np.arange(0, 2+0.01, 0.5)) + \
+                                                                     geom_hline(yintercept=1, color="orange", linetype="dashed") + xlab('TFs') + ylab('Observed / Expected') + theme_bw()
 p.save(filename='tumor_motif_tf_res_scatter.pdf', dpi=300, height=4, width=4)
-print(sum(df['obs_exp']>1))   # 21
-print(sum(df['obs_exp']<=1))  # 27
+print(sum(df['obs_exp']>1))   # 160
+print(sum(df['obs_exp']<=1))  # 179
 
 
 
