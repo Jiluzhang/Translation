@@ -464,28 +464,112 @@ wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with
 
 
 ## MECOM
-awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed |\
-bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
-# 546 (546/10000*100=5.46)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/MECOM_tumor.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/mecom_hg38.bed -wa | sort | uniq | wc -l   
+# 251 (251/10000*100=2.51)
 
-awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed |\
-bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
-# 65091 (65091/1033239*100=6.2997041342806455)
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/human_cCREs.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/mecom_hg38.bed -wa | sort | uniq | wc -l   
+# 17167 (17167/1033239*100=1.6614742571660575)
 
 for i in `seq 1000`;do
     shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
-               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed | wc -l` |\
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/MECOM_tumor.bed | wc -l` |\
                awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
-               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l \
-               >> PAX8_random.txt
+               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/mecom_hg38.bed -wa | sort | uniq | wc -l \
+               >> MECOM_random.txt
     echo $i           
 done
 
-wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed  # 10000
-awk '{sum+=$1} END {print sum/1000}' PAX8_random.txt  # 630.836
-awk '{if($1>546) print$0}' PAX8_random.txt | wc -l   # 1000
-wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed  # 32700
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/MECOM_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' MECOM_random.txt  # 166.27
+awk '{if($1>251) print$0}' MECOM_random.txt | wc -l    # 0
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/mecom_hg38.bed  # 7655
 
 
 
+## CTCF
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/CTCF_tumor.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/CTCF/CTCF_peaks.bed -wa | sort | uniq | wc -l   
+# 543 (543/10000*100=5.43)
 
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/MECOM/human_cCREs.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/CTCF/CTCF_peaks.bed -wa | sort | uniq | wc -l   
+# 63197 (63197/1033239*100=6.116397077539659)
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/CTCF_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/CTCF/CTCF_peaks.bed -wa | sort | uniq | wc -l \
+               >> CTCF_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/CTCF_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' CTCF_random.txt  # 612.811
+awk '{if($1>543) print$0}' CTCF_random.txt | wc -l    # 997
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/CTCF/CTCF_peaks.bed  # 35493
+
+
+## ETS1
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/ETS1_tumor.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/ETS1/ETS1_peaks.bed -wa | sort | uniq | wc -l   
+# 353 (353/10000*100=3.53)
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/ETS1/ETS1_peaks.bed -wa | sort | uniq | wc -l   
+# 28128 (28128/1033239*100=2.722313036964342)
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/ETS1_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/ETS1/ETS1_peaks.bed -wa | sort | uniq | wc -l \
+               >> ETS1_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/ETS1_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' ETS1_random.txt  # 272.159
+awk '{if($1>353) print$0}' ETS1_random.txt | wc -l    # 0
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/ETS1/ETS1_peaks.bed  # 8827
+
+
+###### plot lollipop
+import pandas as pd
+import numpy as np
+from plotnine import *
+
+df = pd.read_csv('tumor_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df['attn'] = df['attn']/df.shape[0]/20
+df_top20 = df.sort_values('attn', ascending=False)[:20]
+gene_top20 = list(df_top20['gene'])
+gene_top20.reverse()
+df_top20['gene'] = pd.Categorical(df_top20['gene'], categories=gene_top20)
+
+df.sort_values('attn', ascending=False)[:100]['gene'].to_csv('tumor_gene_top100.txt', header=None, index=None)
+
+p = ggplot(df_top20) + aes(x='gene', y='attn') + geom_segment(aes(x='gene', xend='gene', y=0, yend='attn'), color='red', size=1) + \
+                                              geom_point(color='red', size=3) + coord_flip() + \
+                                              xlab('Genes') + ylab('Attn') + labs(title='Tumor cells') + \
+                                              scale_y_continuous(limits=[0, 0.16], breaks=np.arange(0, 0.16+0.01, 0.04)) + \
+                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+p.save(filename='tumor_top20_lollipp.pdf', dpi=300, height=4, width=8)
+
+
+df = pd.read_csv('fibro_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df['attn'] = df['attn']/df.shape[0]/20
+df_top20 = df.sort_values('attn', ascending=False)[:20]
+gene_top20 = list(df_top20['gene'])
+gene_top20.reverse()
+df_top20['gene'] = pd.Categorical(df_top20['gene'], categories=gene_top20)
+
+p = ggplot(df_top20) + aes(x='gene', y='attn') + geom_segment(aes(x='gene', xend='gene', y=0, yend='attn'), color='blue', size=1) + \
+                                              geom_point(color='blue', size=3) + coord_flip() + \
+                                              xlab('Genes') + ylab('Attn') + labs(title='Fibroblasts') + \
+                                              scale_y_continuous(limits=[0, 0.16], breaks=np.arange(0, 0.16+0.01, 0.04)) + \
+                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+p.save(filename='fibro_top20_lollipp.pdf', dpi=300, height=4, width=8)
