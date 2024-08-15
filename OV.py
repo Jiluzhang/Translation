@@ -417,3 +417,75 @@ print(sum(df['obs_exp']<=1))  # 179
 
 
 
+## ChIP-seq data validation
+## GRHL2
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/GRHL2_tumor.bed |\
+bedtools intersect -a stdin -b GRHL2_peaks.bed -wa | sort | uniq | wc -l   # 648 (648/10000*100=6.48)
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed |\
+bedtools intersect -a stdin -b GRHL2_peaks.bed -wa | sort | uniq | wc -l   # 66717 (66717/1033239*100=6.457073339275811)
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/GRHL2_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b GRHL2_peaks.bed -wa | sort | uniq | wc -l >> GRHL2_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/GRHL2_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' GRHL2_random.txt  # 645.634
+awk '{if($1>648) print$0}' GRHL2_random.txt | wc -l   # 448
+wc -l GRHL2_peaks.bed  # 34487
+
+
+## PAX8
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
+# 546 (546/10000*100=5.46)
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
+# 65091 (65091/1033239*100=6.2997041342806455)
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l \
+               >> PAX8_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' PAX8_random.txt  # 630.836
+awk '{if($1>546) print$0}' PAX8_random.txt | wc -l   # 1000
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed  # 32700
+
+
+## MECOM
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
+# 546 (546/10000*100=5.46)
+
+awk '{print $1 "\t" $2-500 "\t" $2+500}' /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed |\
+bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l   
+# 65091 (65091/1033239*100=6.2997041342806455)
+
+for i in `seq 1000`;do
+    shuf /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/human_cCREs.bed | \
+               head -n `cat /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed | wc -l` |\
+               awk '{print $1 "\t" $2-500 "\t" $2+500}' |\
+               bedtools intersect -a stdin -b /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed -wa | sort | uniq | wc -l \
+               >> PAX8_random.txt
+    echo $i           
+done
+
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/OV/TF_bed/PAX8_tumor.bed  # 10000
+awk '{sum+=$1} END {print sum/1000}' PAX8_random.txt  # 630.836
+awk '{if($1>546) print$0}' PAX8_random.txt | wc -l   # 1000
+wc -l /mnt/Saturn/home/jiluzhang/scM2M_no_dec_attn/pan_cancer/all_data/data_with_annotation/h5ad/scM2M/PAX8/pax8_hg38.bed  # 32700
+
+
+
+
