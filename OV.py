@@ -573,3 +573,49 @@ p = ggplot(df_top20) + aes(x='gene', y='attn') + geom_segment(aes(x='gene', xend
                                               scale_y_continuous(limits=[0, 0.16], breaks=np.arange(0, 0.16+0.01, 0.04)) + \
                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
 p.save(filename='fibro_top20_lollipp.pdf', dpi=300, height=4, width=8)
+
+
+## tumor cells vs. fibroblasts
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+
+tumor = pd.read_csv('tumor_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+tumor.columns = ['gene', 'attn']
+tumor_500 = tumor.sort_values('attn', ascending=False)[:500]['gene'].values
+
+fibro = pd.read_csv('fibro_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+fibro.columns = ['gene', 'attn']
+fibro_500 = fibro.sort_values('attn', ascending=False)[:500]['gene'].values
+
+plt.figure()
+venn2(subsets = [set(tumor_500), set(fibro_500)], set_labels=('Tumor cells','Fibroblasts'), set_colors=('darkred', 'midnightblue'))
+plt.savefig('tumor_cell_fibroblasts_top500_venn.pdf')
+plt.close()
+
+tumor.sort_values('attn', ascending=False)[:500]['gene'].to_csv('tumor_gene_top500.txt', index=None, header=None)
+fibro.sort_values('attn', ascending=False)[:500]['gene'].to_csv('fibro_gene_top500.txt', index=None, header=None)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
