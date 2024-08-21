@@ -22,7 +22,7 @@ python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240821.log &   
 # accuracy improves until about 10 epoch
-# 2425563
+# 1238505
 
 import scanpy as sc
 import numpy as np
@@ -101,11 +101,12 @@ np.count_nonzero(rna.X.toarray(), axis=1).max()  # 7617
 python data_preprocess_unpaired.py -r rna_unpaired.h5ad -a atac_unpaired.h5ad -s preprocessed_data_unpaired --dt test --config rna2atac_config_unpaired.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_unpaired \
-                  -l save/2024-08-21_rna2atac_train_55/pytorch_model.bin --config_file rna2atac_config_unpaired.yaml
+                  -l save/2024-08-21_rna2atac_train_55/pytorch_model.bin --config_file rna2atac_config_unpaired.yaml   # ~ 0.5h
 
 import scanpy as sc
 import numpy as np
 from scipy.sparse import csr_matrix
+import snapatac2 as snap
 
 dat = np.load('predict.npy')
 dat[dat>0.5] = 1
@@ -113,11 +114,16 @@ dat[dat<=0.5] = 0
 atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)
 
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_unpaired.pdf')
 
 
-
+# enc_depth: 2
+# dec_depth: 2
 
 
 
