@@ -20,7 +20,9 @@ python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s preprocessed_data_train --dt train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_val --dt val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240820.log &   # 42406
+                        --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240821.log &   
+# accuracy improves until about 10 epoch
+# 2425563
 
 import scanpy as sc
 import numpy as np
@@ -43,7 +45,7 @@ atac.write('atac_val_with_leiden.h5ad')
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-08-20_rna2atac_train_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -l save/2024-08-21_rna2atac_train_55/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python csr2array.py --pred rna2atac_scm2m_raw.h5ad --true atac_val_with_leiden.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leiden.h5ad
@@ -55,8 +57,11 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leide
 # -> kidney_aging.h5ad
 
 import scanpy as sc
+import pandas as pd
+from scipy.sparse import csr_matrix
+import numpy as np
 
-dat = sc.read_h5ad('kidney_aging.h5ad')
+rna = sc.read_h5ad('kidney_aging.h5ad')
 
 ## map rna
 ref_rna = sc.read_h5ad('rna.h5ad')
@@ -64,22 +69,52 @@ genes = ref_rna.var[['gene_ids']]
 genes['gene_name'] = genes.index.values
 genes.reset_index(drop=True, inplace=True)
 
-genes = pd.read_table('human_genes.txt', names=['gene_ids', 'gene_name'])
-
-rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index.values)], axis=1)
+rna_exp = pd.concat([rna.var['feature_name'], pd.DataFrame(rna.raw.X.toarray().T, index=rna.var.index.values)], axis=1)
+rna_exp['gene_ids'] = rna_exp.index.values
+rna_exp.rename(columns={'feature_name': 'gene_name'}, inplace=True)
 X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 3:].T
 X_new.fillna(value=0, inplace=True)
 
 rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
 rna_new.var.index = genes['gene_name'].values
 rna_new.X = csr_matrix(rna_new.X)
-rna_new.write('rna.h5ad')
+rna_new.write('rna_unpaired.h5ad')
 
-
-
+## pseudo atac
 ref_atac = sc.read_h5ad('atac.h5ad')
 
+atac_new = sc.AnnData(np.zeros([rna.n_obs, ref_atac.n_vars]),
+                      obs=rna.obs, 
+                      var=ref_atac.var)
+atac_new.X[:, 0] = 1
+atac_new.X = csr_matrix(atac_new.X)
+atac_new.write('atac_unpaired.h5ad')
 
+
+import scanpy as sc
+import numpy as np
+rna = sc.read_h5ad('rna_unpaired.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max()  # 7617
+
+
+
+python data_preprocess_unpaired.py -r rna_unpaired.h5ad -a atac_unpaired.h5ad -s preprocessed_data_unpaired --dt test --config rna2atac_config_unpaired.yaml
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_unpaired \
+                  -l save/2024-08-21_rna2atac_train_55/pytorch_model.bin --config_file rna2atac_config_unpaired.yaml
+
+import scanpy as sc
+import numpy as np
+from scipy.sparse import csr_matrix
+
+dat = np.load('predict.npy')
+dat[dat>0.5] = 1
+dat[dat<=0.5] = 0
+atac = sc.read_h5ad('atac_unpaired.h5ad')
+atac.X = csr_matrix(dat)
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired.pdf')
 
 
 
