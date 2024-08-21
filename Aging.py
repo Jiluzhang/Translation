@@ -22,6 +22,32 @@ python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir ./preprocessed_data_train --val_data_dir ./preprocessed_data_val -n rna2atac_train > 20240820.log &   # 42406
 
+import scanpy as sc
+import numpy as np
+rna = sc.read_h5ad('rna_val.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max()  # 13845
+
+import snapatac2 as snap
+import scanpy as sc
+atac = sc.read_h5ad('atac_val.h5ad')
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+snap.pp.knn(atac)
+snap.tl.leiden(atac)
+sc.pl.umap(atac, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_val_true.pdf')
+atac.write('atac_val_with_leiden.h5ad')
+
+
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
+                  -d ./preprocessed_data_test \
+                  -l save/2024-08-20_rna2atac_train_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python csr2array.py --pred rna2atac_scm2m_raw.h5ad --true atac_val_with_leiden.h5ad
+python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leiden.h5ad
+python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leiden.h5ad
 
 
 ## Tabula Muris Senis: https://cellxgene.cziscience.com/collections/0b9d8a04-bb9d-44da-aa27-705bb65b54eb
