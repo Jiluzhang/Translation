@@ -109,22 +109,26 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import snapatac2 as snap
 
-dat = np.load('predict.npy')
+dat = np.load('predict_unpaired.npy')
 dat[dat>0.5] = 1
 dat[dat<=0.5] = 0
 atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)
 
 snap.pp.select_features(atac)
-snap.tl.spectral(atac)
+snap.tl.spectral(atac, n_comps=100)
 snap.tl.umap(atac)
+
+# sc.pl.umap(atac[atac.obs['cell_type'].isin(atac.obs.cell_type.value_counts()[:5].index), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True, save='_unpaired_tmp.pdf')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired_tmp.pdf')
 
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_unpaired.pdf')
 
 
-# enc_depth: 2
-# dec_depth: 2
 
 
 
