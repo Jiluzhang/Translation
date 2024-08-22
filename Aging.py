@@ -46,7 +46,7 @@ atac.write('atac_val_with_leiden.h5ad')
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s preprocessed_data_test --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
                   -d ./preprocessed_data_test \
-                  -l save/2024-08-21_rna2atac_train_14/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -l save/2024-08-21_rna2atac_train_56/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python csr2array.py --pred rna2atac_scm2m_raw.h5ad --true atac_val_with_leiden.h5ad
 python cal_auroc_auprc.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leiden.h5ad
