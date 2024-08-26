@@ -108,6 +108,7 @@ import scanpy as sc
 import numpy as np
 from scipy.sparse import csr_matrix
 import snapatac2 as snap
+import pandas as pd
 
 dat = np.load('predict_unpaired.npy')
 dat[dat>0.5] = 1
@@ -128,15 +129,23 @@ sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margi
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_unpaired.pdf')
 
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired_n_comps_200.pdf')
 
 
+def out_pred_bedgraph(cell_type='T cell'):
+    atac_X = atac[atac.obs['cell_type']==cell_type, :].X.toarray().mean(axis=0)
+    df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                       'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                       'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                       'val': atac_X})
+    df.to_csv(cell_type.replace(' ', '_')+'_atac_pred.bedgraph', index=False, header=False, sep='\t')
 
+for cell_type in set(atac.obs.cell_type.values):
+    out_pred_bedgraph(cell_type=cell_type)
 
-
-
-
-
-
+# marker genes: https://drive.google.com/drive/u/0/folders/1JZgFDmdVlw-UN8Gb_lRxSAdCZfhlzdrH
+# Single cell regulatory landscape of the mouse kidney highlights cellular differentiation programs and disease targets
 
 
 
