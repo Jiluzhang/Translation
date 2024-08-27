@@ -144,11 +144,25 @@ def out_pred_bedgraph(cell_type='T cell'):
 for cell_type in set(atac.obs.cell_type.values):
     out_pred_bedgraph(cell_type=cell_type)
 
+
 # marker genes: https://drive.google.com/drive/u/0/folders/1JZgFDmdVlw-UN8Gb_lRxSAdCZfhlzdrH
 # Single cell regulatory landscape of the mouse kidney highlights cellular differentiation programs and disease targets
+# Differentail Expression: https://cellxgene.cziscience.com/differential-expression
 
+## prob average seems almost same!!!
+# dat = np.load('predict_unpaired.npy')
+# atac = sc.read_h5ad('atac_unpaired.h5ad')
+# atac.X = dat
 
+# def out_pred_prob_bedgraph(cell_type='T cell'):
+#     atac_X = atac[atac.obs['cell_type']==cell_type, :].X.mean(axis=0)
+#     df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+#                        'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+#                        'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+#                        'val': atac_X})
+#     df.to_csv(cell_type.replace(' ', '_')+'_atac_pred_prob.bedgraph', index=False, header=False, sep='\t')
 
-
+# for cell_type in set(atac.obs.cell_type.values):
+#     out_pred_prob_bedgraph(cell_type=cell_type)
 
 
