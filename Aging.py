@@ -164,15 +164,15 @@ for cell_type in tqdm(set(atac.obs.cell_type.values), ncols=80):
     out_pred_norm_bedgraph(cell_type=cell_type)
 
 
-m_18 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='18 month-old stage')].X.toarray()  # 65
-m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
-m_20 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='20 month-old stage and over')].X.toarray()  # 1263
-m_20 = (m_20.sum(axis=0))/(m_20.shape[0])
-m_03 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='3 month-old stage')].X.toarray()  # 18
-m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
-m_01 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='4 weeks')].X.toarray()  # 13
+cell_type = 'kidney proximal convoluted tubule epithelial cell'
+m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='4 weeks')].X.toarray()  # 938
 m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
-
+m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='3 month-old stage')].X.toarray()  # 681
+m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
+m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='18 month-old stage')].X.toarray() # 1117
+m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
+m_20 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='20 month-old stage and over')].X.toarray()  # 1724
+m_20 = (m_20.sum(axis=0))/(m_20.shape[0])
 m_all = np.vstack((m_01, m_03, m_18, m_20))
 
 
@@ -182,18 +182,53 @@ from scipy.stats import norm
 np.argwhere((m_all[1, :]>m_all[0, :]) & (m_all[2, :]>m_all[1, :]) & (m_all[3, :]>m_all[2, :])).flatten()[:20]
 # array([  7,  36,  65,  75,  94, 234, 238, 241, 304, 324, 356, 364, 400, 424, 428, 494, 517, 549, 623, 630])
 
+np.argwhere((m_all[1, :]<m_all[0, :]) & (m_all[2, :]<m_all[1, :]) & (m_all[3, :]<m_all[2, :])).flatten()[:20]
+# array([ 132,  142,  461,  548,  660,  695,  773,  817,  846,  911,  914, 915,  917,  958, 1059, 1144, 1807, 1841, 1857, 1917])
+
+
+coef_lst = []
+pval_lst = []
 X = [1, 3, 18, 20]
 X = sm.add_constant(X)
-Y = m_all[:, 428]
+for i in tqdm(range(m_all.shape[1]), ncols=80):
+    Y = m_all[:, i]
+    model = sm.OLS(Y, X)
+    results = model.fit()
+    beta_hat = results.params[1]
+    se_beta_hat = results.bse[1]
+    wald_statistic = beta_hat / se_beta_hat
+    p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
+    coef_lst.append(beta_hat)
+    pval_lst.append(p_value)
 
-model = sm.OLS(Y, X)
-results = model.fit()
-beta_hat = results.params[1]
-se_beta_hat = results.bse[1]
+df = pd.DataFrame({'idx':atac.var.index.values, 'coef':coef_lst, 'pval':pval_lst})
 
-wald_statistic = beta_hat / se_beta_hat
-p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
+df.sort_values('coef', ascending=False)[:50]
+df.sort_values('coef', ascending=True)[:50]
 
+# kidney proximal convoluted tubule epithelial cell            4460
+# B cell                                                       3124
+# epithelial cell of proximal tubule                           3053
+# kidney loop of Henle thick ascending limb epithelial cell    1554
+# lymphocyte                                                   1536
+# macrophage                                                   1407
+# T cell                                                       1359
+# fenestrated cell                                             1027
+# kidney collecting duct principal cell                         789
+# kidney distal convoluted tubule epithelial cell               744
+# plasmatocyte                                                  496
+# brush cell                                                    414
+# kidney cortex artery cell                                     381
+# plasma cell                                                   325
+# mesangial cell                                                261
+# kidney loop of Henle ascending limb epithelial cell           201
+# kidney capillary endothelial cell                             161
+# fibroblast                                                    161
+# kidney proximal straight tubule epithelial cell                95
+# natural killer cell                                            66
+# kidney collecting duct epithelial cell                         25
+# leukocyte                                                       5
+# kidney cell                                                     3
 
 
 # marker genes: https://drive.google.com/drive/u/0/folders/1JZgFDmdVlw-UN8Gb_lRxSAdCZfhlzdrH
