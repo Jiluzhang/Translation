@@ -109,6 +109,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 import snapatac2 as snap
 import pandas as pd
+from tqdm import tqdm
 
 dat = np.load('predict_unpaired.npy')
 dat[dat>0.5] = 1
@@ -117,11 +118,14 @@ atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)
 
 snap.pp.select_features(atac)
-snap.tl.spectral(atac, n_comps=100)
+snap.tl.spectral(atac, n_comps=100)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
 snap.tl.umap(atac)
 
 # sc.pl.umap(atac[atac.obs['cell_type'].isin(atac.obs.cell_type.value_counts()[:5].index), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
 #            title='', frameon=True, save='_unpaired_tmp.pdf')
+
+sc.pl.umap(atac[atac.obs['cell_type'].isin(['fenestrated cell', 'B cell']), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+            title='', frameon=True, save='_unpaired_luz.pdf')
 
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_unpaired_tmp.pdf')
@@ -143,6 +147,34 @@ def out_pred_bedgraph(cell_type='T cell'):
 
 for cell_type in set(atac.obs.cell_type.values):
     out_pred_bedgraph(cell_type=cell_type)
+
+
+def out_pred_norm_bedgraph(cell_type='T cell'):
+    # atac_X_raw = atac[atac.obs['cell_type']==cell_type, :].X.toarray()
+    # atac_X = (atac_X_raw/(atac_X_raw.sum(axis=1)[:, np.newaxis])).mean(axis=0)*10000
+    atac_X_raw = atac[atac.obs['cell_type']==cell_type, :].X.toarray().sum(axis=0)
+    atac_X = atac_X_raw/atac_X_raw.sum()*10000
+    df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                       'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                       'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                       'val': atac_X})
+    df.to_csv(cell_type.replace(' ', '_')+'_atac_pred_norm.bedgraph', index=False, header=False, sep='\t')
+
+for cell_type in tqdm(set(atac.obs.cell_type.values), ncols=80):
+    out_pred_norm_bedgraph(cell_type=cell_type)
+
+
+m_18 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='18 month-old stage')].X.toarray()  # 65
+m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
+m_20 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='20 month-old stage and over')].X.toarray()  # 1263
+m_20 = (m_20.sum(axis=0))/(m_20.shape[0])
+m_03 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='3 month-old stage')].X.toarray()  # 18
+m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
+m_01 = atac[(atac.obs['cell_type']=='T cell') & (atac.obs['development_stage']=='4 weeks')].X.toarray()  # 13
+m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
+
+m_all = np.vstack((m_01, m_03, m_18, m_20))
+
 
 
 # marker genes: https://drive.google.com/drive/u/0/folders/1JZgFDmdVlw-UN8Gb_lRxSAdCZfhlzdrH
