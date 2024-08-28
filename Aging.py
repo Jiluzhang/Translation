@@ -55,6 +55,7 @@ python cal_cluster_plot.py --pred rna2atac_scm2m.h5ad --true atac_val_with_leide
 
 ## Tabula Muris Senis: https://cellxgene.cziscience.com/collections/0b9d8a04-bb9d-44da-aa27-705bb65b54eb
 # kidney dataset: wget -c https://datasets.cellxgene.cziscience.com/e896f2b3-e22b-42c0-81e8-9dd1b6e80d64.h5ad
+# gene expression: https://cellxgene.cziscience.com/gene-expression
 # -> kidney_aging.h5ad
 
 import scanpy as sc
@@ -178,6 +179,7 @@ m_all = np.vstack((m_01, m_03, m_18, m_20))
 
 import statsmodels.api as sm
 from scipy.stats import norm
+from statsmodels.stats.multitest import multipletests
 
 np.argwhere((m_all[1, :]>m_all[0, :]) & (m_all[2, :]>m_all[1, :]) & (m_all[3, :]>m_all[2, :])).flatten()[:20]
 # array([  7,  36,  65,  75,  94, 234, 238, 241, 304, 324, 356, 364, 400, 424, 428, 494, 517, 549, 623, 630])
@@ -202,9 +204,32 @@ for i in tqdm(range(m_all.shape[1]), ncols=80):
     pval_lst.append(p_value)
 
 df = pd.DataFrame({'idx':atac.var.index.values, 'coef':coef_lst, 'pval':pval_lst})
+df.dropna(inplace=True)
+_, fdr, _, _ = multipletests(df['pval'].values, alpha=0.05, method='fdr_bh')
+df['fdr'] = fdr
 
-df.sort_values('coef', ascending=False)[:50]
-df.sort_values('coef', ascending=True)[:50]
+df_pos = df[df['fdr']<0.01]
+out_1 = df_pos.sort_values('coef', ascending=False)[:20]
+out_2 = df_pos.sort_values('coef', ascending=True)[:20]
+pd.concat([out_2, out_1]).to_csv('kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.txt', sep='\t', index=None)
+
+
+## plot bar
+import pandas as pd
+from plotnine import *
+import numpy as np
+
+df = pd.read_table('kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.txt')
+df = df.sort_values('coef', ascending=True)
+df['idx'] = pd.Categorical(df['idx'], categories=df['idx'])
+
+p = ggplot(df, aes(x='idx', y='coef')) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() + \
+                                                        xlab('Peaks') + ylab('Coef') + labs(title='Kidney proximal convoluted tubule epithelial cells')  + \
+                                                        scale_y_continuous(limits=[-0.015, 0.015], breaks=np.arange(-0.015, 0.015+0.0001, 0.003)) + theme_bw() + theme(plot_title=element_text(hjust=0.5))
+p.save(filename='kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.pdf', dpi=600, height=8, width=15)
+
+
+
 
 # kidney proximal convoluted tubule epithelial cell            4460
 # B cell                                                       3124
