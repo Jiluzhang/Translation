@@ -176,6 +176,25 @@ m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
 m_all = np.vstack((m_01, m_03, m_18, m_20))
 
 
+import statsmodels.api as sm
+from scipy.stats import norm
+
+np.argwhere((m_all[1, :]>m_all[0, :]) & (m_all[2, :]>m_all[1, :]) & (m_all[3, :]>m_all[2, :])).flatten()[:20]
+# array([  7,  36,  65,  75,  94, 234, 238, 241, 304, 324, 356, 364, 400, 424, 428, 494, 517, 549, 623, 630])
+
+X = [1, 3, 18, 20]
+X = sm.add_constant(X)
+Y = m_all[:, 428]
+
+model = sm.OLS(Y, X)
+results = model.fit()
+beta_hat = results.params[1]
+se_beta_hat = results.bse[1]
+
+wald_statistic = beta_hat / se_beta_hat
+p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
+
+
 
 # marker genes: https://drive.google.com/drive/u/0/folders/1JZgFDmdVlw-UN8Gb_lRxSAdCZfhlzdrH
 # Single cell regulatory landscape of the mouse kidney highlights cellular differentiation programs and disease targets
