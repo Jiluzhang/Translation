@@ -280,6 +280,8 @@ p.save(filename='kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.pdf
 
 ###### EpiTrace - Estimating cell age from single-cell ATAC data
 # https://epitrace.readthedocs.io/en/latest/
+# https://epitrace.readthedocs.io/en/latest/MSscATAC.html
+# EpiTrace application (Genome Biology): https://link.springer.com/article/10.1186/s13059-024-03265-z#article-info
 conda create -n epitrace conda-forge::r-base=4.1.3
 
 install.packages('pak')
@@ -304,9 +306,35 @@ install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1
 pak::pkg_install('caleblareau/easyLift')
 install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-4.tar.gz')
 install.packages('https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-55.tar.gz')
+install.packages('testthat')
+
+wget -c https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3.tar.gz
+tar -zvxf cmake-3.30.3.tar.gz
+cd cmake-3.30.3
+./bootstrap
+./configure --prefix=/data/home/jiluzhang/biosoftware/cmake
+make
+make install
+add env
+
+install.packages('https://cran.r-project.org/src/contrib/Archive/nloptr/nloptr_2.0.0.tar.gz')
+install.packages('https://www.bioconductor.org/packages/release/bioc/src/contrib/ggtree_3.12.0.tar.gz')
+
 pak::pkg_install('MagpiePKU/EpiTrace')
 
+install.packages('readr')
+install.packages('openxlsx')
 
+conda install conda-forge::r-devtools
+ln -s libicuuc.so.70 libicuuc.so.58 (workdir:/data/home/jiluzhang/miniconda3/envs/epitrace/lib)
+ln -s libicui18n.so.70 libicui18n.so.58
+install.packages("https://cran.r-project.org/src/contrib/stringi_1.8.4.tar.gz")
+
+install.packages("BiocManager")
+devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
+install.packages('https://cran.r-project.org/src/contrib/Rcpp_1.0.13.tar.gz')
+
+BiocManager::install("ChIPseeker")
 
 
 
