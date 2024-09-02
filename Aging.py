@@ -277,3 +277,59 @@ p.save(filename='kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.pdf
 #     out_pred_prob_bedgraph(cell_type=cell_type)
 
 
+
+###### EpiTrace - Estimating cell age from single-cell ATAC data
+# https://epitrace.readthedocs.io/en/latest/
+conda create -n epitrace conda-forge::r-base=4.1.3
+
+install.packages('pak')
+library(pak)
+install.packages('https://cran.r-project.org/src/contrib/Archive/rjson/rjson_0.2.20.tar.gz')
+install.packages('lattice')
+install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.5-0.tar.gz')
+pak::pkg_install('caleblareau/easyLift')
+
+conda install r-xml
+Sys.setenv(XML_CONFIG="/data/home/jiluzhang/miniconda3/bin/xml2-config")
+install.packages("XML")
+
+
+conda create -n epitrace conda-forge::r-base=4.2.0
+install.packages('pak')
+library(pak)
+install.packages('https://cran.r-project.org/src/contrib/Archive/rjson/rjson_0.2.20.tar.gz')
+install.packages('lattice')
+install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.5-0.tar.gz')
+
+pak::pkg_install('caleblareau/easyLift')
+install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-4.tar.gz')
+install.packages('https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-55.tar.gz')
+pak::pkg_install('MagpiePKU/EpiTrace')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
