@@ -282,6 +282,8 @@ p.save(filename='kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.pdf
 # https://epitrace.readthedocs.io/en/latest/
 # https://epitrace.readthedocs.io/en/latest/MSscATAC.html
 # EpiTrace application (Genome Biology): https://link.springer.com/article/10.1186/s13059-024-03265-z#article-info
+
+################################ INSTALLATION ########################################
 conda create -n epitrace conda-forge::r-base=4.1.3
 
 install.packages('pak')
@@ -294,7 +296,6 @@ pak::pkg_install('caleblareau/easyLift')
 conda install r-xml
 Sys.setenv(XML_CONFIG="/data/home/jiluzhang/miniconda3/bin/xml2-config")
 install.packages("XML")
-
 
 conda create -n epitrace conda-forge::r-base=4.2.0
 install.packages('pak')
@@ -335,6 +336,7 @@ devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager
 install.packages('https://cran.r-project.org/src/contrib/Rcpp_1.0.13.tar.gz')
 
 BiocManager::install("ChIPseeker")
+###################################################################################################
 
 
 
