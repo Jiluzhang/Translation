@@ -338,6 +338,121 @@ install.packages('https://cran.r-project.org/src/contrib/Rcpp_1.0.13.tar.gz')
 BiocManager::install("ChIPseeker")
 ###################################################################################################
 
+wget -c https://github.com/MagpiePKU/EpiTrace/blob/master/data/mouse_clock_mm285_design_clock347_mm10.rds
+
+###### transform h5ad to 10x
+import numpy as np
+import scanpy as sc
+import scipy.io as sio
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+dat = np.load('../predict_unpaired.npy')
+dat[dat>0.5] = 1
+dat[dat<=0.5] = 0
+atac = sc.read_h5ad('../atac_unpaired.h5ad')
+atac.X = csr_matrix(dat)
+
+## output peaks
+peaks_df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                         'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                         'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+peaks_df.to_csv('scATAC_peaks.bed', sep='\t', header=False, index=False)
+
+## output barcodes
+pd.DataFrame(atac.obs.index).to_csv('scATAC_barcodes.tsv', sep='\t', header=False, index=False)
+
+## output matrix
+sio.mmwrite("scATAC_matrix.mtx", atac.X.T)  # peak*cell (not cell*peak)
+
+## output meta
+pd.DataFrame(atac.obs[['age', 'cell_type']]).to_csv('scATAC_meta.tsv', sep='\t', header=False, index=True)
+
+
+
+
+
+
+
+
+library(readr)
+library(EpiTrace)
+library(dplyr)
+library(GenomicRanges)
+
+
+## load the  “mouse clocks”
+# https://github.com/MagpiePKU/EpiTrace/blob/master/data/mouse_clock_mm285_design_clock347_mm10.rds
+mouse_clock_by_MM285 <- readRDS('mouse_clock_mm285_design_clock347_mm10.rds')
+
+## prepare the scATAC data
+peaks_df <- read_tsv('scATAC_peaks.bed',col_names = c('chr','start','end'))
+cells <- read_tsv('scATAC_barcodes.tsv',col_names=c('cell'))
+mm <- Matrix::readMM('scATAC_matrix.mtx')
+peaks_df$peaks <- paste0(peaks_df$chr, '-', peaks_df$start, '-', peaks_df$end)
+init_gr <- EpiTrace::Init_Peakset(peaks_df)
+init_mm <- EpiTrace::Init_Matrix(peakname=peaks_df$peaks, cellname=cells$cell, matrix=mm)
+
+## EpiTrace analysis
+# trace(EpiTraceAge_Convergence, edit=TRUE)  ref_genome='hg19'???
+epitrace_obj_age_conv_estimated_by_mouse_clock <- EpiTraceAge_Convergence(peakSet=init_gr, matrix=init_mm, ref_genome='mm10',
+                                                                          clock_gr=mouse_clock_by_MM285, 
+                                                                          iterative_time=5, min.cutoff=0, non_standard_clock=T,
+                                                                          qualnum=10, ncore_lim=48, mean_error_limit=0.1)
+
+meta <- as.data.frame(epitrace_obj_age_conv_estimated_by_mouse_clock@meta.data)
+
+cell_info <- read_tsv('scATAC_meta.tsv', trim_ws=TRUE, col_names=c('cell', 'age', 'cell_type'))
+
+dat <- inner_join(meta, cell_info) %>% filter(cell_type=='kidney proximal convoluted tubule epithelial cell') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
+
+# 18m  1m 21m 30m  3m 
+# 864 543 683 601 488
+
+dat %>% filter(age=='1m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5720584
+dat %>% filter(age=='3m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5702354
+dat %>% filter(age=='18m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6278309
+dat %>% filter(age=='21m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6548316
+dat %>% filter(age=='30m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5969956
+
+dat %>% filter(age=='1m') %>% summarize(mean_value=median(epitrace_age))  # 0.5757576
+dat %>% filter(age=='3m') %>% summarize(mean_value=median(epitrace_age))  # 0.5703463
+dat %>% filter(age=='18m') %>% summarize(mean_value=median(epitrace_age))  # 0.6645022
+dat %>% filter(age=='21m') %>% summarize(mean_value=median(epitrace_age))  # 0.6872294
+dat %>% filter(age=='30m') %>% summarize(mean_value=median(epitrace_age))  # 0.6093074
+
+
+import statsmodels.api as sm
+from scipy.stats import norm
+
+X = [1, 3, 18, 21, 30]
+X = sm.add_constant(X)
+Y = [0.5721, 0.5702, 0.6278, 0.6548, 0.5970]
+model = sm.OLS(Y, X)
+results = model.fit()
+beta_hat = results.params[1]
+se_beta_hat = results.bse[1]
+wald_statistic = beta_hat / se_beta_hat
+p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
+
+
+# development_stage & age
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
