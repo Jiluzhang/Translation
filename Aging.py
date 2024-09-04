@@ -380,6 +380,7 @@ library(EpiTrace)
 library(dplyr)
 library(GenomicRanges)
 library(ggplot2)
+library(Seurat)
 
 
 ## load the  “mouse clocks”
@@ -400,9 +401,28 @@ epitrace_obj_age_conv_estimated_by_mouse_clock <- EpiTraceAge_Convergence(peakSe
                                                                           clock_gr=mouse_clock_by_MM285, 
                                                                           iterative_time=5, min.cutoff=0, non_standard_clock=T,
                                                                           qualnum=10, ncore_lim=48, mean_error_limit=0.1)
-
+## add meta info of cell types
 meta <- as.data.frame(epitrace_obj_age_conv_estimated_by_mouse_clock@meta.data)
 write.table(meta, 'epitrace_meta.txt', sep='\t', quote=FALSE)
+cell_info <- read.table('scATAC_meta.tsv', sep='\t', col.names=c('cell', 'age', 'cell_type'))
+meta_cell_info <- left_join(meta, cell_info) 
+epitrace_obj_age_conv_estimated_by_mouse_clock <- AddMetaData(epitrace_obj_age_conv_estimated_by_mouse_clock, metadata=meta_cell_info[['cell_type']], col.name='cell_type')
+
+epitrace_obj_age_conv_estimated_by_mouse_clock[['all']] <- Seurat::CreateAssayObject(counts=init_mm[,c(epitrace_obj_age_conv_estimated_by_mouse_clock$cell)], min.cells=0, min.features=0, check.matrix=F)
+DefaultAssay(epitrace_obj_age_conv_estimated_by_mouse_clock) <- 'all'
+saveRDS(epitrace_obj_age_conv_estimated_by_mouse_clock, file='epitrace_obj_age_conv_estimated_by_mouse_clock.rds')
+epitrace_obj_age_conv_estimated_by_mouse_clock <- readRDS(file='epitrace_obj_age_conv_estimated_by_mouse_clock.rds')
+
+## peak-age association (consider all cell types for comparison)
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney proximal convoluted tubule epithelial cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+asso_res_mouse_clock_02 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('B cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
+asso_res_mouse_clock_02[order(asso_res_mouse_clock_02$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
+
+
+
 
 
 ######### plot for each age
@@ -481,16 +501,72 @@ p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5,
 ggsave(p, filename='epitrace_age_B_cell.pdf', dpi=300, height=4, width=6)
 
 
+## epithelial cell of proximal tubule
+dat <- meta_cell_info %>% filter(cell_type=='epithelial cell of proximal tubule') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
+
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '30m'))
+table(dat['age'])
+# 1m   3m  18m  21m  30m 
+# 56  132  231   34 1238
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) + 
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('Epithelial cells of proximal tubule') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_epithelial_cell_of_proximal_tubule.pdf', dpi=300, height=4, width=6)
 
 
+##  T cell
+dat <- meta_cell_info %>% filter(cell_type=='T cell') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
+
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '24m', '30m'))
+table(dat['age'])
+# 1m  3m 18m 21m 24m 30m 
+# 10  17  54  41 868 178
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) + 
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('T cells') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_T_cells.pdf', dpi=300, height=4, width=6)
 
 
+##  macrophage
+dat <- meta_cell_info %>% filter(cell_type=='macrophage') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
+
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '24m', '30m'))
+table(dat['age'])
+# 1m  3m 18m 21m 24m 30m 
+# 52 114 225  88 244 443
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) + 
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('Macrophages') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_macrophages.pdf', dpi=300, height=4, width=6)
 
 
+## kidney loop of Henle thick ascending limb epithelial cell
+dat <- meta_cell_info %>% filter(cell_type=='kidney loop of Henle thick ascending limb epithelial cell') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
 
-
-
-
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '30m'))
+table(dat['age'])
+#  1m  3m 18m 21m 30m 
+# 329 218 175 160 234 
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) + 
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('Kidney loop of Henle thick ascending limb epithelial cells') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_kidney_loop_of_Henle_thick_ascending_limb_epithelial_cell.pdf', dpi=300, height=4, width=6)
 
 
 # import statsmodels.api as sm
