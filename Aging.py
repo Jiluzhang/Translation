@@ -379,6 +379,7 @@ library(readr)
 library(EpiTrace)
 library(dplyr)
 library(GenomicRanges)
+library(ggplot2)
 
 
 ## load the  “mouse clocks”
@@ -401,6 +402,7 @@ epitrace_obj_age_conv_estimated_by_mouse_clock <- EpiTraceAge_Convergence(peakSe
                                                                           qualnum=10, ncore_lim=48, mean_error_limit=0.1)
 
 meta <- as.data.frame(epitrace_obj_age_conv_estimated_by_mouse_clock@meta.data)
+write.table(meta, 'epitrace_meta.txt', sep='\t', quote=FALSE)
 
 cell_info <- read_tsv('scATAC_meta.tsv', trim_ws=TRUE, col_names=c('cell', 'age', 'cell_type'))
 
@@ -422,19 +424,24 @@ dat %>% filter(age=='18m') %>% summarize(mean_value=median(epitrace_age))  # 0.6
 dat %>% filter(age=='21m') %>% summarize(mean_value=median(epitrace_age))  # 0.6872294
 dat %>% filter(age=='30m') %>% summarize(mean_value=median(epitrace_age))  # 0.6093074
 
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '30m'))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('Kidney proximal convoluted tubule epithelial cells') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=6)
 
-import statsmodels.api as sm
-from scipy.stats import norm
+# import statsmodels.api as sm
+# from scipy.stats import norm
 
-X = [1, 3, 18, 21, 30]
-X = sm.add_constant(X)
-Y = [0.5721, 0.5702, 0.6278, 0.6548, 0.5970]
-model = sm.OLS(Y, X)
-results = model.fit()
-beta_hat = results.params[1]
-se_beta_hat = results.bse[1]
-wald_statistic = beta_hat / se_beta_hat
-p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
+# X = [1, 3, 18, 21, 30]
+# X = sm.add_constant(X)
+# Y = [0.5721, 0.5702, 0.6278, 0.6548, 0.5970]
+# model = sm.OLS(Y, X)
+# results = model.fit()
+# beta_hat = results.params[1]
+# se_beta_hat = results.bse[1]
+# wald_statistic = beta_hat / se_beta_hat
+# p_value = 2 * (1 - norm.cdf(abs(wald_statistic)))
 
 
 # development_stage & age
