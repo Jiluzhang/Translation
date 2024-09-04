@@ -404,31 +404,94 @@ epitrace_obj_age_conv_estimated_by_mouse_clock <- EpiTraceAge_Convergence(peakSe
 meta <- as.data.frame(epitrace_obj_age_conv_estimated_by_mouse_clock@meta.data)
 write.table(meta, 'epitrace_meta.txt', sep='\t', quote=FALSE)
 
-cell_info <- read_tsv('scATAC_meta.tsv', trim_ws=TRUE, col_names=c('cell', 'age', 'cell_type'))
 
-dat <- inner_join(meta, cell_info) %>% filter(cell_type=='kidney proximal convoluted tubule epithelial cell') %>% 
+######### plot for each age
+library(dplyr)
+library(ggplot2)
+
+meta <- read.table('epitrace_meta.txt')
+cell_info <- read.table('scATAC_meta.tsv', sep='\t', col.names=c('cell', 'age', 'cell_type'))
+meta_cell_info <- inner_join(meta, cell_info) 
+
+sort(table(meta_cell_info['cell_type']), decreasing=TRUE)[1:10]
+#         kidney proximal convoluted tubule epithelial cell 
+#                                                      3179 
+#                                                    B cell 
+#                                                      2612 
+#                        epithelial cell of proximal tubule 
+#                                                      1691 
+#                                                lymphocyte 
+#                                                      1272 
+#                                                    T cell 
+#                                                      1168 
+#                                                macrophage 
+#                                                      1166 
+# kidney loop of Henle thick ascending limb epithelial cell 
+#                                                      1116 
+#                     kidney collecting duct principal cell 
+#                                                       627 
+#                                          fenestrated cell 
+#                                                       577 
+#           kidney distal convoluted tubule epithelial cell 
+#                                                       449
+
+## kidney proximal convoluted tubule epithelial cell
+dat <- meta_cell_info %>% filter(cell_type=='kidney proximal convoluted tubule epithelial cell') %>% 
        select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
 
-# 18m  1m 21m 30m  3m 
-# 864 543 683 601 488
+# dat %>% filter(age=='1m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5720584
+# dat %>% filter(age=='3m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5702354
+# dat %>% filter(age=='18m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6278309
+# dat %>% filter(age=='21m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6548316
+# dat %>% filter(age=='30m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5969956
 
-dat %>% filter(age=='1m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5720584
-dat %>% filter(age=='3m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5702354
-dat %>% filter(age=='18m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6278309
-dat %>% filter(age=='21m') %>% summarize(mean_value=mean(epitrace_age))  # 0.6548316
-dat %>% filter(age=='30m') %>% summarize(mean_value=mean(epitrace_age))  # 0.5969956
-
-dat %>% filter(age=='1m') %>% summarize(mean_value=median(epitrace_age))  # 0.5757576
-dat %>% filter(age=='3m') %>% summarize(mean_value=median(epitrace_age))  # 0.5703463
-dat %>% filter(age=='18m') %>% summarize(mean_value=median(epitrace_age))  # 0.6645022
-dat %>% filter(age=='21m') %>% summarize(mean_value=median(epitrace_age))  # 0.6872294
-dat %>% filter(age=='30m') %>% summarize(mean_value=median(epitrace_age))  # 0.6093074
+# dat %>% filter(age=='1m') %>% summarize(mean_value=median(epitrace_age))  # 0.5757576
+# dat %>% filter(age=='3m') %>% summarize(mean_value=median(epitrace_age))  # 0.5703463
+# dat %>% filter(age=='18m') %>% summarize(mean_value=median(epitrace_age))  # 0.6645022
+# dat %>% filter(age=='21m') %>% summarize(mean_value=median(epitrace_age))  # 0.6872294
+# dat %>% filter(age=='30m') %>% summarize(mean_value=median(epitrace_age))  # 0.6093074
 
 dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '30m'))
-p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE) +
+table(dat['age'])
+#  1m  3m 18m 21m 30m 
+# 543 488 864 683 601
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) +
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
                                                          scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
                                                          ggtitle('Kidney proximal convoluted tubule epithelial cells') + theme(plot.title=element_text(hjust = 0.5))
 ggsave(p, filename='epitrace_age_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=6)
+
+
+## B cell
+dat <- meta_cell_info %>% filter(cell_type=='B cell') %>% 
+       select(EpiTraceAge_iterative, age) %>% dplyr::rename(epitrace_age=EpiTraceAge_iterative)
+
+dat['age'] <- factor(dat[['age']], levels=c('1m', '3m', '18m', '21m', '24m', '30m'))
+table(dat['age'])
+# 1m   3m  18m  21m  24m  30m 
+#  8    9   44   37 2447   67 
+x_labels = names(table(dat['age']))
+x_count = as.vector(table(dat['age']))
+p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5, show.legend=FALSE, outlier.alpha=0) + 
+                                                         scale_x_discrete(breaks=x_labels, labels=paste0(x_labels, '\n(N=', x_count, ')')) +
+                                                         scale_y_continuous(limits=c(0, 1), breaks=seq(0, 1, 0.2)) + theme_bw() +
+                                                         ggtitle('B cells') + theme(plot.title=element_text(hjust = 0.5))
+ggsave(p, filename='epitrace_age_B_cell.pdf', dpi=300, height=4, width=6)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # import statsmodels.api as sm
 # from scipy.stats import norm
