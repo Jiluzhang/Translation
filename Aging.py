@@ -435,6 +435,44 @@ p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity',
                                                        ggtitle('Kidney proximal convoluted tubule epithelial cells') + theme(plot.title=element_text(hjust=0.5))
 ggsave(p, filename='peaks_epitrace_corr_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=10, width=6)
 
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-'))) # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_kidney_proximal_convoluted_tubule_epithelial_cell.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(ChIPseeker)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
+
+epitrace_obj_age_conv_estimated_by_mouse_clock <- readRDS(file='epitrace_obj_age_conv_estimated_by_mouse_clock.rds')
+epitrace_obj_age_conv_estimated_by_mouse_clock@assays$all@data
+
+enriched.motifs <- FindMotifs(object=epitrace_obj_age_conv_estimated_by_mouse_clock,
+                              features=rownames(asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, ]['locus']))
+# Selecting background regions to match input sequence characteristics
+# Error in match.arg(arg = layer) : 
+#   'arg' should be one of “data”, “scale.data”, “counts”
+
+
+
+# idx <- rownames(asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:100, ])
+# peaks <- as.data.frame(do.call(rbind, strsplit(idx, split='-')))
+# colnames(peaks) <- c('chrom', 'start', 'end')
+# write.table(peaks, 'peaks_epitrace_top100_kidney_proximal_convoluted_tubule_epithelial_cell.bed',
+#             sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+
+# # BiocManager::install("TxDb.Mmusculus.UCSC.mm10.knownGene")
+# # BiocManager::install("org.Mm.eg.db")
+# library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+# library(ChIPseeker)
+# peaks <- readPeakFile('peaks_epitrace_top100_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
+# peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+# as.data.frame(peaks_anno)['SYMBOL']
+
+
 ## B cell
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('B cell')),
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
@@ -450,6 +488,17 @@ p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity',
                                                        ggtitle('B cells') + theme(plot.title=element_text(hjust=0.5))
 ggsave(p, filename='peaks_epitrace_corr_B_cell.pdf', dpi=300, height=10, width=6)
 
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-')))  # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_B_cell.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_B_cell.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
+
+
+
 ## epithelial cell of proximal tubule
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('epithelial cell of proximal tubule')),
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
@@ -463,7 +512,18 @@ dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
 p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
                                                        scale_y_continuous(limits=c(-2.5, 2.5), breaks=seq(-2.5, 2.5, 0.5)) + theme_bw() + 
                                                        ggtitle('Epithelial cell of proximal tubule') + theme(plot.title=element_text(hjust=0.5))
-ggsave(p, filename='peaks_epitrace_corr_epithelial cell of proximal tubule.pdf', dpi=300, height=10, width=6)
+ggsave(p, filename='peaks_epitrace_corr_epithelial_cell_of_proximal_tubule.pdf', dpi=300, height=10, width=6)
+
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-')))  # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_epithelial_cell_of_proximal_tubule.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_epithelial_cell_of_proximal_tubule.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
+
+
 
 ## T cell
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('T cell')),
@@ -480,6 +540,15 @@ p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity',
                                                        ggtitle('T cells') + theme(plot.title=element_text(hjust=0.5))
 ggsave(p, filename='peaks_epitrace_corr_T_cell.pdf', dpi=300, height=10, width=6)
 
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-')))  # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_T_cell.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_T_cell.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
+
 ## macrophage
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('macrophage')),
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
@@ -494,6 +563,39 @@ p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity',
                                                        scale_y_continuous(limits=c(-2.5, 3.0), breaks=seq(-2.5, 3.0, 0.5)) + theme_bw() + 
                                                        ggtitle('Macrophages') + theme(plot.title=element_text(hjust=0.5))
 ggsave(p, filename='peaks_epitrace_corr_macrophage.pdf', dpi=300, height=10, width=6)
+
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-')))  # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_macrophage.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_macrophage.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
+
+## kidney loop of Henle thick ascending limb epithelial cell
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney loop of Henle thick ascending limb epithelial cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.0, 3.0), breaks=seq(-2.0, 3.0, 0.5)) + theme_bw() + 
+                                                       ggtitle('Kidney loop of Henle thick ascending limb epithelial cell') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_kidney_loop_of_Henle_thick_ascending_limb_epithelial_cell.pdf', dpi=300, height=10, width=6)
+
+## annotate peaks
+peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-')))  # use rev() to match ranking
+colnames(peaks) <- c('chrom', 'start', 'end')
+write.table(peaks, 'peaks_epitrace_top20_bot20_kidney_loop_of_Henle_thick_ascending_limb_epithelial_cell.bed',
+            sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
+peaks <- readPeakFile('peaks_epitrace_top20_bot20_kidney_loop_of_Henle_thick_ascending_limb_epithelial_cell.bed')
+peaks_anno <- annotatePeak(peak=peaks, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+as.data.frame(peaks_anno)['SYMBOL']
 
 
 ######### plot for each age
