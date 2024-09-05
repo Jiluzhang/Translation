@@ -465,7 +465,35 @@ p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity',
                                                        ggtitle('Epithelial cell of proximal tubule') + theme(plot.title=element_text(hjust=0.5))
 ggsave(p, filename='peaks_epitrace_corr_epithelial cell of proximal tubule.pdf', dpi=300, height=10, width=6)
 
+## T cell
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('T cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.5, 3.0), breaks=seq(-2.5, 3.0, 0.5)) + theme_bw() + 
+                                                       ggtitle('T cells') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_T_cell.pdf', dpi=300, height=10, width=6)
 
+## macrophage
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('macrophage')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.5, 3.0), breaks=seq(-2.5, 3.0, 0.5)) + theme_bw() + 
+                                                       ggtitle('Macrophages') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_macrophage.pdf', dpi=300, height=10, width=6)
 
 
 ######### plot for each age
