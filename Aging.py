@@ -414,13 +414,56 @@ saveRDS(epitrace_obj_age_conv_estimated_by_mouse_clock, file='epitrace_obj_age_c
 epitrace_obj_age_conv_estimated_by_mouse_clock <- readRDS(file='epitrace_obj_age_conv_estimated_by_mouse_clock.rds')
 
 ## peak-age association (consider all cell types for comparison)
+# asso_res_mouse_clock <- AssociationOfPeaksToAge(epitrace_obj_age_conv_estimated_by_mouse_clock,
+#                                                 epitrace_age_name="EpiTraceAge_iterative", parallel=TRUE, peakSetName='all')
+# asso_res_mouse_clock[order(asso_res_mouse_clock$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
+# asso_res_mouse_clock[order(asso_res_mouse_clock$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, c(1,3)]
+
+## plot top 20 up & down peaks
+## kidney proximal convoluted tubule epithelial cell
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney proximal convoluted tubule epithelial cell')),
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
-asso_res_mouse_clock_02 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('B cell')),
-                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
-asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
-asso_res_mouse_clock_02[order(asso_res_mouse_clock_02$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.5, 2.5), breaks=seq(-2.5, 2.5, 0.5)) + theme_bw() + 
+                                                       ggtitle('Kidney proximal convoluted tubule epithelial cells') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=10, width=6)
 
+## B cell
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('B cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.5, 3.0), breaks=seq(-2.5, 3.0, 0.5)) + theme_bw() + 
+                                                       ggtitle('B cells') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_B_cell.pdf', dpi=300, height=10, width=6)
+
+## epithelial cell of proximal tubule
+asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('epithelial cell of proximal tubule')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+up <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:20, c(1,3)]
+dw <- asso_res_mouse_clock_01[order(asso_res_mouse_clock_01$scaled_correlation_of_EpiTraceAge, decreasing=FALSE), ][1:20, c(1,3)]
+dat <- rbind(up, dw)
+rownames(dat) <- seq(1, nrow(dat))
+colnames(dat) <- c('Peaks', 'Scaled_correlation')
+dat <- dat[order(dat$Scaled_correlation, decreasing=FALSE), ]
+dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
+p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
+                                                       scale_y_continuous(limits=c(-2.5, 2.5), breaks=seq(-2.5, 2.5, 0.5)) + theme_bw() + 
+                                                       ggtitle('Epithelial cell of proximal tubule') + theme(plot.title=element_text(hjust=0.5))
+ggsave(p, filename='peaks_epitrace_corr_epithelial cell of proximal tubule.pdf', dpi=300, height=10, width=6)
 
 
 
