@@ -742,6 +742,46 @@ p <- ggplot(dat, aes(x=age, y=epitrace_age, fill=age)) + geom_boxplot(width=0.5,
 ggsave(p, filename='epitrace_age_kidney_loop_of_Henle_thick_ascending_limb_epithelial_cell.pdf', dpi=300, height=4, width=6)
 
 
+
+## plot expression level of certain genes
+import scanpy as sc
+from plotnine import *
+import pandas as pd
+import numpy as np
+
+rna = sc.read_h5ad('../rna_unpaired.h5ad')
+rna.layers['counts'] = rna.X.copy()
+sc.pp.normalize_total(rna)
+sc.pp.log1p(rna)
+
+meta = pd.read_table('epitrace_meta.txt')
+rna_meta = rna[rna.obs.index.isin(meta.index)]
+
+dat = rna_meta[rna_meta.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cdkn1a'].X.toarray().flatten()})
+
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+
+def mean_se(x):
+    return np.mean(x), np.std(x) / np.sqrt(len(x))
+
+# p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) +\
+#                                                     scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+#                                                     stat_summary(fun_y=np.mean, geom='point', fill='black', size=10, shape=1) + theme_bw()                                            
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) +\
+                                                    geom_bar(stat='summary', fill='skyblue', color='black') +\
+                                                    scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+                                                    stat_summary(fun_data=mean_se, geom='errorbar', width=0.2, color='red') + theme_bw() 
+p.save(filename='gene_exp_cdkn1a_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+
+
+
+
+
+
+
+
 # import statsmodels.api as sm
 # from scipy.stats import norm
 
