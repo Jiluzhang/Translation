@@ -767,9 +767,9 @@ p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, heigh
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
 p.save(filename='gene_exp_cdkn1a_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
-df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cers6'].X.toarray().flatten()})
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Kcns3'].X.toarray().flatten()})
 df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
-p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cers6 expression level') +\
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Kcns3 expression level') +\
                                                     scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
