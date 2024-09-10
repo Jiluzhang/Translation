@@ -758,23 +758,22 @@ meta = pd.read_table('epitrace_meta.txt')
 rna_meta = rna[rna.obs.index.isin(meta.index)]
 
 dat = rna_meta[rna_meta.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
+
 df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cdkn1a'].X.toarray().flatten()})
-
 df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
-
-def mean_se(x):
-    return np.mean(x), np.std(x) / np.sqrt(len(x))
-
-# p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) +\
-#                                                     scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
-#                                                     stat_summary(fun_y=np.mean, geom='point', fill='black', size=10, shape=1) + theme_bw()                                            
-p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) +\
-                                                    geom_bar(stat='summary', fill='skyblue', color='black') +\
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
                                                     scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
-                                                    stat_summary(fun_data=mean_se, geom='errorbar', width=0.2, color='red') + theme_bw() 
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
 p.save(filename='gene_exp_cdkn1a_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
-
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cers6'].X.toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cers6 expression level') +\
+                                                    scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='gene_exp_orc1_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
 
 
