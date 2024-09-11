@@ -165,32 +165,49 @@ for cell_type in tqdm(set(atac.obs.cell_type.values), ncols=80):
     out_pred_norm_bedgraph(cell_type=cell_type)
 
 
+# cell_type = 'kidney proximal convoluted tubule epithelial cell'
+# m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='4 weeks')].X.toarray()  # 938
+# m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
+# m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='3 month-old stage')].X.toarray()  # 681
+# m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
+# m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='18 month-old stage')].X.toarray() # 1117
+# m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
+# m_20 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='20 month-old stage and over')].X.toarray()  # 1724
+# m_20 = (m_20.sum(axis=0))/(m_20.shape[0])
+# m_all = np.vstack((m_01, m_03, m_18, m_20))
+
+
+# atac_raw = atac.copy()
+# sc.pp.filter_cells(atac, min_genes=2000)
+
 cell_type = 'kidney proximal convoluted tubule epithelial cell'
-m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='4 weeks')].X.toarray()  # 938
-m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
-m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='3 month-old stage')].X.toarray()  # 681
-m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
-m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='18 month-old stage')].X.toarray() # 1117
-m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
-m_20 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['development_stage']=='20 month-old stage and over')].X.toarray()  # 1724
-m_20 = (m_20.sum(axis=0))/(m_20.shape[0])
-m_all = np.vstack((m_01, m_03, m_18, m_20))
+m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='1m')].X.toarray()  # 938
+m_01 = (m_01.sum(axis=0))/(m_01.sum())*10000
+m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='3m')].X.toarray()  # 681
+m_03 = (m_03.sum(axis=0))/(m_03.sum())*10000
+m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='18m')].X.toarray() # 1117
+m_18 = (m_18.sum(axis=0))/(m_18.sum())*10000
+m_21 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='21m')].X.toarray()  # 860
+m_21 = (m_21.sum(axis=0))/(m_21.sum())*10000
+m_30 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='30m')].X.toarray()  # 864
+m_30 = (m_30.sum(axis=0))/(m_30.sum())*10000
+m_all = np.vstack((m_01, m_03, m_18, m_21, m_30))
 
 
 import statsmodels.api as sm
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
 
-np.argwhere((m_all[1, :]>m_all[0, :]) & (m_all[2, :]>m_all[1, :]) & (m_all[3, :]>m_all[2, :])).flatten()[:20]
-# array([  7,  36,  65,  75,  94, 234, 238, 241, 304, 324, 356, 364, 400, 424, 428, 494, 517, 549, 623, 630])
+# np.argwhere((m_all[1, :]>m_all[0, :]) & (m_all[2, :]>m_all[1, :]) & (m_all[3, :]>m_all[2, :])).flatten()[:20]
+# # array([  7,  36,  65,  75,  94, 234, 238, 241, 304, 324, 356, 364, 400, 424, 428, 494, 517, 549, 623, 630])
 
-np.argwhere((m_all[1, :]<m_all[0, :]) & (m_all[2, :]<m_all[1, :]) & (m_all[3, :]<m_all[2, :])).flatten()[:20]
-# array([ 132,  142,  461,  548,  660,  695,  773,  817,  846,  911,  914, 915,  917,  958, 1059, 1144, 1807, 1841, 1857, 1917])
+# np.argwhere((m_all[1, :]<m_all[0, :]) & (m_all[2, :]<m_all[1, :]) & (m_all[3, :]<m_all[2, :])).flatten()[:20]
+# # array([ 132,  142,  461,  548,  660,  695,  773,  817,  846,  911,  914, 915,  917,  958, 1059, 1144, 1807, 1841, 1857, 1917])
 
 
 coef_lst = []
 pval_lst = []
-X = [1, 3, 18, 20]
+X = [1, 3, 18, 21, 30]
 X = sm.add_constant(X)
 for i in tqdm(range(m_all.shape[1]), ncols=80):
     Y = m_all[:, i]
@@ -208,11 +225,47 @@ df.dropna(inplace=True)
 _, fdr, _, _ = multipletests(df['pval'].values, alpha=0.05, method='fdr_bh')
 df['fdr'] = fdr
 
-df_pos = df[df['fdr']<0.01]
-out_1 = df_pos.sort_values('coef', ascending=False)[:20]
-out_2 = df_pos.sort_values('coef', ascending=True)[:20]
+
+df_pos = df[(df['fdr']<0.05) & (df['coef']>0.001)]
+df_pos.to_csv('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.txt', sep='\t', index=None)   # 2184
+df_pos_idx = pd.DataFrame({'chr': df_pos['idx'].map(lambda x: x.split(':')[0]).values,
+                           'start': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                           'end': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+df_pos_idx.to_csv('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.bed', sep='\t', index=None, header=None)
+
+df_neg = df[(df['fdr']<0.05) & (df['coef']<-0.001)]
+df_neg.to_csv('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.txt', sep='\t', index=None)   # 1854
+df_neg_idx = pd.DataFrame({'chr': df_neg['idx'].map(lambda x: x.split(':')[0]).values,
+                           'start': df_neg['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                           'end': df_neg['idx'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+df_neg_idx.to_csv('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.bed', sep='\t', index=None, header=None)
+
+
+
+df_sig = df[df['fdr']<0.01]
+out_1 = df_sig.sort_values('coef', ascending=False)[:20]
+out_2 = df_sig.sort_values('coef', ascending=True)[:20]
 pd.concat([out_2, out_1]).to_csv('kidney_proximal_convoluted_tubule_epithelial_cell_atac_test.txt', sep='\t', index=None)
 
+
+### comparison coef btw pos & neg
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(ChIPseeker)
+
+peaks_pos <- readPeakFile('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
+peaks_pos_anno <- annotatePeak(peak=peaks_pos, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+peaks_pos_gene <- as.data.frame(peaks_pos_anno)[c('seqnames', 'start', 'end', 'SYMBOL')]
+
+peaks_neg <- readPeakFile('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
+peaks_neg_anno <- annotatePeak(peak=peaks_neg, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
+peaks_neg_gene <- as.data.frame(peaks_neg_anno)[c('seqnames', 'start', 'end', 'SYMBOL')]
+
+coef <- read.table('atac_age_coef_kidney_proximal_convoluted_tubule_epithelial_cell.txt', col.names=c('gene_name', 'coef'))
+rownames(coef) <- coef$gene_name
+median(na.omit(coef[unique(peaks_pos_gene$SYMBOL), ])$coef)  # -8.14e-05
+median(na.omit(coef[unique(peaks_neg_gene$SYMBOL), ])$coef)  # -0.0001805845
+
+median()
 
 ## plot bar
 import pandas as pd
@@ -760,6 +813,10 @@ rna_meta = rna[rna.obs.index.isin(meta.index)]
 dat = rna_meta[rna_meta.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
 
 df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cdkn1a'].X.toarray().flatten()})
+
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Pantr2'].X.toarray().flatten()})
+[df[df['age']=='1m']['exp'].mean(), df[df['age']=='3m']['exp'].mean(), df[df['age']=='18m']['exp'].mean(), df[df['age']=='21m']['exp'].mean(), df[df['age']=='30m']['exp'].mean()]
+
 df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
 p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
                                                     scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
