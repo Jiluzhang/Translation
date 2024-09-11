@@ -194,6 +194,60 @@ m_30 = (m_30.sum(axis=0))/(m_30.sum())*10000
 m_all = np.vstack((m_01, m_03, m_18, m_21, m_30))
 
 
+cell_type = 'kidney proximal convoluted tubule epithelial cell'
+m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='1m')].X.toarray()  # 938
+m_01 = (m_01.sum(axis=0))/(m_01.shape[0])
+m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='3m')].X.toarray()  # 681
+m_03 = (m_03.sum(axis=0))/(m_03.shape[0])
+m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='18m')].X.toarray() # 1117
+m_18 = (m_18.sum(axis=0))/(m_18.shape[0])
+m_21 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='21m')].X.toarray()  # 860
+m_21 = (m_21.sum(axis=0))/(m_21.shape[0])
+m_30 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='30m')].X.toarray()  # 864
+m_30 = (m_30.sum(axis=0))/(m_30.shape[0])
+m_all = np.vstack((m_01, m_03, m_18, m_21, m_30))
+
+
+## LR model
+cell_type = 'kidney proximal convoluted tubule epithelial cell'
+m_01 = pd.DataFrame(atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='1m')].X.toarray())  # 938
+m_01.columns = atac.var.index.values
+m_01['age'] = 1
+m_03 = pd.DataFrame(atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='3m')].X.toarray())  # 681
+m_03.columns = atac.var.index.values
+m_03['age'] = 3
+m_18 = pd.DataFrame(atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='18m')].X.toarray()) # 1117
+m_18.columns = atac.var.index.values
+m_18['age'] = 18
+m_21 = pd.DataFrame(atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='21m')].X.toarray())  # 860
+m_21.columns = atac.var.index.values
+m_21['age'] = 21
+m_30 = pd.DataFrame(atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='30m')].X.toarray())  # 864
+m_30.columns = atac.var.index.values
+m_30['age'] = 30
+m_all = pd.concat((m_01, m_03, m_18, m_21, m_30))
+
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(m_all.iloc[:, :-1], m_all.iloc[:, -1])
+
+peak_sorted = m_all.columns[np.argsort(model.coef_)]
+
+df_pos = pd.DataFrame({'idx':peak_sorted[-100:]})
+df_pos_idx = pd.DataFrame({'chr': df_pos['idx'].map(lambda x: x.split(':')[0]).values,
+                           'start': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                           'end': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+df_pos_idx.to_csv('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.bed', sep='\t', index=None, header=None)
+
+df_neg = pd.DataFrame({'idx':peak_sorted[:100]})
+df_neg_idx = pd.DataFrame({'chr': df_neg['idx'].map(lambda x: x.split(':')[0]).values,
+                           'start': df_neg['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                           'end': df_neg['idx'].map(lambda x: x.split(':')[1].split('-')[1]).values})
+df_neg_idx.to_csv('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.bed', sep='\t', index=None, header=None)
+
+
+
 import statsmodels.api as sm
 from scipy.stats import norm
 from statsmodels.stats.multitest import multipletests
@@ -226,14 +280,14 @@ _, fdr, _, _ = multipletests(df['pval'].values, alpha=0.05, method='fdr_bh')
 df['fdr'] = fdr
 
 
-df_pos = df[(df['fdr']<0.05) & (df['coef']>0.001)]
+df_pos = df[(df['fdr']<0.0001) & (df['coef']>0.003)] # df_pos = df[(df['fdr']<0.0001) & (df['coef']>0.002)]
 df_pos.to_csv('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.txt', sep='\t', index=None)   # 2184
 df_pos_idx = pd.DataFrame({'chr': df_pos['idx'].map(lambda x: x.split(':')[0]).values,
                            'start': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
                            'end': df_pos['idx'].map(lambda x: x.split(':')[1].split('-')[1]).values})
 df_pos_idx.to_csv('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.bed', sep='\t', index=None, header=None)
 
-df_neg = df[(df['fdr']<0.05) & (df['coef']<-0.001)]
+df_neg = df[(df['fdr']<0.05) & (df['coef']<0)] # df_neg = df[(df['fdr']<0.0001) & (df['coef']<-0.002)]
 df_neg.to_csv('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.txt', sep='\t', index=None)   # 1854
 df_neg_idx = pd.DataFrame({'chr': df_neg['idx'].map(lambda x: x.split(':')[0]).values,
                            'start': df_neg['idx'].map(lambda x: x.split(':')[1].split('-')[0]).values,
@@ -255,17 +309,115 @@ library(ChIPseeker)
 peaks_pos <- readPeakFile('atac_age_pos_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
 peaks_pos_anno <- annotatePeak(peak=peaks_pos, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
 peaks_pos_gene <- as.data.frame(peaks_pos_anno)[c('seqnames', 'start', 'end', 'SYMBOL')]
+pos_gene <- unique(peaks_pos_gene['SYMBOL'])
+pos_gene['pos'] <- 'pos'
+write.table(pos_gene['SYMBOL'], 'peaks_pos_gene.txt', quote=FALSE, row.names=FALSE, sep='\t')
 
 peaks_neg <- readPeakFile('atac_age_neg_kidney_proximal_convoluted_tubule_epithelial_cell.bed')
 peaks_neg_anno <- annotatePeak(peak=peaks_neg, tssRegion=c(-3000, 3000), TxDb=TxDb.Mmusculus.UCSC.mm10.knownGene, annoDb='org.Mm.eg.db')
 peaks_neg_gene <- as.data.frame(peaks_neg_anno)[c('seqnames', 'start', 'end', 'SYMBOL')]
+neg_gene <- unique(peaks_neg_gene['SYMBOL'])
+neg_gene['neg'] <- 'neg'
+write.table(neg_gene['SYMBOL'], 'peaks_neg_gene.txt', quote=FALSE, row.names=FALSE, sep='\t')
 
-coef <- read.table('atac_age_coef_kidney_proximal_convoluted_tubule_epithelial_cell.txt', col.names=c('gene_name', 'coef'))
+# coef <- read.table('atac_age_coef_kidney_proximal_convoluted_tubule_epithelial_cell_all.txt', col.names=c('gene_name', 'coef'))  # with 0
+coef <- read.table('atac_age_coef_kidney_proximal_convoluted_tubule_epithelial_cell.txt', col.names=c('gene_name', 'coef'))    # without 0
 rownames(coef) <- coef$gene_name
-median(na.omit(coef[unique(peaks_pos_gene$SYMBOL), ])$coef)  # -8.14e-05
-median(na.omit(coef[unique(peaks_neg_gene$SYMBOL), ])$coef)  # -0.0001805845
 
-median()
+df <- merge(coef, pos_gene, by.x='gene_name', by.y='SYMBOL', all.x=TRUE)
+df <- merge(df, neg_gene, by.x='gene_name', by.y='SYMBOL', all.x=TRUE)
+df[is.na(df)] <- 'unknown'
+df['idx'] = 'unknown'
+df[(df['pos']=='pos')&(df['neg']=='unknown'), ]['idx'] <- 'pos'
+df[(df['pos']=='unknown')&(df['neg']=='neg'), ]['idx'] <- 'neg'
+
+median(df[df['idx']=='pos', 'coef'])       # -7.98e-05
+median(df[df['idx']=='unknown', 'coef'])   # -4.4e-05
+median(df[df['idx']=='neg', 'coef'])       # -0.000163779
+
+mean(df[df['idx']=='pos', 'coef'])       # -7.98e-05
+mean(df[df['idx']=='unknown', 'coef'])   # -4.4e-05
+mean(df[df['idx']=='neg', 'coef'])       # -0.000163779
+
+pdf('boxplot.pdf')
+boxplot(coef~idx, df, outline=FALSE)
+dev.off()
+
+wilcox.test(df[df$idx=='pos', 'coef'], df[df$idx=='neg', 'coef'])
+
+
+
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from plotnine import *
+
+rna = sc.read_h5ad('../rna_unpaired.h5ad')
+rna.layers['counts'] = rna.X.copy()
+sc.pp.normalize_total(rna)
+sc.pp.log1p(rna)
+
+dat = rna[rna.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
+df = pd.DataFrame(dat.X.toarray())
+df['age'] = dat.obs['age'].values
+df['age'].replace({'1m':1, '3m':3, '18m':18, '21m':21, '30m':30}, inplace=True)
+
+model = LinearRegression()
+model.fit(df.iloc[:, :-1], df.iloc[:, -1])
+
+pos_gene = pd.read_table('../peaks_pos_gene.txt')
+neg_gene = pd.read_table('../peaks_neg_gene.txt')
+pos_coef = model.coef_[(dat.var.index).isin(pos_gene['SYMBOL']) & ~(dat.var.index).isin(neg_gene['SYMBOL'])]
+neg_coef = model.coef_[(dat.var.index).isin(neg_gene['SYMBOL']) & ~(dat.var.index).isin(pos_gene['SYMBOL'])]
+mid_coef = model.coef_[~(dat.var.index).isin(pos_gene['SYMBOL']) & ~(dat.var.index).isin(neg_gene['SYMBOL'])]
+[pos_coef.mean(), mid_coef.mean(), neg_coef.mean()]  # [0.00832399, -0.0018646211, -0.01999282]
+
+pos_df = pd.DataFrame({'idx':['pos'], 'avg':[np.mean(pos_coef)], 'std':[np.std(pos_coef)]})
+mid_df = pd.DataFrame({'idx':['mid'], 'avg':[np.mean(mid_coef)], 'std':[np.std(mid_coef)]})
+neg_df = pd.DataFrame({'idx':['neg'], 'avg':[np.mean(neg_coef)], 'std':[np.std(neg_coef)]})
+pos_mid_neg = pd.concat([pos_df, mid_df, neg_df])
+pos_mid_neg['idx'] = pd.Categorical(pos_mid_neg['idx'], categories=['pos', 'mid', 'neg'])
+
+p = ggplot(pos_mid_neg, aes(x='idx', y='avg', fill='idx')) + geom_errorbar(aes(ymin='avg-std', ymax='avg+std'), width=0.1) + geom_point(aes(y='avg', color='idx'), size=4, show_legend=False) +\
+                                                             xlab('') + ylab('Average coef') + scale_y_continuous(limits=[-0.3, 0.3], breaks=np.arange(-0.3, 0.3+0.01, 0.1)) + theme_bw()
+p.save(filename='pos_mid_neg_coef_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+
+
+from scipy import stats
+stats.ttest_ind(pos_coef, neg_coef) 
+
+
+pos_gene = pd.read_table('../peaks_pos_gene.txt')
+m_01 = pd.DataFrame({'age': '1m', 'exp': dat[dat.obs['age']=='1m', (dat.var.index).isin(pos_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_03 = pd.DataFrame({'age': '3m', 'exp': dat[dat.obs['age']=='3m', (dat.var.index).isin(pos_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_18 = pd.DataFrame({'age': '18m', 'exp': dat[dat.obs['age']=='18m', (dat.var.index).isin(pos_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_21 = pd.DataFrame({'age': '21m', 'exp': dat[dat.obs['age']=='21m', (dat.var.index).isin(pos_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_30 = pd.DataFrame({'age': '30m', 'exp': dat[dat.obs['age']=='30m', (dat.var.index).isin(pos_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+[m_01['exp'].mean(), m_03['exp'].mean(), m_18['exp'].mean(), m_21['exp'].mean(), m_30['exp'].mean()]  # [0.17875327, 0.18963073, 0.19132525, 0.19010606, 0.16647679]  
+[m_01['exp'].median(), m_03['exp'].median(), m_18['exp'].median(), m_21['exp'].median(), m_30['exp'].median()]   # [0.031883623, 0.03255263, 0.033601325, 0.03184045, 0.033066757]
+
+
+neg_gene = pd.read_table('../peaks_neg_gene.txt')
+m_01 = pd.DataFrame({'age': '1m', 'exp': dat[dat.obs['age']=='1m', (dat.var.index).isin(neg_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_03 = pd.DataFrame({'age': '3m', 'exp': dat[dat.obs['age']=='3m', (dat.var.index).isin(neg_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_18 = pd.DataFrame({'age': '18m', 'exp': dat[dat.obs['age']=='18m', (dat.var.index).isin(neg_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_21 = pd.DataFrame({'age': '21m', 'exp': dat[dat.obs['age']=='21m', (dat.var.index).isin(neg_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+m_30 = pd.DataFrame({'age': '30m', 'exp': dat[dat.obs['age']=='30m', (dat.var.index).isin(neg_gene['SYMBOL'])].X.toarray().mean(axis=0)})
+[m_01['exp'].mean(), m_03['exp'].mean(), m_18['exp'].mean(), m_21['exp'].mean(), m_30['exp'].mean()]  # [0.20810956, 0.2113044, 0.21379451, 0.20848018, 0.18522385]
+[m_01['exp'].median(), m_03['exp'].median(), m_18['exp'].median(), m_21['exp'].median(), m_30['exp'].median()]   # [0.031883623, 0.03255263, 0.033601325, 0.03184045, 0.033066757]
+
+
+gene_lst = random.sample(list(dat.var.index.values), 100)
+gene_lst = ['Wdr59']
+m_01 = pd.DataFrame({'age': '1m', 'exp': dat[dat.obs['age']=='1m', (dat.var.index).isin(gene_lst)].X.toarray().mean(axis=0)})
+m_03 = pd.DataFrame({'age': '3m', 'exp': dat[dat.obs['age']=='3m', (dat.var.index).isin(gene_lst)].X.toarray().mean(axis=0)})
+m_18 = pd.DataFrame({'age': '18m', 'exp': dat[dat.obs['age']=='18m', (dat.var.index).isin(gene_lst)].X.toarray().mean(axis=0)})
+m_21 = pd.DataFrame({'age': '21m', 'exp': dat[dat.obs['age']=='21m', (dat.var.index).isin(gene_lst)].X.toarray().mean(axis=0)})
+m_30 = pd.DataFrame({'age': '30m', 'exp': dat[dat.obs['age']=='30m', (dat.var.index).isin(gene_lst)].X.toarray().mean(axis=0)})
+[m_01['exp'].mean(), m_03['exp'].mean(), m_18['exp'].mean(), m_21['exp'].mean(), m_30['exp'].mean()]  # [0.061513495, 0.05995603, 0.0603721, 0.059424985, 0.053931557]
+
 
 ## plot bar
 import pandas as pd
@@ -814,8 +966,8 @@ dat = rna_meta[rna_meta.obs['cell_type']=='kidney proximal convoluted tubule epi
 
 df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Cdkn1a'].X.toarray().flatten()})
 
-df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Pantr2'].X.toarray().flatten()})
-[df[df['age']=='1m']['exp'].mean(), df[df['age']=='3m']['exp'].mean(), df[df['age']=='18m']['exp'].mean(), df[df['age']=='21m']['exp'].mean(), df[df['age']=='30m']['exp'].mean()]
+# df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Pantr2'].X.toarray().flatten()})
+# [df[df['age']=='1m']['exp'].mean(), df[df['age']=='3m']['exp'].mean(), df[df['age']=='18m']['exp'].mean(), df[df['age']=='21m']['exp'].mean(), df[df['age']=='30m']['exp'].mean()]
 
 df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
 p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
