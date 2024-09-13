@@ -166,6 +166,7 @@ for cell_type in tqdm(set(atac.obs.cell_type.values), ncols=80):
 
 
 ######################################################################################################################################################
+## RNA -> ATAC
 # Top100_coef_genes.bed
 # Bottom100_coef_genes.bed
 
@@ -174,11 +175,13 @@ grep -v GL scATAC_peaks.bed | grep -v JH > scATAC_peaks_filtered.bed
 sort -k1,1 -k2,2n Top100_coef_genes.bed | bedtools closest -a stdin -b scATAC_peaks_filtered.bed | cut -f 5-7 > Top100_coef_genes_peaks.bed
 sort -k1,1 -k2,2n Bottom100_coef_genes.bed | bedtools closest -a stdin -b scATAC_peaks_filtered.bed | cut -f 5-7 > Bottom100_coef_genes_peaks.bed
 
+sort -k1,1 -k2,2n Top100_coef_genes.bed | awk '{print($1 "\t" $2-200000 "\t" $3+200000 "\t" $4)}' | bedtools intersect -a stdin -b scATAC_peaks_filtered.bed -wa -wb | cut -f 5-7 | uniq > Top100_coef_genes_peaks.bed
+sort -k1,1 -k2,2n Bottom100_coef_genes.bed | awk '{print($1 "\t" $2-200000 "\t" $3+200000 "\t" $4)}' | bedtools intersect -a stdin -b scATAC_peaks_filtered.bed -wa -wb | cut -f 5-7 | uniq  > Bottom100_coef_genes_peaks.bed
+
 
 import scanpy as sc
 import numpy as np
 from scipy.sparse import csr_matrix
-import snapatac2 as snap
 import pandas as pd
 from tqdm import tqdm
 
@@ -188,82 +191,61 @@ dat[dat<=0.5] = 0
 atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)
 
+# from sklearn.feature_extraction.text import TfidfTransformer
+# tfidf_transformer = TfidfTransformer(norm='l2', use_idf=True)
+# X_tfidf = tfidf_transformer.fit_transform(atac[atac.obs['cell_type']==cell_type].X.toarray())
+
 cell_type = 'kidney proximal convoluted tubule epithelial cell'
-m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='1m')].X.toarray()  # 938
-m_01 = (m_01.sum(axis=0))/(m_01.sum())*10000
-m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='3m')].X.toarray()  # 681
-m_03 = (m_03.sum(axis=0))/(m_03.sum())*10000
-m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='18m')].X.toarray() # 1117
-m_18 = (m_18.sum(axis=0))/(m_18.sum())*10000
-m_21 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='21m')].X.toarray()  # 860
-m_21 = (m_21.sum(axis=0))/(m_21.sum())*10000
-m_30 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='30m')].X.toarray()  # 864
-m_30 = (m_30.sum(axis=0))/(m_30.sum())*10000
-m_all = np.vstack((m_01, m_03, m_18, m_21, m_30))
+atac_m_01 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='1m')].X.toarray()
+atac_m_01 = atac_m_01.sum(axis=0) / atac_m_01.sum() * 10000
+atac_m_03 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='3m')].X.toarray()
+atac_m_03 = atac_m_03.sum(axis=0) / atac_m_03.sum() * 10000
+atac_m_18 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='18m')].X.toarray()
+atac_m_18 = atac_m_18.sum(axis=0) / atac_m_18.sum() * 10000
+atac_m_21 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='21m')].X.toarray()
+atac_m_21 = atac_m_21.sum(axis=0) / atac_m_21.sum() * 10000
+atac_m_30 = atac[(atac.obs['cell_type']==cell_type) & (atac.obs['age']=='30m')].X.toarray()
+atac_m_30 = atac_m_30.sum(axis=0) / atac_m_30.sum() * 10000
+[atac_m_01.mean(), atac_m_03.mean(), atac_m_18.mean(), atac_m_21.mean(), atac_m_30.mean()]
+# [0.15301749, 0.1530175, 0.1530175, 0.1530175, 0.1530175]
+
+gene_lst = random.sample(list(atac.var.index.values), 100)
+atac_random_m_01 = atac_m_01[(atac.var.index).isin(gene_lst)]
+atac_random_m_03 = atac_m_03[(atac.var.index).isin(gene_lst)]
+atac_random_m_18 = atac_m_18[(atac.var.index).isin(gene_lst)]
+atac_random_m_21 = atac_m_21[(atac.var.index).isin(gene_lst)]
+atac_random_m_30 = atac_m_30[(atac.var.index).isin(gene_lst)]
+[atac_random_m_01.mean(), atac_random_m_03.mean(), atac_random_m_18.mean(), atac_random_m_21.mean(), atac_random_m_30.mean()]
+# [0.1216334, 0.11941448, 0.12187719, 0.122117326, 0.12557593]
 
 up_peaks = pd.read_table('epitrace/Top100_coef_genes_peaks.bed', header=None, names=['chrom', 'start', 'end'])
 up_peaks['idx'] = up_peaks['chrom']+':'+up_peaks['start'].astype(str)+'-'+up_peaks['end'].astype(str)
-
-
-from sklearn.feature_extraction.text import TfidfTransformer
-
-# 假设 X 是一个细胞-peak 二进制矩阵 (细胞数 x peak数)
-tfidf_transformer = TfidfTransformer(norm='l2', use_idf=True)
-X_tfidf = tfidf_transformer.fit_transform(atac[atac.obs['cell_type']==cell_type].X.toarray())
-
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='1m'][:, (atac.var.index).isin(up_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.0022687695556819435
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='3m'][:, (atac.var.index).isin(up_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.002620677879336343
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='18m'][:, (atac.var.index).isin(up_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.002781686142995506
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='21m'][:, (atac.var.index).isin(up_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.0028566240662285507
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='30m'][:, (atac.var.index).isin(up_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.0023575114119482286
-
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='1m'][:, (atac.var.index).isin(down_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.0027279747234720277
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='3m'][:, (atac.var.index).isin(down_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.003268665333865364
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='18m'][:, (atac.var.index).isin(down_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.003419783754077182
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='21m'][:, (atac.var.index).isin(down_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.003481330772933629
-X_tfidf[atac[atac.obs['cell_type']==cell_type].obs['age']=='30m'][:, (atac.var.index).isin(down_peaks['idx'])].toarray().mean(axis=0).mean()  # 0.002855636211078068
-
-
-
-m_01[(atac.var.index).isin(up_peaks['idx'])].mean()  # 0.34636426
-m_03[(atac.var.index).isin(up_peaks['idx'])].mean()  # 0.35574147
-m_18[(atac.var.index).isin(up_peaks['idx'])].mean()  # 0.33578697
-m_21[(atac.var.index).isin(up_peaks['idx'])].mean()  # 0.32938212
-m_30[(atac.var.index).isin(up_peaks['idx'])].mean()  # 0.32193443
-
-m_01[(atac.var.index).isin(down_peaks['idx'])].mean()  # 0.43388453
-m_03[(atac.var.index).isin(down_peaks['idx'])].mean()  # 0.45624214
-m_18[(atac.var.index).isin(down_peaks['idx'])].mean()  # 0.42539063
-m_21[(atac.var.index).isin(down_peaks['idx'])].mean()  # 0.41345787
-m_30[(atac.var.index).isin(down_peaks['idx'])].mean()  # 0.40415314
-
-
-
-atac_up_m_01 = atac_up[atac_up.obs['age']=='1m'].X.toarray()
-(atac_up_m_01.sum(axis=0)/atac_up_m_01.shape[0]).mean()   # 0.2411966
-atac_up_m_03 = atac_up[atac_up.obs['age']=='3m'].X.toarray()
-(atac_up_m_03.sum(axis=0)/atac_up_m_03.shape[0]).mean()   # 0.2888058
-atac_up_m_18 = atac_up[atac_up.obs['age']=='18m'].X.toarray()
-(atac_up_m_18.sum(axis=0)/atac_up_m_18.shape[0]).mean()   # 0.34151724
-atac_up_m_21 = atac_up[atac_up.obs['age']=='21m'].X.toarray()
-(atac_up_m_21.sum(axis=0)/atac_up_m_21.shape[0]).mean()   # 0.36384776
-atac_up_m_30 = atac_up[atac_up.obs['age']=='30m'].X.toarray()
-(atac_up_m_30.sum(axis=0)/atac_up_m_30.shape[0]).mean()   # 0.28870884
+atac_up_m_01 = atac_m_01[(atac.var.index).isin(up_peaks['idx'])]
+atac_up_m_03 = atac_m_03[(atac.var.index).isin(up_peaks['idx'])]
+atac_up_m_18 = atac_m_18[(atac.var.index).isin(up_peaks['idx'])]
+atac_up_m_21 = atac_m_21[(atac.var.index).isin(up_peaks['idx'])]
+atac_up_m_30 = atac_m_30[(atac.var.index).isin(up_peaks['idx'])]
+[atac_up_m_01.mean(), atac_up_m_03.mean(), atac_up_m_18.mean(), atac_up_m_21.mean(), atac_up_m_30.mean()]
+# [0.34636426, 0.35574147, 0.33578697, 0.32938212, 0.32193443]
+[np.median(atac_up_m_01), np.median(atac_up_m_03), np.median(atac_up_m_18), np.median(atac_up_m_21), np.median(atac_up_m_30)]
+# [0.33527648, 0.31110707, 0.32920748, 0.323162, 0.30200174]
 
 down_peaks = pd.read_table('epitrace/Bottom100_coef_genes_peaks.bed', header=None, names=['chrom', 'start', 'end'])
 down_peaks['idx'] = down_peaks['chrom']+':'+down_peaks['start'].astype(str)+'-'+down_peaks['end'].astype(str)
-atac_down = atac_cell[:, (atac_cell.var.index).isin(down_peaks['idx'])]
+atac_down_m_01 = atac_m_01[(atac.var.index).isin(down_peaks['idx'])]
+atac_down_m_03 = atac_m_03[(atac.var.index).isin(down_peaks['idx'])]
+atac_down_m_18 = atac_m_18[(atac.var.index).isin(down_peaks['idx'])]
+atac_down_m_21 = atac_m_21[(atac.var.index).isin(down_peaks['idx'])]
+atac_down_m_30 = atac_m_30[(atac.var.index).isin(down_peaks['idx'])]
+[atac_down_m_01.mean(), atac_down_m_03.mean(), atac_down_m_18.mean(), atac_down_m_21.mean(), atac_down_m_30.mean()]
+# [0.43388453, 0.45624214, 0.42539063, 0.41345787, 0.40415314]
+[np.median(atac_down_m_01), np.median(atac_down_m_03), np.median(atac_down_m_18), np.median(atac_down_m_21), np.median(atac_down_m_30)]
+# [0.42560214, 0.4729913, 0.44539833, 0.44158453, 0.4142844]
 
-atac_down_m_01 = atac_down[atac_down.obs['age']=='1m'].X.toarray()
-(atac_down_m_01.sum(axis=0)/atac_down_m_01.shape[0]).mean()   # 0.30214286
-atac_down_m_03 = atac_down[atac_down.obs['age']=='3m'].X.toarray()
-(atac_down_m_03.sum(axis=0)/atac_down_m_03.shape[0]).mean()   # 0.37039647
-atac_down_m_18 = atac_down[atac_down.obs['age']=='18m'].X.toarray()
-(atac_down_m_18.sum(axis=0)/atac_down_m_18.shape[0]).mean()   # 0.4326499
-atac_down_m_21 = atac_down[atac_down.obs['age']=='21m'].X.toarray()
-(atac_down_m_21.sum(axis=0)/atac_down_m_21.shape[0]).mean()   # 0.4567209
-atac_down_m_30 = atac_down[atac_down.obs['age']=='30m'].X.toarray()
-(atac_down_m_30.sum(axis=0)/atac_down_m_30.shape[0]).mean()   # 0.36244217
+
+from scipy import stats
+stats.ttest_ind(atac_down_m_01, atac_down_m_30) 
+
 ######################################################################################################################################################
 
 
