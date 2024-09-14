@@ -698,7 +698,13 @@ sc.pp.log1p(rna)
 
 dat = rna[rna.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
 
-# Slc13a1
+atac_m_01 = pd.read_table('../age_1m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_01_val'])
+atac_m_03 = pd.read_table('../age_3m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_03_val'])
+atac_m_18 = pd.read_table('../age_18m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_18_val'])
+atac_m_21 = pd.read_table('../age_21m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_21_val'])
+atac_m_30 = pd.read_table('../age_30m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_30_val'])
+
+############### Slc13a1 ###############
 df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Slc13a1'].X.toarray().flatten()})
 df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
 p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Slc13a1 expression level') +\
@@ -707,12 +713,6 @@ p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
 p.save(filename='gene_exp_Slc13a1_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
-
-atac_m_01 = pd.read_table('../age_1m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_01_val'])
-atac_m_03 = pd.read_table('../age_3m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_03_val'])
-atac_m_18 = pd.read_table('../age_18m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_18_val'])
-atac_m_21 = pd.read_table('../age_21m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_21_val'])
-atac_m_30 = pd.read_table('../age_30m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_30_val'])
 idx = np.argwhere((atac_m_01['chrom']=='chr6') & (atac_m_01['start']==24167725) & (atac_m_01['end']==24168553)).item()
 atac_df = pd.DataFrame({'age':['1m', '3m', '18m', '21m', '30m'], 
                         'val':[atac_m_01.iloc[idx]['m_01_val'],
@@ -726,8 +726,71 @@ p = ggplot(atac_df, aes(x='age', y='val')) + geom_bar(fill='darkred', width=0.75
                                              scale_y_continuous(limits=[0, 0.25], breaks=np.arange(0, 0.25+0.01, 0.05)) + theme_bw()
 p.save(filename='gene_exp_Slc13a1_peak_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
+############### Lgals3bp ###############
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Lgals3bp'].X.toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Lgals3bp expression level') +\
+                                                    scale_y_continuous(limits=[0, 2.5], breaks=np.arange(0, 2.5+0.1, 0.5)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='gene_exp_Lgals3bp_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
-'darkred', 'midnightblue'
+idx = np.argwhere((atac_m_01['chrom']=='chr11') & (atac_m_01['start']==118401554) & (atac_m_01['end']==118402482)).item()
+atac_df = pd.DataFrame({'age':['1m', '3m', '18m', '21m', '30m'], 
+                        'val':[atac_m_01.iloc[idx]['m_01_val'],
+                               atac_m_03.iloc[idx]['m_03_val'],
+                               atac_m_18.iloc[idx]['m_18_val'],
+                               atac_m_21.iloc[idx]['m_21_val'],
+                               atac_m_30.iloc[idx]['m_30_val']]})
+atac_df['age'] = pd.Categorical(atac_df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(atac_df, aes(x='age', y='val')) + geom_bar(fill='darkred', width=0.75, stat='identity', position=position_dodge(), show_legend=False) +\
+                                             xlab('Age') + ylab('Normalized ATAC signal') +\
+                                             scale_y_continuous(limits=[0, 0.40], breaks=np.arange(0, 0.40+0.01, 0.10)) + theme_bw()
+p.save(filename='gene_exp_Lgals3bp_peak_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+############### Igfbp7 ###############
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Igfbp7'].X.toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Igfbp7 expression level') +\
+                                                    scale_y_continuous(limits=[0, 4.5], breaks=np.arange(0, 4.5+0.1, 0.5)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='gene_exp_Igfbp7_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+idx = np.argwhere((atac_m_01['chrom']=='chr5') & (atac_m_01['start']==77407387) & (atac_m_01['end']==77408307)).item()
+atac_df = pd.DataFrame({'age':['1m', '3m', '18m', '21m', '30m'], 
+                        'val':[atac_m_01.iloc[idx]['m_01_val'],
+                               atac_m_03.iloc[idx]['m_03_val'],
+                               atac_m_18.iloc[idx]['m_18_val'],
+                               atac_m_21.iloc[idx]['m_21_val'],
+                               atac_m_30.iloc[idx]['m_30_val']]})
+atac_df['age'] = pd.Categorical(atac_df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(atac_df, aes(x='age', y='val')) + geom_bar(fill='midnightblue', width=0.75, stat='identity', position=position_dodge(), show_legend=False) +\
+                                             xlab('Age') + ylab('Normalized ATAC signal') +\
+                                             scale_y_continuous(limits=[0, 0.80], breaks=np.arange(0, 0.80+0.01, 0.20)) + theme_bw()
+p.save(filename='gene_exp_Igfbp7_peak_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+############### Nhp2 ###############
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Nhp2'].X.toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Nhp2 expression level') +\
+                                                    scale_y_continuous(limits=[0, 2.5], breaks=np.arange(0, 2.5+0.1, 0.5)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='gene_exp_Nhp2_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+idx = np.argwhere((atac_m_01['chrom']=='chr11') & (atac_m_01['start']==51619161) & (atac_m_01['end']==51620073)).item()
+atac_df = pd.DataFrame({'age':['1m', '3m', '18m', '21m', '30m'], 
+                        'val':[atac_m_01.iloc[idx]['m_01_val'],
+                               atac_m_03.iloc[idx]['m_03_val'],
+                               atac_m_18.iloc[idx]['m_18_val'],
+                               atac_m_21.iloc[idx]['m_21_val'],
+                               atac_m_30.iloc[idx]['m_30_val']]})
+atac_df['age'] = pd.Categorical(atac_df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(atac_df, aes(x='age', y='val')) + geom_bar(fill='midnightblue', width=0.75, stat='identity', position=position_dodge(), show_legend=False) +\
+                                             xlab('Age') + ylab('Normalized ATAC signal') +\
+                                             scale_y_continuous(limits=[0, 0.60], breaks=np.arange(0, 0.60+0.01, 0.10)) + theme_bw()
+p.save(filename='gene_exp_Nhp2_peak_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 ######################################################################################################################################################
 
 
