@@ -682,6 +682,34 @@ pd.DataFrame({'chr': atac.var.index.map(lambda x: x.split(':')[0]).values,
               'start': atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).values,
               'end': atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).values,
               'val': atac_m_30}).to_csv('age_30m_atac_norm.bedgraph', index=False, header=False, sep='\t')
+
+
+
+## plot expression level of certain genes
+import scanpy as sc
+from plotnine import *
+import pandas as pd
+import numpy as np
+
+rna = sc.read_h5ad('../rna_unpaired.h5ad')
+rna.layers['counts'] = rna.X.copy()
+sc.pp.normalize_total(rna)
+sc.pp.log1p(rna)
+
+dat = rna[rna.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell']
+
+# Slc13a1
+df = pd.DataFrame({'age': dat.obs['age'], 'exp': dat[:, dat.var.index=='Slc13a1'].X.toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Slc13a1 expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='gene_exp_Slc13a1_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
+
+
+atac_m_01 = pd.read_table('../age_1m_atac_norm.bedgraph')
+
 ######################################################################################################################################################
 
 
@@ -1153,7 +1181,7 @@ ggsave(p, filename='epitrace_age_kidney_loop_of_Henle_thick_ascending_limb_epith
 
 
 
-## plot expression level of certain genes
+## plot expression level of certain genes for epitrace
 import scanpy as sc
 from plotnine import *
 import pandas as pd
