@@ -708,8 +708,26 @@ p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.
 p.save(filename='gene_exp_Slc13a1_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
 
-atac_m_01 = pd.read_table('../age_1m_atac_norm.bedgraph')
+atac_m_01 = pd.read_table('../age_1m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_01_val'])
+atac_m_03 = pd.read_table('../age_3m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_03_val'])
+atac_m_18 = pd.read_table('../age_18m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_18_val'])
+atac_m_21 = pd.read_table('../age_21m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_21_val'])
+atac_m_30 = pd.read_table('../age_30m_atac_norm.bedgraph', header=None, names=['chrom', 'start', 'end', 'm_30_val'])
+idx = np.argwhere((atac_m_01['chrom']=='chr6') & (atac_m_01['start']==24167725) & (atac_m_01['end']==24168553)).item()
+atac_df = pd.DataFrame({'age':['1m', '3m', '18m', '21m', '30m'], 
+                        'val':[atac_m_01.iloc[idx]['m_01_val'],
+                               atac_m_03.iloc[idx]['m_03_val'],
+                               atac_m_18.iloc[idx]['m_18_val'],
+                               atac_m_21.iloc[idx]['m_21_val'],
+                               atac_m_30.iloc[idx]['m_30_val']]})
+atac_df['age'] = pd.Categorical(atac_df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(atac_df, aes(x='age', y='val')) + geom_bar(fill='darkred', width=0.75, stat='identity', position=position_dodge(), show_legend=False) +\
+                                             xlab('Age') + ylab('Normalized ATAC signal') +\
+                                             scale_y_continuous(limits=[0, 0.25], breaks=np.arange(0, 0.25+0.01, 0.05)) + theme_bw()
+p.save(filename='gene_exp_Slc13a1_peak_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=4, width=4)
 
+
+'darkred', 'midnightblue'
 ######################################################################################################################################################
 
 
