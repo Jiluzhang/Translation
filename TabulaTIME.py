@@ -193,32 +193,31 @@ import numpy as np
 rna = sc.read_h5ad('fibroblast/fibroblast_rna.h5ad')
 np.count_nonzero(rna.X.toarray(), axis=1).max() # 4495
 
-python data_preprocess.py -r fibroblast/fibroblast_rna.h5ad -a fibroblast/fibroblast_pseudo_atac.h5ad -s preprocess_data_test --dt test --config rna2atac_config_test.yaml  # too slow
+python data_preprocess.py -r fibroblast/fibroblast_rna.h5ad -a fibroblast/fibroblast_pseudo_atac.h5ad -s preprocess_data_test --dt test --config rna2atac_config_test.yaml  # ~1.5h
 
 # rna2atac_test.py
 # "from utils import *" -> "from M2Mmodel.utils import *"
 # "from M2M import M2M_rna2atac"  ->  "from M2Mmodel.M2M import M2M_rna2atac"
-accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py -d ./preprocess_data_test_tmp \
-                  -l save/2024-09-24_rna2atac_train_3/pytorch_model.bin --config_file rna2atac_config_test.yaml
-
-python npy2h5ad.py
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py -d ./preprocess_data_test/01 \
+                  -l save/2024-09-24_rna2atac_train_3/pytorch_model.bin --config_file rna2atac_config_test.yaml    # 5 min / 1000 cells
+# python npy2h5ad.py
 
 ## plot umap
 import snapatac2 as snap
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import lil_matrix, csr_matrix
 import scanpy as sc
 import pandas as pd
 
 m = np.load('../predict.npy')
-m[m>0.5]=1
-m[m<=0.5]=0
+m[m>0.9]=1
+m[m<=0.9]=0
 
-pred = snap.read('fibroblast_pseudo_atac.h5ad', backed=None)[:80, :]
-pred.X = csr_matrix(m)
+pred = snap.read('fibroblast_pseudo_atac.h5ad', backed=None)[:1000, :]
+pred.X = lil_matrix(m).tocsr()  # pred.X = csr_matrix(m)
 
 cell_anno = pd.read_table('cell_anno.txt', header=None)
-pred.obs['cell_anno'] = cell_anno[1].values[:80]
+pred.obs['cell_anno'] = cell_anno[1].values[:1000]
 
 snap.pp.select_features(pred)
 snap.tl.spectral(pred)
