@@ -115,6 +115,35 @@ for s in `cat normal_samples.txt`;do
 done
 
 
+## train model
+# rna2atac_train.py
+# "from utils import *" -> "from M2Mmodel.utils import *"
+# "from M2M import M2M_rna2atac"  ->  "from M2Mmodel.M2M import M2M_rna2atac"
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir ./preprocess_data_train --val_data_dir ./preprocess_data_val -n rna2atac_train > 20240924.log &
+
+
+## Fibroblasts
+# conda activate copykat
+dat <- readRDS('Merge_minicluster30_Fibroblast_Seurat_CCA_addMeta.rds')
+meta <- readRDS('SeuratObj_meta_info.rds')
+dat@assays$RNA@data[1:5, 1:2]
+dat@assays$RNA@counts[1:5, 1:2]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
