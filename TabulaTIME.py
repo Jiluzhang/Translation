@@ -219,7 +219,7 @@ for i in tqdm(range(8), ncols=80):
     m = np.load('../predict_'+str(i)+'.npy')
     m[m>0.99]=1
     m[m<=0.99]=0
-    pred.X[(1000*i):(1000*i+1000), :] = lil_matrix(m).tocsr()  # ~6 min
+    pred.X[(1000*i):(1000*i+1000), :] = csr_matrix(m)  # ~6 min
 
 cell_anno = pd.read_table('cell_anno.txt', header=None)
 pred.obs['cell_anno'] = cell_anno[1].values
@@ -228,4 +228,125 @@ snap.pp.select_features(pred)
 snap.tl.spectral(pred)
 snap.tl.umap(pred)
 sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_atac_predict_2.pdf')
+           title='', frameon=True, save='_atac_predict.pdf')
+
+
+## B plasma metacell
+# conda activate copykat
+library(Seurat)
+library(Matrix)
+
+dat <- readRDS('Merge_minicluster30_Bplasma_Seurat_CCA_addMeta.rds')
+meta <- readRDS('Bplasma_SeuratObj_meta_info.rds')
+
+# output barcodes
+write.table(data.frame(colnames(dat@assays$RNA@counts)), 'barcodes.tsv', quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+# output features
+ft <- data.frame(v1=rownames(dat@assays$RNA@counts),
+                 v2=rownames(dat@assays$RNA@counts),
+                 v3='Gene Expression')
+write.table(ft, 'features.tsv', sep='\t', quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+# output mtx
+m_rounded <- round(dat@assays$RNA@counts)
+m_tri <- summary(m_rounded)
+m_tri_filtered <- m_tri[m_tri$x!=0, ]
+m_out <- sparseMatrix(i=m_tri_filtered$i, j=m_tri_filtered$j, x=m_tri_filtered$x, dims=dim(m_rounded))
+writeMM(m_out, file='matrix.mtx')
+
+# output cell_anno
+write.table(data.frame(v1=rownames(meta), v2=meta$curated_anno), 'cell_anno.txt', sep='\t', quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+
+## RNA alignment
+import scanpy as sc
+import pandas as pd
+from scipy.sparse import csr_matrix
+
+rna = sc.read_10x_mtx('.')
+rna.X = rna.X.toarray()
+genes = pd.read_table('../without_tumor_data/human_genes.txt', names=['gene_id', 'gene_name'])
+
+rna_genes = rna.var.copy()
+rna_exp = pd.concat([rna_genes, pd.DataFrame(rna.X.T, index=rna_genes.index)], axis=1)
+
+X_new = pd.merge(genes, rna_exp, how='left', left_on='gene_name', right_on='gene_ids').iloc[:, 4:].T
+X_new.fillna(value=0, inplace=True)
+
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)
+rna_new.write('b_cell_rna.h5ad')
+
+
+## pseudo ATAC
+import scanpy as sc
+import numpy as np
+from scipy.sparse import csr_matrix
+
+atac_ref = sc.read_h5ad('../without_tumor_data/CE337E1-S1_atac.h5ad')
+rna = sc.read_h5ad('b_cell_rna.h5ad')
+m = np.zeros([rna.n_obs, atac_ref.n_vars])
+m[:,0]=1
+atac = sc.AnnData(csr_matrix(m), obs=rna.obs, var=atac_ref.var)
+atac.write('b_cell_pseudo_atac.h5ad')
+
+
+## prediction
+## max enc length
+import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('b_cell/b_cell_rna.h5ad')
+np.count_nonzero(rna.X.toarray(), axis=1).max() # 5760
+
+rna[:1000, :].write('b_cell/b_cell_rna_1000.h5ad')
+sc.read_h5ad('b_cell/b_cell_pseudo_atac.h5ad')[:1000, :].write('b_cell/b_cell_pseudo_atac_1000.h5ad')
+
+python data_preprocess.py -r b_cell/b_cell_rna_1000.h5ad -a b_cell/b_cell_pseudo_atac_1000.h5ad -s preprocess_data_test_b_cell --dt test --config rna2atac_config_test.yaml  # ~1.5h
+
+# rna2atac_test.py
+# "from utils import *" -> "from M2Mmodel.utils import *"
+# "from M2M import M2M_rna2atac"  ->  "from M2Mmodel.M2M import M2M_rna2atac"
+
+for i in `seq 0 0`;do
+    accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py -d ./preprocess_data_test_b_cell \
+                      -l save/2024-09-24_rna2atac_train_3/pytorch_model.bin --config_file rna2atac_config_test.yaml
+    mv predict.npy predict_$i\_b_cell.npy
+done
+
+
+#### plot umap
+import snapatac2 as snap
+import numpy as np
+from scipy.sparse import lil_matrix, csr_matrix
+import scanpy as sc
+import pandas as pd
+from tqdm import tqdm
+
+pred = snap.read('b_cell_pseudo_atac.h5ad', backed=None)[:2000, :]
+
+## fibroblast
+m = np.load('../predict_0.npy')
+m[m>0.99]=1
+m[m<=0.99]=0
+pred.X[:1000, :] = csr_matrix(m)
+
+## b cell
+m = np.load('../predict_0_b_cell.npy')
+m[m>0.99]=1
+m[m<=0.99]=0
+pred.X[1000:2000, :] = csr_matrix(m)
+
+pred.obs['cell_anno'] = 'unknown'
+pred.obs['cell_anno'][:1000] ='fibroblast'
+pred.obs['cell_anno'][1000:2000] = 'b cell'
+# pred.obs['cell_anno'][:1000] = pd.read_table('../fibroblast/cell_anno.txt', header=None)[1].values[:1000]
+# pred.obs['cell_anno'][1000:2000] = pd.read_table('cell_anno.txt', header=None)[1].values[:1000]
+
+snap.pp.select_features(pred, n_features=10000)
+snap.tl.spectral(pred)
+snap.tl.umap(pred)
+sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=8,
+           title='', frameon=True, save='_atac_predict_fibro_bcell.pdf')
