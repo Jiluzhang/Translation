@@ -228,4 +228,4 @@ snap.pp.select_features(pred)
 snap.tl.spectral(pred)
 snap.tl.umap(pred)
 sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_atac_predict.pdf')
+           title='', frameon=True, save='_atac_predict_2.pdf')
