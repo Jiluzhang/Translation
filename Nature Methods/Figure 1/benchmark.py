@@ -3,6 +3,7 @@
 #### Dataset 2: BMMCs
 #### Dataset 3: Adult brain
 
+#### celltype (not predicted.id)
 # CD4 TCM (Central memory T cells)
 # CD4 Naive
 # CD8 Naive
@@ -21,10 +22,43 @@
 # pDC (Plasmacytoid dendritic cells)
 # cDC2 (type-2 conventional dendritic cells)
 
+
 #### h5 to h5ad
 import scanpy as sc
+import pandas as pd
 
 dat = sc.read_10x_h5('pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5', gex_only=False)  # 11898 × 180488
 dat.var_names_make_unique()
 
-rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()
+## add cell annotation
+meta_info = pd.read_table('meta_data.txt')
+cell_barcode = pd.DataFrame({'barcode': dat.obs.index.values})
+dat.obs['cell_anno'] = pd.merge(cell_barcode, meta_info, how='left')['celltype'].values
+dat = dat[(~dat.obs['cell_anno'].isna() & (dat.obs['cell_anno']!='RPL/S Leukocytes')), :].copy()   # 9964 × 180488
+dat.obs['cell_anno'].replace({'IL1B+ Mono': 'CD14 Mono'}, inplace=True)
+
+## rna
+rna = dat[:, dat.var['feature_types']=='Gene Expression'].copy()  # 9964 × 36601
+sc.pp.filter_genes(rna, min_cells=10)
+sc.pp.filter_cells(rna, min_genes=200)
+sc.pp.filter_cells(rna, max_genes=20000)    # 9964 × 21000
+
+## atac
+atac = dat[:, dat.var['feature_types']=='Peaks'].copy()  # 9964 × 143887
+atac.X[atac.X>0] = 1
+sc.pp.filter_genes(atac, min_cells=10)
+sc.pp.filter_cells(atac, min_genes=500)
+sc.pp.filter_cells(atac, max_genes=50000)  # 9964 × 143856
+
+## output rna & atac (no cells are filtered)
+rna.write('rna.h5ad')
+atac.write('atac.h5ad')
+
+
+
+
+
+
+
+
+
