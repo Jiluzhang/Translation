@@ -214,6 +214,7 @@ import scanpy as sc
 import pandas as pd
 from tqdm import tqdm
 
+## all fibroblasts
 pred = snap.read('fibroblast_pseudo_atac.h5ad', backed=None)
 for i in tqdm(range(8), ncols=80):
     m = np.load('../predict_'+str(i)+'.npy')
@@ -229,6 +230,22 @@ snap.tl.spectral(pred)
 snap.tl.umap(pred)
 sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_atac_predict.pdf')
+
+## 1000 fibroblasts
+pred = snap.read('fibroblast_pseudo_atac.h5ad', backed=None)[:1000, :]
+
+m = np.load('../predict_0.npy')
+m[m>0.99]=1
+m[m<=0.99]=0
+pred.X[:1000, :] = csr_matrix(m)
+pred.obs['cell_anno'] = pd.read_table('./cell_anno.txt', header=None)[1].values[:1000]
+
+snap.pp.select_features(pred)
+snap.tl.spectral(pred)
+snap.tl.umap(pred)
+sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=8,
+           title='', frameon=True, save='_atac_predict_fibroblast_1000.pdf')
+
 
 
 ## B plasma metacell
@@ -325,15 +342,30 @@ import scanpy as sc
 import pandas as pd
 from tqdm import tqdm
 
+## only b cell
+pred = snap.read('b_cell_pseudo_atac.h5ad', backed=None)[:1000, :]
+
+m = np.load('../predict_0_b_cell.npy')
+m[m>0.99]=1
+m[m<=0.99]=0
+pred.X[:1000, :] = csr_matrix(m)
+pred.obs['cell_anno'] = pd.read_table('./cell_anno.txt', header=None)[1].values[:1000]
+
+snap.pp.select_features(pred)
+snap.tl.spectral(pred)
+snap.tl.umap(pred)
+sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=8,
+           title='', frameon=True, save='_atac_predict_bcell.pdf')
+
+
+## fibroblast & b cell
 pred = snap.read('b_cell_pseudo_atac.h5ad', backed=None)[:2000, :]
 
-## fibroblast
 m = np.load('../predict_0.npy')
 m[m>0.99]=1
 m[m<=0.99]=0
 pred.X[:1000, :] = csr_matrix(m)
 
-## b cell
 m = np.load('../predict_0_b_cell.npy')
 m[m>0.99]=1
 m[m<=0.99]=0
@@ -345,7 +377,7 @@ pred.obs['cell_anno'][1000:2000] = 'b cell'
 # pred.obs['cell_anno'][:1000] = pd.read_table('../fibroblast/cell_anno.txt', header=None)[1].values[:1000]
 # pred.obs['cell_anno'][1000:2000] = pd.read_table('cell_anno.txt', header=None)[1].values[:1000]
 
-snap.pp.select_features(pred, n_features=10000)
+snap.pp.select_features(pred)
 snap.tl.spectral(pred)
 snap.tl.umap(pred)
 sc.pl.umap(pred, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=8,
