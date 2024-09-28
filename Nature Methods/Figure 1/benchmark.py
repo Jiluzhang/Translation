@@ -126,6 +126,20 @@ butterfly.construct_model(chrom_list=chrom_list)
 butterfly.train_model(batch_size=16)
 A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
 
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.9055
+# Cell-wise AUPRC: 0.4505
+# Peak-wise AUROC: 0.7119
+# Peak-wise AUPRC: 0.1061
+
+python cal_cluster_plot.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# AMI: [0.7092, 0.7175, 0.7034, 0.7173, 0.7315]
+# ARI: [0.508, 0.5152, 0.4902, 0.5323, 0.5875]
+# HOM: [0.7047, 0.7121, 0.6978, 0.7114, 0.7049]
+# NMI: [0.7135, 0.7217, 0.7079, 0.7215, 0.7352]
+
+
+
 
 #### BABEL
 ## concat train & valid dataset
