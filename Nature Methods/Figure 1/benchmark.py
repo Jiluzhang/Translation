@@ -79,10 +79,10 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # NMI: [0.6802, 0.6826, 0.6818, 0.6745, 0.6784]
 
 
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_2.yaml \
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_3.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -n rna2atac_pbmc > rna2atac_train_20240927.log &
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                      -l save/2024-09-28_rna2atac_pbmc_8/pytorch_model.bin --config_file rna2atac_config_test_2.yaml
+                      -l save/2024-09-28_rna2atac_pbmc_32/pytorch_model.bin --config_file rna2atac_config_test_2.yaml
 python npy2h5ad.py
 
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
@@ -116,6 +116,12 @@ python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # Peak-wise AUROC: 0.6749
 # Peak-wise AUPRC: 0.0909
 
+# epoch=32
+# Cell-wise AUROC: 0.9033
+# Cell-wise AUPRC: 0.4436
+# Peak-wise AUROC: 0.6947
+# Peak-wise AUPRC: 0.0963
+
 python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # epoch=3
 # AMI: [0.5508, 0.5522, 0.5587, 0.5557, 0.5384]
@@ -146,6 +152,13 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # ARI: [0.376, 0.417, 0.4423, 0.4178, 0.4391]
 # HOM: [0.6206, 0.6291, 0.6378, 0.6328, 0.6397]
 # NMI: [0.6254, 0.6351, 0.642, 0.6364, 0.6432]
+
+# epoch=32
+# AMI: [0.7036, 0.702, 0.7045, 0.7071, 0.7041]
+# ARI: [0.5495, 0.5432, 0.5508, 0.5594, 0.5557]
+# HOM: [0.7009, 0.6996, 0.7031, 0.7033, 0.7002]
+# NMI: [0.708, 0.7065, 0.7089, 0.7114, 0.7085]
+
 
 #### scbutterfly
 ## python scbt_b.py
