@@ -79,6 +79,73 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # NMI: [0.6802, 0.6826, 0.6818, 0.6745, 0.6784]
 
 
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_2.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -n rna2atac_pbmc > rna2atac_train_20240927.log &
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
+                      -l save/2024-09-28_rna2atac_pbmc_8/pytorch_model.bin --config_file rna2atac_config_test_2.yaml
+python npy2h5ad.py
+
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# epoch=3
+# Cell-wise AUROC: 0.8799
+# Cell-wise AUPRC: 0.4095
+# Peak-wise AUROC: 0.6314
+# Peak-wise AUPRC: 0.0822
+
+# epoch=8
+# Cell-wise AUROC: 0.8881
+# Cell-wise AUPRC: 0.4201
+# Peak-wise AUROC: 0.6466
+# Peak-wise AUPRC: 0.0854
+
+# epoch=14
+# Cell-wise AUROC: 0.891
+# Cell-wise AUPRC: 0.4245
+# Peak-wise AUROC: 0.652
+# Peak-wise AUPRC: 0.0865
+
+# epoch=18
+# Cell-wise AUROC: 0.8921
+# Cell-wise AUPRC: 0.4257
+# Peak-wise AUROC: 0.6545
+# Peak-wise AUPRC: 0.0869
+
+# epoch=8
+# Cell-wise AUROC: 0.8985
+# Cell-wise AUPRC: 0.4365
+# Peak-wise AUROC: 0.6749
+# Peak-wise AUPRC: 0.0909
+
+python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# epoch=3
+# AMI: [0.5508, 0.5522, 0.5587, 0.5557, 0.5384]
+# ARI: [0.3216, 0.3278, 0.3219, 0.3284, 0.2999]
+# HOM: [0.5333, 0.5372, 0.5485, 0.5387, 0.5273]
+# NMI: [0.5569, 0.5582, 0.5646, 0.5617, 0.5446]
+
+# epoch=8
+# AMI: [0.5955, 0.6086, 0.6016, 0.6047, 0.5963]
+# ARI: [0.3602, 0.4393, 0.3824, 0.3813, 0.361]
+# HOM: [0.5822, 0.5786, 0.5776, 0.5757, 0.5837]
+# NMI: [0.601, 0.6133, 0.6063, 0.6095, 0.6017]
+
+# epoch=14
+# AMI: [0.6209, 0.6306, 0.6251, 0.6317, 0.6164]
+# ARI: [0.4136, 0.4215, 0.4151, 0.4124, 0.4043]
+# HOM: [0.5932, 0.603, 0.5971, 0.6029, 0.5883]
+# NMI: [0.6254, 0.635, 0.6296, 0.6361, 0.6209]
+
+# epoch=18
+# AMI: [0.6288, 0.6346, 0.6317, 0.6345, 0.6238]
+# ARI: [0.4185, 0.4324, 0.4182, 0.4315, 0.4113]
+# HOM: [0.6013, 0.6051, 0.6038, 0.6057, 0.5927]
+# NMI: [0.6332, 0.639, 0.6361, 0.6388, 0.6283]
+
+# epoch=8
+# AMI: [0.6198, 0.6296, 0.6366, 0.631, 0.6379]
+# ARI: [0.376, 0.417, 0.4423, 0.4178, 0.4391]
+# HOM: [0.6206, 0.6291, 0.6378, 0.6328, 0.6397]
+# NMI: [0.6254, 0.6351, 0.642, 0.6364, 0.6432]
 
 #### scbutterfly
 ## python scbt_b.py
