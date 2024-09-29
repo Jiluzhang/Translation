@@ -103,25 +103,25 @@ python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt tes
 ### mult=1
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_1 --dt train -n train --config rna2atac_config_train_mlt_1.yaml   # 1.5 min
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_1.yaml \
-                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -s save_mlt_1 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &   # 957391
+                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -s save_mlt_1 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                  -l save_mlt_1/2024-09-29_rna2atac_pbmc_230/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
+                  -l save_mlt_1/2024-09-29_rna2atac_pbmc_228/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.8422
-# Cell-wise AUPRC: 0.4101
-# Peak-wise AUROC: 0.5694
-# Peak-wise AUPRC: 0.1073
+# Cell-wise AUROC: 0.8445
+# Cell-wise AUPRC: 0.4068
+# Peak-wise AUROC: 0.5643
+# Peak-wise AUPRC: 0.1058
 python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# AMI: [0.6077, 0.5867, 0.6388, 0.5979, 0.6018]
-# ARI: [0.4406, 0.4068, 0.6307, 0.4496, 0.4594]
-# HOM: [0.5801, 0.5577, 0.5834, 0.555, 0.5592]
-# NMI: [0.6124, 0.5916, 0.6427, 0.6021, 0.606]
+# AMI: [0.5748, 0.5881, 0.5831, 0.5775, 0.5883]
+# ARI: [0.4268, 0.4305, 0.4309, 0.4431, 0.4025]
+# HOM: [0.542, 0.5708, 0.5652, 0.5441, 0.5448]
+# NMI: [0.5799, 0.5937, 0.5887, 0.5826, 0.5934]
 
 ### mult=2
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_2 --dt train -n train --config rna2atac_config_train_mlt_2.yaml   # 1.5 min
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_2.yaml \
-                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &
+                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &   # 1741292
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_2/2024-09-29_rna2atac_pbmc_48/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -135,8 +135,8 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 
 ### mult=5
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_5 --dt train -n train --config rna2atac_config_train_mlt_5.yaml   # 3 min
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_2.yaml \
-                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_mlt_5.yaml \
+                        --train_data_dir train_pt_mlt_5 --val_data_dir val_pt -s save_mlt_5 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_5.log &   # 1748857
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_2/2024-09-29_rna2atac_pbmc_48/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -149,8 +149,8 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 
 ### mult=10
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_10 --dt train -n train --config rna2atac_config_train_mlt_10.yaml   # 5.5 min
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_2.yaml \
-                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29825 rna2atac_train.py --config_file rna2atac_config_train_mlt_10.yaml \
+                        --train_data_dir train_pt_mlt_10 --val_data_dir val_pt -s save_mlt_10 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_10.log &   # 1766032
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_2/2024-09-29_rna2atac_pbmc_48/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -163,8 +163,8 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 
 ### mult=20
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_20 --dt train -n train --config rna2atac_config_train_mlt_20.yaml   #  10 min
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_2.yaml \
-                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_20.yaml \
+                        --train_data_dir train_pt_mlt_20 --val_data_dir val_pt -s save_mlt_20 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_20.log &   # 1771075
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_2/2024-09-29_rna2atac_pbmc_48/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -177,8 +177,8 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 
 ### mult=40
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_40 --dt train -n train --config rna2atac_config_train_mlt_40.yaml   #   min
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_2.yaml \
-                        --train_data_dir train_pt_mlt_2 --val_data_dir val_pt -s save_mlt_2 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_2.log &
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29827 rna2atac_train.py --config_file rna2atac_config_train_mlt_40.yaml \
+                        --train_data_dir train_pt_mlt_40 --val_data_dir val_pt -s save_mlt_40 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_40.log &   # 1776670
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_2/2024-09-29_rna2atac_pbmc_48/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -388,7 +388,7 @@ python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt tes
 ### mult=1
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_1 --dt train -n train --config rna2atac_config_train_mlt_1.yaml   # 1.5 min
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_1.yaml \
-                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -s save_mlt_1 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &   # 957391
+                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -s save_mlt_1 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                   -l save_mlt_1/2024-09-29_rna2atac_pbmc_230/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
