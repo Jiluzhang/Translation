@@ -217,7 +217,7 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 ### mult=100
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_100 --dt train -n train --config rna2atac_config_train_mlt_100.yaml   
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29827 rna2atac_train.py --config_file rna2atac_config_train_mlt_100.yaml \
-                        --train_data_dir train_pt_mlt_100 --val_data_dir val_pt -s save_mlt_100 -n rna2atac_pbmc > rna2atac_train_20240930_mlt_100.log &
+                        --train_data_dir train_pt_mlt_100 --val_data_dir val_pt -s save_mlt_100 -n rna2atac_pbmc > rna2atac_train_20240930_mlt_100.log &   # 3851526
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_40/2024-09-29_rna2atac_pbmc_92/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
@@ -236,7 +236,7 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 ### mult=20 (more parameters)
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_20_large.yaml \
-                        --train_data_dir train_pt_mlt_20 --val_data_dir val_pt -s save_mlt_20_large -n rna2atac_pbmc > rna2atac_train_20240930_mlt_20_large.log &   # 3312033
+                        --train_data_dir train_pt_mlt_20 --val_data_dir val_pt -s save_mlt_20_large -n rna2atac_pbmc > rna2atac_train_20240930_mlt_20_large.log &   # 3856717
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
                       -l save_mlt_20/2024-09-29_rna2atac_pbmc_184/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
