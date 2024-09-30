@@ -410,7 +410,60 @@ python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 
 
 
+import scanpy as sc
+import pandas as pd
+from scipy.sparse import csr_matrix
+import pybedtools
+import numpy as np
+from tqdm import tqdm
 
+## rna
+rna = sc.read_h5ad('pbmc_rna.h5ad')  # 12012 × 36601
+rna.var_names_make_unique()
+rna.X = rna.X.toarray()
+genes = pd.read_table('human_genes.txt', names=['gene_ids', 'gene_name'])
+rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index)], axis=1)
+X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 4:].T
+X_new.fillna(value=0, inplace=True)
+rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
+rna_new.var.index = genes['gene_name'].values
+rna_new.X = csr_matrix(rna_new.X)   # 9964 × 38244
+
+
+## atac
+atac = dat[:, dat.var['feature_types']=='Peaks'].copy()  # 9964 × 143887
+atac.X[atac.X>0] = 1  # binarization
+atac.X = atac.X.toarray()
+  
+peaks = pd.DataFrame({'id': atac.var_names})
+peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks.drop(columns='id', inplace=True)
+peaks['idx'] = range(peaks.shape[0])
+
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+idx_map.columns = ['peaks_idx', 'cCREs_idx']
+
+m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+    m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+
+atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+atac_new.var.index = atac_new.var['gene_ids'].values
+atac_new.X = csr_matrix(atac_new.X)
+
+sc.pp.filter_genes(atac_new, min_cells=10)     # 9964 × 236295
+sc.pp.filter_cells(atac_new, min_genes=500)    # 9964 × 236295
+sc.pp.filter_cells(atac_new, max_genes=50000)  # 9964 × 236295
+
+## output rna & atac (no cells are filtered)
+rna_new.write('rna.h5ad')
+atac_new.write('atac.h5ad')
 
 
 
