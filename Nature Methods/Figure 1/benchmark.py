@@ -233,12 +233,29 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # HOM: 
 # NMI: 
 
-
 ### mult=20 (more parameters)
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_20_large.yaml \
                         --train_data_dir train_pt_mlt_20 --val_data_dir val_pt -s save_mlt_20_large -n rna2atac_pbmc > rna2atac_train_20240930_mlt_20_large.log &   # 3856717
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                      -l save_mlt_20/2024-09-29_rna2atac_pbmc_184/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
+                      -l save_mlt_20_large/2024-09-30_rna2atac_pbmc_20/pytorch_model.bin --config_file rna2atac_config_test_large.yaml  # 3 min
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.8928
+# Cell-wise AUPRC: 0.4817
+# Peak-wise AUROC: 0.6721
+# Peak-wise AUPRC: 0.1342
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 8 min
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.6606
+# ARI: 0.458
+# HOM: 0.6526
+# NMI: 0.6654
+
+### mult=40 (more parameters)
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_40_large.yaml \
+                        --train_data_dir train_pt_mlt_40 --val_data_dir val_pt -s save_mlt_40_large -n rna2atac_pbmc > rna2atac_train_20240930_mlt_40_large.log &   # 472737
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
+                      -l save_mlt_40_large/2024-09-30_rna2atac_pbmc_20/pytorch_model.bin --config_file rna2atac_config_test_large.yaml  # 3 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # Cell-wise AUROC: 
