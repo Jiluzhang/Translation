@@ -530,9 +530,149 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # NMI: 
 
 
+#### scbutterfly
+## python scbt_b.py
+## nohup python scbt_b.py > scbt_b_20241008.log &    # 3224070
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+import random
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+
+RNA_data = sc.read_h5ad('rna.h5ad')
+ATAC_data = sc.read_h5ad('atac.h5ad')
+
+test_id = np.argwhere(RNA_data.obs['cell_anno'].isin(['CD4 Naive', 'NK', 'Treg', 'cDC2', 'pDC'])).flatten()
+train_val_id = np.setdiff1d(np.arange(RNA_data.n_obs), test_id)
+
+random.seed(0)
+random.shuffle(train_val_id)
+train_id = train_val_id[:int(len(train_val_id)*0.9)]
+val_id = train_val_id[int(len(train_val_id)*0.9):]
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, val_id)
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 
+# Cell-wise AUPRC: 
+# Peak-wise AUROC: 
+# Peak-wise AUPRC: 
+
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 8 min
+python cal_cluster.py --file atac_scbt_umap.h5ad
+# AMI: 
+# ARI: 
+# HOM: 
+# NMI: 
 
 
+#### BABEL
+## concat train & valid dataset
+## python concat_train_val.py
+import scanpy as sc
+import anndata as ad
 
+rna_train = sc.read_h5ad('rna_train.h5ad')
+rna_val = sc.read_h5ad('rna_val.h5ad')
+rna_train_val = ad.concat([rna_train, rna_val])
+rna_train_val.var = rna_train.var
+rna_train_val.write('rna_train_val.h5ad')
+
+atac_train = sc.read_h5ad('atac_train.h5ad')
+atac_val = sc.read_h5ad('atac_val.h5ad')
+atac_train_val = ad.concat([atac_train, atac_val])
+atac_train_val.var = atac_train.var
+atac_train_val.write('atac_train_val.h5ad')
+
+
+# python h5ad2h5.py -n train_val
+# python h5ad2h5.py -n test
+import h5py
+import numpy as np
+from scipy.sparse import csr_matrix, hstack
+import argparse
+
+parser = argparse.ArgumentParser(description='concat RNA and ATAC h5ad to h5 format')
+parser.add_argument('-n', '--name', type=str, help='sample type or name')
+
+args = parser.parse_args()
+sn = args.name
+rna  = h5py.File('rna_'+sn+'.h5ad', 'r')
+atac = h5py.File('atac_'+sn+'.h5ad', 'r')
+out  = h5py.File(sn+'.h5', 'w')
+
+g = out.create_group('matrix')
+g.create_dataset('barcodes', data=rna['obs']['_index'][:])
+rna_atac_csr_mat = hstack((csr_matrix((rna['X']['data'], rna['X']['indices'],  rna['X']['indptr']), shape=[rna['obs']['_index'].shape[0], rna['var']['_index'].shape[0]]),
+                           csr_matrix((atac['X']['data'], atac['X']['indices'],  atac['X']['indptr']), shape=[atac['obs']['_index'].shape[0], atac['var']['_index'].shape[0]])))
+rna_atac_csr_mat = rna_atac_csr_mat.tocsr()
+g.create_dataset('data', data=rna_atac_csr_mat.data)
+g.create_dataset('indices', data=rna_atac_csr_mat.indices)
+g.create_dataset('indptr',  data=rna_atac_csr_mat.indptr)
+l = list(rna_atac_csr_mat.shape)
+l.reverse()
+g.create_dataset('shape', data=l)
+
+g_2 = g.create_group('features')
+g_2.create_dataset('_all_tag_keys', data=np.array([b'genome', b'interval']))
+g_2.create_dataset('feature_type', data=np.append([b'Gene Expression']*rna['var']['gene_ids'].shape[0], [b'Peaks']*atac['var']['gene_ids'].shape[0]))
+g_2.create_dataset('genome', data=np.array([b'GRCh38'] * (rna['var']['gene_ids'].shape[0]+atac['var']['gene_ids'].shape[0])))
+g_2.create_dataset('id', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('interval', data=np.append(rna['var']['gene_ids'][:], atac['var']['gene_ids'][:]))
+g_2.create_dataset('name', data=np.append(rna['var']['_index'][:], atac['var']['_index'][:]))      
+
+out.close()
+
+
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 2 --nofilter > train_20241008.log &   # 3261342
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 3 --nofilter --noplot --transonly   # 9 min
+
+## match cells bw pred & true
+## python match_cell.py
+import scanpy as sc
+
+pred = sc.read_h5ad('test_out/rna_atac_adata.h5ad')
+true = sc.read_h5ad('atac_test.h5ad')
+pred[true.obs.index, :].write('atac_babel.h5ad')
+
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.8962
+# Cell-wise AUPRC: 0.4886
+# Peak-wise AUROC: 0.6846
+# Peak-wise AUPRC: 0.1377
+
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad  # 8 min
+python cal_cluster.py --file atac_babel_umap.h5ad
+# AMI: 0.6151
+# ARI: 0.3919
+# HOM: 0.6176
+# NMI: 0.6208
 
 
 
