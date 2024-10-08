@@ -55,7 +55,7 @@ rna_new.X = csr_matrix(rna_new.X)   # 9964 × 38244
 sc.pp.filter_genes(rna_new, min_cells=10)       # 9964 × 16706
 sc.pp.filter_cells(rna_new, min_genes=200)      # 9964 × 16706
 sc.pp.filter_cells(rna_new, max_genes=20000)    # 9964 × 16706
-rna_new.obs['n_genes'].max()      # 3529
+rna_new.obs['n_genes'].max()                    # 3529
 
 ## atac
 atac = dat[:, dat.var['feature_types']=='Peaks'].copy()  # 9964 × 143887
@@ -96,7 +96,7 @@ atac_new.write('atac.h5ad')
 #### train model & prediction
 python split_train_val_test.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.7 --valid_pct 0.1  # 15 s
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_train_mlt_1.yaml             # 20 s
-python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml                     # 17 min
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml               # 17 min
 
 ### early stop: loss -> auroc (delta:0)  use round to avoid float issue 
 ### patience: 25 -> 10
@@ -219,19 +219,19 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_1
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29827 rna2atac_train.py --config_file rna2atac_config_train_mlt_100.yaml \
                         --train_data_dir train_pt_mlt_100 --val_data_dir val_pt -s save_mlt_100 -n rna2atac_pbmc > rna2atac_train_20240930_mlt_100.log &   # 3851526
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                      -l save_mlt_40/2024-09-29_rna2atac_pbmc_92/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
+                      -l save_mlt_100/2024-09-30_rna2atac_pbmc_50/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.8714
+# Cell-wise AUPRC: 0.4438
+# Peak-wise AUROC: 0.6133
+# Peak-wise AUPRC: 0.1180
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.6903
+# ARI: 0.5058
+# HOM: 0.6783
+# NMI: 0.6947
 
 ### mult=20 (more parameters)
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_20_large.yaml \
@@ -264,10 +264,10 @@ python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # Peak-wise AUPRC: 0.1365
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.7179
-# ARI: 0.5415
-# HOM: 0.7177
-# NMI: 0.722
+# AMI: 0.7198
+# ARI: 0.5546
+# HOM: 0.7201
+# NMI: 0.7239
 
 ### mult=40 (more and more parameters)
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_40_huge.yaml \
@@ -433,6 +433,44 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 # NMI: 0.6208
 
 
+#### plot metrics
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+## AMI & NMI & ARI & HOM
+# 	AMI	NMI	ARI	HOM
+# BABEL	0.6151	0.6208	0.3919	0.6176
+# scButterfly	0.6982	0.7036	0.4801	0.7259
+# Cisformer	0.7198	0.7239	0.5546	0.7201
+raw = pd.read_table('ami_nmi_ari_hom.txt', index_col=0)
+dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
+dat['Method'] = ['BABEL']*4 + ['scButterfly']*4 + ['Cisformer']*4
+dat['Metrics'] = ['AMI', 'NMI', 'ARI', 'HOM']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['AMI', 'NMI', 'ARI', 'HOM'])
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='ami_nmi_ari_hom.pdf', dpi=600, height=4, width=6)
+
+## AUROC & AUPRC
+raw = pd.read_table('auroc_auprc.txt', index_col=0)
+dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
+dat['Method'] = ['BABEL']*4 + ['scButterfly']*4 + ['Cisformer']*4
+dat['Metrics'] = ['Cell-wise AUROC', 'Cell-wise AUPRC', 'Peak-wise AUROC', 'Peak-wise AUPRC']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Cell-wise AUROC', 'Cell-wise AUPRC', 'Peak-wise AUROC', 'Peak-wise AUPRC'])
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
+p.save(filename='auroc_auprc.pdf', dpi=600, height=4, width=6)
+
+
+
 
 
 
@@ -469,39 +507,27 @@ atac[val_idx, :].write('atac_val.h5ad')
 atac[test_idx, :].write('atac_test.h5ad')
 
 
+### mult=40 & dec_head=6 & dec_depth=6
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml     # 19 min
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml                 # 8 s
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml           # 13 min
 
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_1_test.yaml \
-                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -l save_mlt_1_true/2024-09-29_rna2atac_pbmc_238/pytorch_model.bin -s save_mlt_1 \
-                        -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &
-
-
-
-
-python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_train_mlt_1.yaml             # 20 s
-python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml                     # 17 min
-
-### early stop: loss -> auroc (delta:0)  use round to avoid float issue 
-### patience: 25 -> 10
-### mult=1
-python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt_mlt_1 --dt train -n train --config rna2atac_config_train_mlt_1.yaml   # 1.5 min
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_mlt_1.yaml \
-                        --train_data_dir train_pt_mlt_1 --val_data_dir val_pt -s save_mlt_1 -n rna2atac_pbmc > rna2atac_train_20240929_mlt_1.log &
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_pbmc > rna2atac_train_20241008.log &   # 3055673
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                  -l save_mlt_1/2024-09-29_rna2atac_pbmc_230/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 3 min
+                      -l save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin --config_file rna2atac_config_test_large.yaml  # 6 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.8422
-# Cell-wise AUPRC: 0.4101
-# Peak-wise AUROC: 0.5694
-# Peak-wise AUPRC: 0.1073
-python cal_cluster_plot.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# AMI: [0.6077, 0.5867, 0.6388, 0.5979, 0.6018]
-# ARI: [0.4406, 0.4068, 0.6307, 0.4496, 0.4594]
-# HOM: [0.5801, 0.5577, 0.5834, 0.555, 0.5592]
-# NMI: [0.6124, 0.5916, 0.6427, 0.6021, 0.606]
-
-
-
+# Cell-wise AUROC: 
+# Cell-wise AUPRC: 
+# Peak-wise AUROC: 
+# Peak-wise AUPRC: 
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 8 min
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 
+# ARI: 
+# HOM: 
+# NMI: 
 
 
 
