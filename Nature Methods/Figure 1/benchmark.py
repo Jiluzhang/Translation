@@ -457,6 +457,10 @@ p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='ident
 p.save(filename='ami_nmi_ari_hom.pdf', dpi=600, height=4, width=6)
 
 ## AUROC & AUPRC
+# 	Cell-wise AUROC	Cell-wise AUPRC	Peak-wise AUROC	Peak-wise AUPRC
+# BABEL	0.8962	0.4886	0.6846	0.1377
+# scButterfly	0.8975	0.491	0.6996	0.1475
+# Cisformer	0.8944	0.4843	0.6802	0.1365
 raw = pd.read_table('auroc_auprc.txt', index_col=0)
 dat = pd.DataFrame(raw.values.flatten(), columns=['val'])
 dat['Method'] = ['BABEL']*4 + ['scButterfly']*4 + ['Cisformer']*4
@@ -469,6 +473,18 @@ p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='ident
                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1.1, 0.2)) + theme_bw()
 p.save(filename='auroc_auprc.pdf', dpi=600, height=4, width=6)
 
+
+#### plot true atac umap
+## python plot_true_umap.py
+import snapatac2 as snap
+import scanpy as sc
+
+atac = snap.read('atac_test.h5ad', backed=None)
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_true.pdf')
 
 
 
@@ -515,19 +531,19 @@ python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt tes
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_pbmc > rna2atac_train_20241008.log &   # 3055673
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
-                      -l save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin --config_file rna2atac_config_test_large.yaml  # 6 min
+                      -l save/2024-10-08_rna2atac_pbmc_38/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 4 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 8 min
+# Cell-wise AUROC: 0.9033
+# Cell-wise AUPRC: 0.4999
+# Peak-wise AUROC: 0.6466
+# Peak-wise AUPRC: 0.1267
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 3 min
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.6437
+# ARI: 0.3463
+# HOM: 0.8941
+# NMI: 0.6456
 
 
 #### scbutterfly
@@ -579,17 +595,17 @@ A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=
 
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.9031
+# Cell-wise AUPRC: 0.5042
+# Peak-wise AUROC: 0.6484
+# Peak-wise AUPRC: 0.1282
 
-python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 8 min
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 3.5 min
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.6069
+# ARI: 0.3488
+# HOM: 0.8313
+# NMI: 0.6090
 
 
 #### BABEL
