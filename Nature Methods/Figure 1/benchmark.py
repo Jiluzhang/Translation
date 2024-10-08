@@ -651,7 +651,7 @@ out.close()
 
 
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 2 --nofilter > train_20241008.log &   # 3261342
-python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 3 --nofilter --noplot --transonly   # 9 min
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 2 --nofilter --noplot --transonly   # 9 min
 
 ## match cells bw pred & true
 ## python match_cell.py
@@ -662,17 +662,17 @@ true = sc.read_h5ad('atac_test.h5ad')
 pred[true.obs.index, :].write('atac_babel.h5ad')
 
 python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.8962
-# Cell-wise AUPRC: 0.4886
-# Peak-wise AUROC: 0.6846
-# Peak-wise AUPRC: 0.1377
+# Cell-wise AUROC: 0.9029
+# Cell-wise AUPRC: 0.4999
+# Peak-wise AUROC: 0.6294
+# Peak-wise AUPRC: 0.1222
 
 python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 0.6151
-# ARI: 0.3919
-# HOM: 0.6176
-# NMI: 0.6208
+# AMI: 0.6333
+# ARI: 0.3795
+# HOM: 0.8661
+# NMI: 0.6353
 
 
 
