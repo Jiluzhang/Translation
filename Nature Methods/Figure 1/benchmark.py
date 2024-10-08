@@ -434,6 +434,7 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 
 #### plot metrics
+## python plot_metrics.py
 from plotnine import *
 import pandas as pd
 import numpy as np
@@ -685,11 +686,19 @@ python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
 
 python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 0.6333
-# ARI: 0.3795
-# HOM: 0.8661
-# NMI: 0.6353
+# AMI: 0.6247
+# ARI: 0.3697
+# HOM: 0.8532
+# NMI: 0.6267
 
+
+#### plot metrics
+## python plot_metrics.py
+#    ami_nmi_ari_hom.txt & auroc_auprc.txt
+# -> ami_nmi_ari_hom.pdf & auroc_auprc.pdf
+
+#### plot true atac umap
+## python plot_true_umap.py
 
 
 
