@@ -1,7 +1,8 @@
 #### Dataset 1: PBMCs (https://cf.10xgenomics.com/samples/cell-arc/2.0.0/pbmc_granulocyte_sorted_10k/pbmc_granulocyte_sorted_10k_filtered_feature_bc_matrix.h5)
-####            meta info (https://mailustceducn-my.sharepoint.com/personal/hyl2016_mail_ustc_edu_cn/_layouts/15/download.aspx?UniqueId=e86f4bba%2D8560%2D4689%2Dbb93%2D9ea5c859ba28)
-#### Dataset 2: BMMCs
-#### Dataset 3: Adult brain
+####            meta info (https://mailustceducn-my.sharepoint.com/:x:/r/personal/hyl2016_mail_ustc_edu_cn/_layouts/15/Doc.aspx?sourcedoc=%7BE86F4BBA-8560-4689-BB93-9EA5C859BA28%7D&file=meta_data.csv&action=default&mobileredirect=true)
+#### Dataset 2: BMMCs (https://ftp.ncbi.nlm.nih.gov/geo/series/GSE194nnn/GSE194122/suppl/GSE194122_openproblems_neurips2021_multiome_BMMC_processed.h5ad.gz)
+#### Dataset 3: Adult brain (https://cf.10xgenomics.com/samples/cell-arc/2.0.0/human_brain_3k/human_brain_3k_filtered_feature_bc_matrix.h5)
+####            meta info (https://mailustceducn-my.sharepoint.com/:x:/r/personal/hyl2016_mail_ustc_edu_cn/_layouts/15/Doc.aspx?sourcedoc=%7BB7E8B753-18FB-43BB-8C9E-962CFB269994%7D&file=meta_data.csv&action=default&mobileredirect=true)
 
 #### celltype (not predicted.id)
 # CD4 TCM (Central memory T cells)
