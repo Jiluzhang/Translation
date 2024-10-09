@@ -120,16 +120,16 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
                   --config_file rna2atac_config_test.yaml  # 4.5 min
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.5011
-# Cell-wise AUPRC: 0.0506
-# Peak-wise AUROC: 0.5249
-# Peak-wise AUPRC: 0.0543
+# Cell-wise AUROC: 0.8682
+# Cell-wise AUPRC: 0.2125
+# Peak-wise AUROC: 0.6392
+# Peak-wise AUPRC: 0.0704
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 2 min
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.0505
-# ARI: 0.0206
-# HOM: 0.0548
-# NMI: 0.0641
+# AMI: 0.6123
+# ARI: 0.4621
+# HOM: 0.5484
+# NMI: 0.6195
 
 
 
@@ -177,61 +177,43 @@ A2R_predict, R2A_predict = butterfly.test_model(load_model=True, model_path='/fs
 
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.8726
+# Cell-wise AUPRC: 0.2168
+# Peak-wise AUROC: 0.6374
+# Peak-wise AUPRC: 0.0730
 
 python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.5214
+# ARI: 0.3538
+# HOM: 0.4947
+# NMI: 0.5319
 
 
 #### BABEL
 python h5ad2h5.py -n test
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/babel/train_out --data test.h5 --outdir test_out --device 2 --nofilter --noplot --transonly   # 9 min
 
-## match cells bw pred & true
-## python match_cell.py
-import scanpy as sc
-
-pred = sc.read_h5ad('test_out/rna_atac_adata.h5ad')
-true = sc.read_h5ad('atac_test.h5ad')
-pred[true.obs.index, :].write('atac_babel.h5ad')
+python match_cell.py
 
 python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.8962
-# Cell-wise AUPRC: 0.4886
-# Peak-wise AUROC: 0.6846
-# Peak-wise AUPRC: 0.1377
+# Cell-wise AUROC: 0.8727
+# Cell-wise AUPRC: 0.2161
+# Peak-wise AUROC: 0.6292
+# Peak-wise AUPRC: 0.0679
 
 python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 0.6151
-# ARI: 0.3919
-# HOM: 0.6176
-# NMI: 0.6208
+# AMI: 0.5312
+# ARI: 0.3402
+# HOM: 0.5086
+# NMI: 0.5416
 
 
+#### plot metrics
+## python plot_metrics.py
+#    ami_nmi_ari_hom.txt & auroc_auprc.txt
+# -> ami_nmi_ari_hom.pdf & auroc_auprc.pdf
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#### plot true atac umap
+## python plot_true_umap.py
