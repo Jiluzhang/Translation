@@ -220,7 +220,7 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 
 #### plot metrics
-## python plot_metrics.py
+## python plot_metrics.py (y range: 1->0.7)
 #    ami_nmi_ari_hom.txt & auroc_auprc.txt
 # -> ami_nmi_ari_hom.pdf & auroc_auprc.pdf
 
