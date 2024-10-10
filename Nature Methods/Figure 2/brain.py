@@ -2,6 +2,7 @@
 import scanpy as sc
 import snapatac2 as snap
 import pandas as pd
+from tqdm import tqdm
 
 true = sc.read_h5ad('atac_test.h5ad')
 snap.pp.select_features(true)
@@ -17,6 +18,22 @@ true.obs['cell_anno'].value_counts()
 # SST                 104
 # IT                   83
 # PVALB                15
+
+
+def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
+    atac_X_raw = atac[atac.obs['cell_anno']==cell_type, :].X.toarray().sum(axis=0)
+    atac_X = atac_X_raw/atac_X_raw.sum()*10000
+    df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                       'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                       'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                       'val': atac_X})
+    df.to_csv(cell_type.replace(' ', '_')+'_atac_'+type+'_norm.bedgraph', index=False, header=False, sep='\t')
+
+for cell_type in tqdm(set(true.obs['cell_anno'].values), ncols=80):
+    out_norm_bedgraph(atac=true, cell_type=cell_type, type='true')
+
+for cell_type in tqdm(set(true.obs['cell_anno'].values), ncols=80):
+    out_norm_bedgraph(atac=pred, cell_type=cell_type, type='cisformer')
 
 ## GFAP
 true.var.iloc[198675]   # chr17:44915696-44915866    GFAP
