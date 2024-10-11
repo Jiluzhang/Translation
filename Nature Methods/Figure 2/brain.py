@@ -43,97 +43,68 @@ for cell_type in tqdm(set(true.obs['cell_anno'].values), ncols=80):
 
 
 #### highlight cell type for true
-true.obs['cell_or_not'] = (true.obs['cell_anno']=='CD14 Mono').astype('category')
-true.obs['cell_or_not'].replace({False:'Not CD14 Mono', True:'CD14 Mono'}, inplace=True)
-true.obs['cell_or_not'] = pd.Categorical(true.obs['cell_or_not'], categories=['CD14 Mono', 'Not CD14 Mono'])
-sc.pl.umap(true, color='cell_or_not', palette=['orangered', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_CD14_Mono_true.pdf')
+# true.obs['cell_or_not'] = (true.obs['cell_anno']=='CD14 Mono').astype('category')
+# true.obs['cell_or_not'].replace({False:'Not CD14 Mono', True:'CD14 Mono'}, inplace=True)
+# true.obs['cell_or_not'] = pd.Categorical(true.obs['cell_or_not'], categories=['CD14 Mono', 'Not CD14 Mono'])
+# sc.pl.umap(true, color='cell_or_not', palette=['orangered', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_CD14_Mono_true.pdf')
+
+def hlt_cell_type(atac=true, label_type='true', cell_type='CD14 Mono', color='orangered'):
+    atac.obs['cell_or_not'] = (atac.obs['cell_anno']==cell_type).astype('category')
+    atac.obs['cell_or_not'].replace({False:'Not '+cell_type, True:cell_type}, inplace=True)
+    atac.obs['cell_or_not'] = pd.Categorical(atac.obs['cell_or_not'], categories=[cell_type, 'Not '+cell_type])
+    sc.pl.umap(atac, color='cell_or_not', palette=[color, 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
+               title='', frameon=True, save=('_'+cell_type.replace(' ', '_')+'_'+label_type+'.pdf'))
 
 #### plot peak for true
+def hlt_peak(atac=true, label_type='true', idx=75191, gene='CD14', color='orangered'):
+    atac.obs['peak_0_1'] = atac.X.toarray()[:, idx]
+    atac.obs['peak_0_1'] = atac.obs['peak_0_1'].astype('category')
+    atac.obs['peak_0_1'].replace({1:'Open', 0:'Closed'}, inplace=True)
+    atac.obs['peak_0_1'] = pd.Categorical(atac.obs['peak_0_1'], categories=['Open', 'Closed'])
+    sc.pl.umap(atac, color='peak_0_1', palette=[color, 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
+               title='', frameon=True, save=('_'+gene+'_'+str(idx)+'_'+label_type+'.pdf'))
+
+#### split chrom info
+chrom_info = pd.DataFrame({'info':true.var.gene_ids.values})
+chrom_info['chrom'] = chrom_info['info'].map(lambda x: x.split(':')[0])
+chrom_info['start'] = chrom_info['info'].map(lambda x: x.split(':')[1].split('-')[0])
+chrom_info['end'] = chrom_info['info'].map(lambda x: x.split(':')[1].split('-')[1])
+chrom_info['start'] = chrom_info['start'].astype(int)
+chrom_info['end'] = chrom_info['end'].astype(int)
+
 ## CD14 for CD14 Mono
 true.var.iloc[75191]['gene_ids']   # chr5:140630821-140630986
+hlt_cell_type(atac=true, label_type='true', cell_type='CD14 Mono', color='orangered')
+hlt_cell_type(atac=pred, label_type='pred', cell_type='CD14 Mono', color='orangered')
+hlt_peak(atac=true, label_type='true', idx=75191, gene='CD14', color='orangered')
+hlt_peak(atac=pred, label_type='pred', idx=75191, gene='CD14', color='orangered')
 
-true.obs['peak_0_1'] = true.X.toarray()[:, 75191]
-true.obs['peak_0_1'] = true.obs['peak_0_1'].astype('category')
-true.obs['peak_0_1'].replace({1:'Open', 0:'Closed'}, inplace=True)
-true.obs['peak_0_1'] = pd.Categorical(true.obs['peak_0_1'], categories=['Open', 'Closed'])
-sc.pl.umap(true, color='peak_0_1', palette=['orangered', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_CD14_75191_true.pdf')
+## GNLY for NK
+chrom_info[(chrom_info['chrom']=='chr2') & (chrom_info['start']<85694100) & (chrom_info['end']>85694400)]
+# 30946  chr2:85694079-85694424  chr2  85694079  85694424
+hlt_cell_type(atac=true, label_type='true', cell_type='NK', color='royalblue')
+hlt_cell_type(atac=pred, label_type='pred', cell_type='NK', color='royalblue')
+hlt_peak(atac=true, label_type='true', idx=30946, gene='GNLY', color='royalblue')
+hlt_peak(atac=pred, label_type='pred', idx=30946, gene='GNLY', color='royalblue')
 
-#### highlight cell type for pred
-pred.obs['cell_or_not'] = (pred.obs['cell_anno']=='CD14 Mono').astype('category')
-pred.obs['cell_or_not'].replace({False:'Not CD14 Mono', True:'CD14 Mono'}, inplace=True)
-pred.obs['cell_or_not'] = pd.Categorical(pred.obs['cell_or_not'], categories=['CD14 Mono', 'Not CD14 Mono'])
-sc.pl.umap(pred, color='cell_or_not', palette=['orangered', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_CD14_Mono_pred.pdf')
+## MS4A1 for B cell
+chrom_info[(chrom_info['chrom']=='chr11') & (chrom_info['start']<60455600) & (chrom_info['end']>60455800)]
+# 141682  chr11:60455504-60455853  chr11  60455504  60455853
 
-#### plot peak for pred
-pred.obs['peak_0_1'] = pred.X.toarray()[:, 75191]
-pred.obs['peak_0_1'] = pred.obs['peak_0_1'].astype('category')
-pred.obs['peak_0_1'].replace({1:'Open', 0:'Closed'}, inplace=True)
-pred.obs['peak_0_1'] = pd.Categorical(pred.obs['peak_0_1'], categories=['Open', 'Closed'])
-sc.pl.umap(pred, color='peak_0_1', palette=['orangered', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_CD14_75191_cisformer.pdf')
+true.obs['cell_or_not'] = (true.obs['cell_anno'].isin(['B memory', 'B naive'])).astype('category')
+true.obs['cell_or_not'].replace({False:'Not B cell', True:'B cell'}, inplace=True)
+true.obs['cell_or_not'] = pd.Categorical(true.obs['cell_or_not'], categories=['B cell', 'Not B cell'])
+sc.pl.umap(true, color='cell_or_not', palette=['limegreen', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_B_cell_true.pdf')
 
+pred.obs['cell_or_not'] = (pred.obs['cell_anno'].isin(['B memory', 'B naive'])).astype('category')
+pred.obs['cell_or_not'].replace({False:'Not B cell', True:'B cell'}, inplace=True)
+pred.obs['cell_or_not'] = pd.Categorical(pred.obs['cell_or_not'], categories=['B cell', 'Not B cell'])
+sc.pl.umap(pred, color='cell_or_not', palette=['limegreen', 'darkgrey'], legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_B_cell_pred.pdf')
 
-
-
-
-## GFAP
-true.var.iloc[198675]   # chr17:44915696-44915866    GFAP
-true.var.iloc[51853]    # chr3:126197879-126198225   ALDH1L1
-
-true.obs['gene_0_1'] = true.X.toarray()[:, 75195]
-true.obs['gene_0_1'] = true.obs['gene_0_1'].astype('category')
-# sc.pl.umap(true, color='gene_0_1', palette=['darkgrey', 'orangered'], legend_fontsize='7', legend_loc='right margin', size=5,
-#            title='', frameon=True, save='_GFAP_true.pdf')
-true.obs[true.obs['gene_0_1']==1]['cell_anno'].value_counts()
-# Astrocyte          148
-# OPC                 37
-# Oligodendrocyte     10
-# Microglia            8
-# VIP                  5
-# IT                   4
-# SST                  3
-# PVALB                0
-
-true.obs['gene_0_1'] = true.X.toarray()[:, 75197]
-res = (true.obs[true.obs['gene_0_1']==1]['cell_anno'].value_counts())/(true.obs['cell_anno'].value_counts())
-res.sort_values(ascending=False)
-
-
-pred.obs['gene_0_1'] = pred.X.toarray()[:, 75197]
-res = (pred.obs[pred.obs['gene_0_1']==1]['cell_anno'].value_counts())/(pred.obs['cell_anno'].value_counts())
-res.sort_values(ascending=False)
-
-                                                                      
-pred_raw = sc.read_h5ad('atac_cisformer.h5ad')
-pred = pred_raw.copy()
-pred.X[:, 198675][pred.X[:, 198675]>0.4] = 1
-pred.X[:, 198675][pred.X[:, 198675]<=0.4] = 0
-pred.obs['gene_0_1'] = pred.X[:, 198675]
-pred.obs[pred.obs['gene_0_1']==1]['cell_anno'].value_counts()
-
-
-
-
-(pred.obs[pred.obs['gene_0_1']==1]['cell_anno'].value_counts())/(pred.obs['cell_anno'].value_counts())
-
-scbt = sc.read_h5ad('atac_scbt_umap.h5ad')
-scbt.obs['gene_0_1'] = scbt.X.toarray()[:, 198675]
-scbt.obs['gene_0_1'] = scbt.obs['gene_0_1'].astype('category')
-sc.pl.umap(scbt, color='gene_0_1', palette=['darkgrey', 'orangered'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_GFAP_scbt.pdf')
-
-scbt.obs[scbt.obs['gene_0_1']==1]['cell_anno'].value_counts()
-
-
-cifm = sc.read_h5ad('atac_cisformer.h5ad')
-cifm.obs['gene_0_1'] = cifm.X[:, 198675]
-scbt.obs['gene_0_1'] = scbt.obs['gene_0_1'].astype('category')
-sc.pl.umap(scbt, color='gene_0_1', palette=['darkgrey', 'orangered'], legend_fontsize='7', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_GFAP_scbt.pdf')
-
-scbt.obs[scbt.obs['gene_0_1']==1]['cell_anno'].value_counts()
+hlt_peak(atac=true, label_type='true', idx=141682, gene='MS4A1', color='limegreen')
+hlt_peak(atac=pred, label_type='pred', idx=141682, gene='MS4A1', color='limegreen')
 
 
