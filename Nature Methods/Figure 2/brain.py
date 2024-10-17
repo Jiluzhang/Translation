@@ -1,10 +1,11 @@
-#### Scenario_1
+#### Scenario_4
 import scanpy as sc
 import snapatac2 as snap
 import pandas as pd
 from tqdm import tqdm
+from scipy.stats import pearsonr
 
-true = sc.read_h5ad('atac_test.h5ad')
+true = sc.read_h5ad('../atac_test.h5ad')
 snap.pp.select_features(true)
 snap.tl.spectral(true)
 snap.tl.umap(true)
@@ -26,8 +27,6 @@ true.obs['cell_anno'].value_counts()
 # pDC                  23
 # cDC2                 21
 
-pred = sc.read_h5ad('atac_cisformer_umap.h5ad')
-
 def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
     atac_X_raw = atac[atac.obs['cell_anno']==cell_type, :].X.toarray().sum(axis=0)
     atac_X = atac_X_raw/atac_X_raw.sum()*10000
@@ -37,10 +36,45 @@ def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
                        'val': atac_X})
     df.to_csv(cell_type.replace(' ', '_')+'_atac_'+type+'_norm.bedgraph', index=False, header=False, sep='\t')
 
+babel = sc.read_h5ad('../atac_babel_umap.h5ad')
+scbt = sc.read_h5ad('../atac_scbt_umap.h5ad')
+cifm = sc.read_h5ad('../atac_cisformer_umap.h5ad')
+babel.var['gene_ids']= true.var.index.values
+scbt.var['gene_ids'] = true.var.index.values
+cifm.var['gene_ids'] = true.var.index.values
+
 for cell_type in tqdm(set(true.obs['cell_anno'].values), ncols=80):
     out_norm_bedgraph(atac=true, cell_type=cell_type, type='true')
-    out_norm_bedgraph(atac=pred, cell_type=cell_type, type='cisformer')
+    out_norm_bedgraph(atac=babel, cell_type=cell_type, type='babel')
+    out_norm_bedgraph(atac=scbt, cell_type=cell_type, type='scbt')
+    out_norm_bedgraph(atac=cifm, cell_type=cell_type, type='cisformer')
 
+
+#### calculate correlation for each cell type
+pearsonr_dict = {}
+for cell_type in tqdm(true.obs['cell_anno'].value_counts().index.values, ncols=80):
+    dat = pd.read_table(cell_type+'_atac_true_norm.bedgraph', header=None)
+    dat.columns = ['chrom', 'start', 'end', 'true']
+    dat['babel'] = pd.read_table(cell_type+'_atac_babel_norm.bedgraph', header=None)[3]
+    dat['scbt'] = pd.read_table(cell_type+'_atac_scbt_norm.bedgraph', header=None)[3]
+    dat['cifm'] = pd.read_table(cell_type+'_atac_cisformer_norm.bedgraph', header=None)[3]
+    pearsonr_dict[cell_type] = [round(pearsonr(dat['true'], dat['babel'])[0], 4),
+                                round(pearsonr(dat['true'], dat['scbt'])[0], 4),
+                                round(pearsonr(dat['true'], dat['cifm'])[0], 4)]
+
+#### calculate correlation for pseduo-bulk
+true_X_raw = true.X.toarray().sum(axis=0)
+true_X = true_X_raw/true_X_raw.sum()*10000
+babel_X_raw = babel.X.toarray().sum(axis=0)
+babel_X = babel_X_raw/babel_X_raw.sum()*10000
+scbt_X_raw = scbt.X.toarray().sum(axis=0)
+scbt_X = scbt_X_raw/scbt_X_raw.sum()*10000
+cifm_X_raw = cifm.X.toarray().sum(axis=0)
+cifm_X = cifm_X_raw/cifm_X_raw.sum()*10000
+[round(pearsonr(true_X, babel_X)[0], 4),
+ round(pearsonr(true_X, scbt_X)[0], 4),
+ round(pearsonr(true_X, cifm_X)[0], 4)]
+# [0.6453, 0.6571, 0.4865]
 
 ############################################################################################################################################################
 import scanpy as sc
