@@ -123,6 +123,25 @@ babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0
 scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.05)
 cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.05)
 
+true_lst = []
+babel_lst = []
+scbt_lst = []
+cifm_lst = []
+for cell_type in true_marker_peaks.keys():
+    true_lst += (list(true_marker_peaks[cell_type].values))
+    babel_lst += (list(babel_marker_peaks[cell_type].values))
+    scbt_lst += (list(scbt_marker_peaks[cell_type].values))
+    cifm_lst += (list(cifm_marker_peaks[cell_type].values))
+
+true_set = set(true_lst)     # 29820 -> 29795
+babel_set = set(babel_lst)   # 55953 -> 55645
+scbt_set = set(scbt_lst)     # 72087 -> 71399
+cifm_set = set(cifm_lst)     # 74677 -> 74145
+
+len(babel_set & true_set)  # 6181
+len(scbt_set & true_set)   # 6521
+len(cifm_set & true_set)   # 6759
+
 cnt_dict = {}
 for cell_type in true.obs['cell_anno'].value_counts().index:
     cnt_dict[cell_type] = [len(true_marker_peaks[cell_type]),
@@ -157,6 +176,27 @@ true_marker_peaks = snap.tl.marker_regions(true, groupby='cell_anno', pvalue=0.1
 babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0.1)
 scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.1)
 cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.1)
+
+true_lst = []
+babel_lst = []
+scbt_lst = []
+cifm_lst = []
+for cell_type in true_marker_peaks.keys():
+    true_lst += (list(true_marker_peaks[cell_type].values))
+    babel_lst += (list(babel_marker_peaks[cell_type].values))
+    scbt_lst += (list(scbt_marker_peaks[cell_type].values))
+    cifm_lst += (list(cifm_marker_peaks[cell_type].values))
+
+true_set = set(true_lst)     # 75073 -> 68531
+babel_set = set(babel_lst)   # 70913 -> 66211
+scbt_set = set(scbt_lst)     # 114130 -> 102157
+cifm_set = set(cifm_lst)     # 115029 -> 103670
+
+len(babel_set & true_set)  # 17250
+len(scbt_set & true_set)   # 25584
+len(cifm_set & true_set)   # 26279
+
+
 
 cnt_dict = {}
 for cell_type in true.obs['cell_anno'].value_counts().index:
