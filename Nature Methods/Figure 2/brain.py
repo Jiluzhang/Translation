@@ -351,3 +351,29 @@ hlt_peak(atac=true, label_type='true', idx=141682, gene='MS4A1', color='limegree
 hlt_peak(atac=pred, label_type='pred', idx=141682, gene='MS4A1', color='limegreen')
 
 
+#### plot bar for marker peak count
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+## all marker peaks
+raw = pd.read_table('marker_peak_count.txt', index_col=0)
+dat = pd.DataFrame(raw['all'].values.flatten(), columns=['val'])
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 80000+1], breaks=np.arange(0, 80000+1, 20000)) + theme_bw()
+p.save(filename='marker_peak_count_all.pdf', dpi=600, height=4, width=6)
+
+## true marker peaks
+dat = pd.DataFrame(raw['true'].values.flatten(), columns=['val'])
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 7000+1], breaks=np.arange(0, 7000+1, 1750)) + theme_bw()
+p.save(filename='marker_peak_count_true.pdf', dpi=600, height=4, width=6)
