@@ -95,7 +95,7 @@ p = ggplot(stat_df, aes(x='Cancer_type', y='Cell_ptg', fill='Cell_type')) + geom
 p.save(filename='cancer_type_cell_type_ptg.pdf', dpi=600, height=4, width=5)
 
 
-## python filter_cells_with_cell_anno.py
+## python filter_cells_with_cell_anno.py  # 30 min
 # something wrong in rds files
 # VF027V1-S1_1N1   VF027V1-S1
 # VF027V1-S1Y1     VF027V1-S2
@@ -119,8 +119,6 @@ for i in tqdm(range(samples.shape[0]), ncols=80):
     out.write(s_2+'/'+s_2+'_filtered.h5ad')
 
 
-
-
 ## python rna_atac_align.py
 import scanpy as sc
 import pandas as pd
@@ -129,7 +127,7 @@ from scipy.sparse import csr_matrix
 import pybedtools
 from tqdm import tqdm
 
-samples = pd.read_table('rds_samples_id_ov_ucec.txt', header=None)
+samples = pd.read_table('rds_samples_id.txt', header=None)
 for s in tqdm(samples[1], ncols=80):
     dat = sc.read_h5ad(s+'/'+s+'_filtered.h5ad')
     
@@ -145,7 +143,7 @@ for s in tqdm(samples[1], ncols=80):
     X_new = pd.merge(genes, rna_exp, how='left', on='gene_id').iloc[:, 4:].T
     X_new.fillna(value=0, inplace=True)
     
-    rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))  # 5517*38244
+    rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_id'], 'feature_types': 'Gene Expression'}))
     rna_new.var.index = genes['gene_name'].values
     rna_new.X = csr_matrix(rna_new.X)
     rna_new.write(s+'/'+s+'_rna.h5ad')
@@ -176,4 +174,53 @@ for s in tqdm(samples[1], ncols=80):
     atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
     atac_new.var.index = atac_new.var['gene_ids'].values
     atac_new.X = csr_matrix(atac_new.X)
-    atac_new.write(s+'/'+s+'_atac.h5ad')
+    atac_out.write(s+'/'+s+'_atac.h5ad')
+
+    # for chrom in tqdm(['chr'+str(i) for i in range(1, 23)], ncols=80, desc='Writing chrom atac h5ad'):
+    #     atac_out = atac_new[:, atac_new.var.index.map(lambda x: x.split(':')[0]==chrom)].copy()
+    #     atac_out.X = csr_matrix(atac_out.X)
+    #     atac_out.write(s+'/'+s+'_atac_'+chrom+'.h5ad')
+
+
+#### merge same h5ad of cancer type
+import pandas as pd
+import scanpy as sc
+import anndata as ad
+
+samples = pd.read_table('rds_samples_cancer_type.txt', header=None) 
+cancer_type_lst = list(samples[1].drop_duplicates().values)
+for cancer_type in cancer_type_lst:
+    s_lst = list(samples[samples[1]==cancer_type][0])
+    for i in range(len(s_lst)):
+        s = s_lst[i]
+        if i==0:
+            rna_out = sc.read_h5ad(s+'/'+s+'_rna.h5ad')
+            rna_out.obs.index = s+'_'+rna_out.obs.index
+            atac_out = sc.read_h5ad(s+'/'+s+'_atac.h5ad')
+            atac_out.obs.index = s+'_'+atac_out.obs.index
+        else:
+            rna = sc.read_h5ad(s+'/'+s+'_rna.h5ad')
+            rna.obs.index = s+'_'+rna.obs.index
+            rna_out = ad.concat([rna_out, rna])
+            atac = sc.read_h5ad(s+'/'+s+'_atac.h5ad')
+            atac.obs.index = s+'_'+atac.obs.index
+            atac_out = ad.concat([atac_out, atac])
+        
+        print(cancer_type, s)
+
+    rna_out.var = rna.var
+    atac_out.var = atac.var
+    rna_out.write(cancer_type+'_rna_raw.h5ad')
+    atac_out.write(cancer_type+'_atac_raw.h5ad')
+
+
+
+
+
+
+
+
+
+
+
+
