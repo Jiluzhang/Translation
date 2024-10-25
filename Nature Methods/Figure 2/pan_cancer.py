@@ -223,28 +223,14 @@ from tqdm import tqdm
 samples = pd.read_table('rds_samples_cancer_type.txt', header=None) 
 cancer_type_lst = list(samples[1].drop_duplicates().values)
 
-## atac
-for cancer_type in tqdm(cancer_type_lst, ncols=80, desc='Merge atac h5ad'):
-    if cancer_type==cancer_type_lst[0]:
-        atac = sc.read_h5ad(cancer_type+'_atac_raw.h5ad')
-    else:
-        atac_tmp = sc.read_h5ad(cancer_type+'_atac_raw.h5ad')
-        atac = ad.concat([atac, atac_tmp])
-
-atac.var = atac_tmp.var                       # 144409 × 1033239
-atac.write('all_cancer_type_atac_raw.h5ad')
-
-sc.pp.filter_genes(atac, min_cells=100)       # 144409 × 389267
-sc.pp.filter_cells(atac, min_genes=500)       # 144409 × 389267
-sc.pp.filter_cells(atac, max_genes=50000)     # 144409 × 389267
-atac.write('atac.h5ad')
-
 ## rna
 for cancer_type in tqdm(cancer_type_lst, ncols=80, desc='Merge rna h5ad'):
     if cancer_type==cancer_type_lst[0]:
         rna = sc.read_h5ad(cancer_type+'_rna_raw.h5ad')
+        rna.obs['cancer_type'] = cancer_type
     else:
         rna_tmp = sc.read_h5ad(cancer_type+'_rna_raw.h5ad')
+        rna_tmp.obs['cancer_type'] = cancer_type
         rna = ad.concat([rna, rna_tmp])
 
 rna.var = rna_tmp.var                         # 144409 × 38244
@@ -255,12 +241,49 @@ sc.pp.filter_cells(rna, min_genes=200)        # 144409 × 19160
 sc.pp.filter_cells(rna, max_genes=20000)      # 144409 × 19160
 rna.write('rna.h5ad')
 
+## atac
+for cancer_type in tqdm(cancer_type_lst, ncols=80, desc='Merge atac h5ad'):
+    if cancer_type==cancer_type_lst[0]:
+        atac = sc.read_h5ad(cancer_type+'_atac_raw.h5ad')
+    else:
+        atac_tmp = sc.read_h5ad(cancer_type+'_atac_raw.h5ad')
+        atac = ad.concat([atac, atac_tmp])
+
+atac.var = atac_tmp.var                       # 144409 × 1033239
+atac.obs['cancer_type'] = rna.obs['cancer_type']
+atac.write('all_cancer_type_atac_raw.h5ad')
+
+sc.pp.filter_genes(atac, min_cells=100)       # 144409 × 389267
+sc.pp.filter_cells(atac, min_genes=500)       # 144409 × 389267
+sc.pp.filter_cells(atac, max_genes=50000)     # 144409 × 389267
+atac.write('atac.h5ad')
+
 
 #### split dataset (ov for testing)
+import scanpy as sc
+import random
+
+rna = sc.read_h5ad('rna.h5ad')
+rna_test = rna[rna.obs['cancer_type']=='OV', :].copy()        # 6478 × 19160
+rna_train_val = rna[rna.obs['cancer_type']!='OV', :].copy()   # 137931 × 19160
+
+random.seed(0)
+idx = list(range(rna_train_val.n_obs))
+random.shuffle(idx)
+train_idx = idx[:int(len(idx)*0.9)]
+val_idx = idx[int(len(idx)*0.9):]
+
+rna[train_idx, :].write('rna_train.h5ad')
+rna[val_idx, :].write('rna_val.h5ad')
+rna_test.write('rna_test.h5ad')
+
+atac = sc.read_h5ad('atac.h5ad')
+atac[train_idx, :].write('atac_train.h5ad')
+atac[val_idx, :].write('atac_val.h5ad')
+atac[rna_test.obs.index, :].write('atac_test.h5ad')
 
 
-
-
+#### 
 
 
 
