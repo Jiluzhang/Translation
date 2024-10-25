@@ -282,11 +282,17 @@ atac[train_idx, :].write('atac_train.h5ad')
 atac[val_idx, :].write('atac_val.h5ad')
 atac[rna_test.obs.index, :].write('atac_test.h5ad')
 
+## max gene count
+import scanpy as sc
+sc.read_h5ad('rna_test.h5ad').obs.n_genes.max()  # 8779
 
-#### 
 
-
-
+#### cisformer
+python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml   # ~2 h
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml 
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml 
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_pan_cancer > rna2atac_train_20241025.log &   
 
 
 
