@@ -290,20 +290,119 @@ sc.read_h5ad('rna_test.h5ad').obs.n_genes.max()  # 8779
 #### cisformer
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml   # ~2 h
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml 
-python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml 
+python data_preprocess.py -r rna_test.h5ad -a atac_test.h5ad -s test_pt --dt test -n test --config rna2atac_config_test.yaml  # 30 min
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_pan_cancer > rna2atac_train_20241025.log &   # gamma_step:1  gamma:0.5
-# 1366896
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py -d test_pt \
+                  -l save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 30 min
+
+python npy2h5ad.py
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 4 min
 
 
 
 
+#### plot umap for true atac
+import snapatac2 as snap
+import scanpy as sc
+
+true = snap.read('atac_test.h5ad', backed=None)  # 6478 × 389267
+# Plasma         1839
+# Fibroblasts    1706
+# Macrophages    1500
+# T-cells        1042
+# B-cells         232
+# Endothelial     159
+snap.pp.select_features(true)
+snap.tl.spectral(true)
+snap.tl.umap(true)
+
+true.obs['cell_anno'].replace({'Plasma': 'B-cells'}, inplace=True)
+sc.pl.umap(true, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_true.pdf')
+
+true.obs['batch'] = true.obs.index.map(lambda x: x.split('_')[0])
+# VF027V1-S1    2379
+# VF034V1-T1    2076
+# VF032V1-S1     754
+# VF044V1-S1     533
+# VF050V1-S2     392
+# VF035V1-S1     205
+# VF026V1-S1      70
+# VF027V1-S2      69
+sc.pl.umap(true, color='batch', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_atac_batch_true.pdf')
 
 
 
 
+#### scbutterfly
+## python scbt_b.py
+## nohup python scbt_b.py > scbt_b_20241030.log &  # 167474
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+import random
+import numpy as np
+import gc
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
+RNA_data = sc.read_h5ad('rna.h5ad')
+ATAC_data = sc.read_h5ad('atac.h5ad')
+
+RNA_data_train = sc.read_h5ad('rna_train.h5ad')
+RNA_data_val = sc.read_h5ad('rna_val.h5ad')
+RNA_data_test = sc.read_h5ad('rna_test.h5ad')
+
+train_id = list(np.argwhere(RNA_data.obs.index.isin(sc.read_h5ad('rna_train.h5ad').obs.index)).flatten())
+validation_id = list(np.argwhere(RNA_data.obs.index.isin(sc.read_h5ad('rna_val.h5ad').obs.index)).flatten())
+test_id = list(np.argwhere(RNA_data.obs.index.isin(sc.read_h5ad('rna_test.h5ad').obs.index)).flatten())
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+
+del RNA_data, ATAC_data, train_id, validation_id, test_id
+gc.collect()
+
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.8975
+# Cell-wise AUPRC: 0.4910
+# Peak-wise AUROC: 0.6996
+# Peak-wise AUPRC: 0.1475
+
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 8 min
+python cal_cluster.py --file atac_scbt_umap.h5ad
+# AMI: 0.6982
+# ARI: 0.4801
+# HOM: 0.7259
+# NMI: 0.7036
 
 
 
