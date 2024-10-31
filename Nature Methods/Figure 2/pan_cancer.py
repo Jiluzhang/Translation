@@ -496,8 +496,13 @@ out.close()
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_0.h5 --outdir train_out_0 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_0.log &
 # error: ValueError: could not convert integer scalar (too many values)
 # 367839
+
+# add 'spliced_net_.initialize()' to train_model.py
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_1.h5 --pretrain train_out_0/net_params.pt --outdir train_out_1 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_1.log &
-# 484982
+# 622886
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_2.h5 --pretrain train_out_1/net_params.pt --outdir train_out_2 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_2.log &
+# 662283
+
 
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 3 --nofilter --noplot --transonly   # 9 min
 
