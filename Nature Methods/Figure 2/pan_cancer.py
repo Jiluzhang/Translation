@@ -444,6 +444,8 @@ for i in tqdm(range(3), ncols=80, desc='split h5ad'):
     atac_train_val.write('atac_train_val_'+str(i)+'.h5ad')
 
 ## python h5ad2h5.py -n train_val -i 0
+## python h5ad2h5.py -n train_val -i 1
+## python h5ad2h5.py -n train_val -i 2
 import h5py
 import numpy as np
 from scipy.sparse import csr_matrix, hstack
@@ -491,11 +493,11 @@ out.close()
 
 # python h5ad2h5.py -n test -i None
 
-nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_0.h5 --outdir train_out_0 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_0.log &  # 370170  
- # error: ValueError: could not convert integer scalar (too many values)
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_0.h5 --outdir train_out_0 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_0.log &
+# error: ValueError: could not convert integer scalar (too many values)
 # 367839
-
-# --pretrain
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val_1.h5 --pretrain train_out_0/net_params.pt --outdir train_out_1 --batchsize 512 --earlystop 25 --device 3 --nofilter > train_20241031_1.log &
+# 484982
 
 python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 3 --nofilter --noplot --transonly   # 9 min
 
