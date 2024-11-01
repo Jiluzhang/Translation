@@ -400,7 +400,7 @@ sc.pl.umap(true, color='batch', legend_fontsize='7', legend_loc='right margin', 
 # A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
 
 
-## nohup python scbt_b_0.py > scbt_b_0_20241031.log &  # 748469
+## nohup python scbt_b_0.py > scbt_b_0_20241031.log &  # 748469  7h
 import os
 from scButterfly.butterfly import Butterfly
 from scButterfly.split_datasets import *
@@ -455,6 +455,65 @@ butterfly.augmentation(aug_type=None)
 butterfly.construct_model(chrom_list=chrom_list)
 butterfly.train_model(batch_size=16)
 A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+
+## nohup python scbt_b_1.py > scbt_b_1_20241101.log &  # 1121654
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+import random
+import numpy as np
+import gc
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+RNA_data_train_val = sc.read_h5ad('rna_train_val_1.h5ad')
+ATAC_data_train_val = sc.read_h5ad('atac_train_val_1.h5ad')
+RNA_data_test = sc.read_h5ad('rna_test.h5ad')
+ATAC_data_test = sc.read_h5ad('atac_test.h5ad')
+
+RNA_data = ad.concat([RNA_data_train_val, RNA_data_test])
+RNA_data.var = RNA_data_train_val.var
+ATAC_data = ad.concat([ATAC_data_train_val, ATAC_data_test])
+ATAC_data.var = ATAC_data_train_val.var
+
+RNA_data_val = sc.read_h5ad('rna_val.h5ad')
+
+train_id = list(np.argwhere(~RNA_data.obs.index.isin(RNA_data_val.obs.index.append(RNA_data_test.obs.index))).flatten())
+validation_id = list(np.argwhere(RNA_data.obs.index.isin(RNA_data_val.obs.index)).flatten())
+test_id = list(np.argwhere(RNA_data.obs.index.isin(RNA_data_test.obs.index)).flatten())
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+
+del RNA_data_train_val, ATAC_data_train_val, RNA_data_test, ATAC_data_test, RNA_data, ATAC_data, RNA_data_val, train_id, validation_id, test_id
+gc.collect()
+
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model(batch_size=16, load_model='/fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/scbt/step_0')
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+
 
 
 cp predict/R2A.h5ad atac_scbt.h5ad
