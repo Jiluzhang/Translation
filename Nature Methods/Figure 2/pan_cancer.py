@@ -694,8 +694,8 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 # NMI: 0.5396
 
 
-
 #### marker peak overlap
+## add 'zmin=zmin, zmax=zmax' & 'zmin: int = 0, zmax: int = 5' to '/fs/home/jiluzhang/softwares/miniconda3/envs/snapatac2/lib/python3.8/site-packages/snapatac2/plotting/__init__.py'
 import snapatac2 as snap
 import numpy as np
 
@@ -721,13 +721,13 @@ babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0
 scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.025)
 cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.025)
 
-snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, out_file='marker_peak_heatmap_true.pdf', zmin=0, zmax=5, interactive=False)
+snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_true.pdf')
+snap.pl.regions(babel, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_babel.pdf')
+snap.pl.regions(scbt, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_scbt.pdf')
+snap.pl.regions(cifm, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_cisformer.pdf')
 
 
-snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_true.pdf')
-snap.pl.regions(babel, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_babel.pdf')
-snap.pl.regions(scbt, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_scbt.pdf')
-snap.pl.regions(cifm, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_cifm.pdf')
+
 
 import pandas as pd
 import seaborn as sns
