@@ -715,12 +715,13 @@ true.obs['cell_anno'].value_counts()
 # T-cells        1042
 # Endothelial     159
 
-## p=0.05
+## p=0.025
 true_marker_peaks = snap.tl.marker_regions(true, groupby='cell_anno', pvalue=0.025)
 babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0.025)
 scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.025)
 cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.025)
 
+snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, out_file='marker_peak_heatmap_true.pdf', zmin=0, zmax=5, interactive=False)
 
 
 snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_true.pdf')
@@ -750,9 +751,111 @@ idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']
 df = true_df.loc[idx, :]
 
 plt.figure(figsize=(5, 8))
-#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)
-sns.clustermap(df, cmap='RdBu_r', z_score=0, row_cluster=False, col_cluster=False, vmin=0, vmax=0.01, yticklabels=False, figsize=[40, 5]) 
+#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
+sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+#plt.savefig('marker_peak_heatmap_true_true.pdf')
+sns.clustermap(np.log10(df*1000000+1), row_cluster=False, col_cluster=False, yticklabels=False) 
 plt.savefig('tmp.pdf')
+plt.close()
+
+true_adata = snap.tl.aggregate_X(true, groupby='cell_anno', normalize="RPKM")
+true_df = pd.DataFrame(true_adata.X.T)
+true_df.index = true_adata.var.index
+true_df.columns = true_adata.obs.index
+
+import random
+random.seed(0)
+idx_bcells = list(true_marker_peaks['B-cells'])
+random.shuffle(idx_bcells)
+idx_fibro = list(true_marker_peaks['Fibroblasts'])
+random.shuffle(idx_fibro)
+idx_macro = list(true_marker_peaks['Macrophages'])
+random.shuffle(idx_macro)
+idx_tcells = list(true_marker_peaks['T-cells'])
+random.shuffle(idx_tcells)
+idx_endo = list(true_marker_peaks['Endothelial'])
+random.shuffle(idx_endo)
+
+idx = idx_bcells+idx_fibro+idx_macro+idx_tcells+idx_endo
+df = true_df.loc[idx, :]
+
+plt.figure(figsize=(2, 5))
+sns.clustermap(np.log2(df+1), cmap='viridis', row_cluster=False, col_cluster=False, yticklabels=False, figsize=[2, 8]) 
+plt.savefig('tmp.png')
+plt.close()
+
+
+
+true_bcell = cifm[cifm.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
+true_bcell_norm = true_bcell/true_bcell.sum()
+true_fibro = cifm[cifm.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
+true_fibro_norm = true_fibro/true_fibro.sum()
+true_macro = cifm[cifm.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
+true_macro_norm = true_macro/true_macro.sum()
+true_tcell = cifm[cifm.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
+true_tcell_norm = true_tcell/true_tcell.sum()
+true_endo = cifm[cifm.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
+true_endo_norm = true_endo/true_endo.sum()
+true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
+                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
+true_df.index = true.var.index
+idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
+      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
+df = true_df.loc[idx, :]
+
+plt.figure(figsize=(5, 8))
+#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
+sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+plt.savefig('marker_peak_heatmap_true_cisformer.pdf')
+plt.close()
+
+
+true_bcell = babel[babel.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
+true_bcell_norm = true_bcell/true_bcell.sum()
+true_fibro = babel[babel.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
+true_fibro_norm = true_fibro/true_fibro.sum()
+true_macro = babel[babel.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
+true_macro_norm = true_macro/true_macro.sum()
+true_tcell = babel[babel.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
+true_tcell_norm = true_tcell/true_tcell.sum()
+true_endo = babel[babel.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
+true_endo_norm = true_endo/true_endo.sum()
+true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
+                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
+true_df.index = true.var.index
+idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
+      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
+df = true_df.loc[idx, :]
+
+plt.figure(figsize=(5, 8))
+#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
+sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+plt.savefig('marker_peak_heatmap_true_babel.pdf')
+plt.close()
+
+
+
+true_bcell = scbt[scbt.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
+true_bcell_norm = true_bcell/true_bcell.sum()
+true_fibro = scbt[scbt.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
+true_fibro_norm = true_fibro/true_fibro.sum()
+true_macro = scbt[scbt.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
+true_macro_norm = true_macro/true_macro.sum()
+true_tcell = scbt[scbt.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
+true_tcell_norm = true_tcell/true_tcell.sum()
+true_endo = scbt[scbt.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
+true_endo_norm = true_endo/true_endo.sum()
+true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
+                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
+true_df.index = true.var.index
+idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
+      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
+df = true_df.loc[idx, :]
+
+plt.figure(figsize=(5, 8))
+#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
+sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+plt.savefig('marker_peak_heatmap_true_scbt.pdf')
 plt.close()
 
 
