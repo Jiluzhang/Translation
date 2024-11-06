@@ -573,17 +573,17 @@ A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=
 
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.8975
-# Cell-wise AUPRC: 0.4910
-# Peak-wise AUROC: 0.6996
-# Peak-wise AUPRC: 0.1475
+# Cell-wise AUROC: 0.8831
+# Cell-wise AUPRC: 0.1625
+# Peak-wise AUROC: 0.6480
+# Peak-wise AUPRC: 0.0398
 
 python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad  # 8 min
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 0.6982
-# ARI: 0.4801
-# HOM: 0.7259
-# NMI: 0.7036
+# AMI: 0.5018
+# ARI: 0.2915
+# HOM: 0.7154
+# NMI: 0.5029
 
 
 #### BABEL
@@ -692,6 +692,40 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 # ARI: 0.3473
 # HOM: 0.7428
 # NMI: 0.5396
+
+
+
+#### differential peak overlap
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
