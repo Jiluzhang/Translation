@@ -695,11 +695,90 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 
 
-#### differential peak overlap
+#### marker peak overlap
+import snapatac2 as snap
+import numpy as np
+
+true = snap.read('atac_test.h5ad', backed=None)
+true.obs['cell_anno'].replace({'Plasma': 'B-cells'}, inplace=True)
+babel = snap.read('atac_babel_umap.h5ad', backed=None)
+babel.var.index = true.var.index
+scbt = snap.read('atac_scbt_umap.h5ad', backed=None)
+scbt.var.index = true.var.index
+cifm = snap.read('atac_cisformer_umap.h5ad', backed=None)
+cifm.var.index = true.var.index
+
+true.obs['cell_anno'].value_counts()
+# B-cells        2071
+# Fibroblasts    1706
+# Macrophages    1500
+# T-cells        1042
+# Endothelial     159
+
+## p=0.05
+true_marker_peaks = snap.tl.marker_regions(true, groupby='cell_anno', pvalue=0.025)
+babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0.025)
+scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.025)
+cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.025)
 
 
 
+snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_true.pdf')
+snap.pl.regions(babel, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_babel.pdf')
+snap.pl.regions(scbt, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_scbt.pdf')
+snap.pl.regions(cifm, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=300, height=500, out_file='marker_peak_heatmap_cifm.pdf')
 
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+true_bcell = true[true.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
+true_bcell_norm = true_bcell/true_bcell.sum()
+true_fibro = true[true.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
+true_fibro_norm = true_fibro/true_fibro.sum()
+true_macro = true[true.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
+true_macro_norm = true_macro/true_macro.sum()
+true_tcell = true[true.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
+true_tcell_norm = true_tcell/true_tcell.sum()
+true_endo = true[true.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
+true_endo_norm = true_endo/true_endo.sum()
+true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
+                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
+true_df.index = true.var.index
+idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
+      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
+df = true_df.loc[idx, :]
+
+plt.figure(figsize=(5, 8))
+#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)
+sns.clustermap(df, cmap='RdBu_r', z_score=0, row_cluster=False, col_cluster=False, vmin=0, vmax=0.01, yticklabels=False, figsize=[40, 5]) 
+plt.savefig('tmp.pdf')
+plt.close()
+
+
+
+cnt_dict = {}
+for cell_type in true.obs['cell_anno'].value_counts().index:
+    cnt_dict[cell_type] = [len(true_marker_peaks[cell_type]),
+                           len(babel_marker_peaks[cell_type]),
+                           len(scbt_marker_peaks[cell_type]),
+                           len(cifm_marker_peaks[cell_type])]
+# {'B-cells': [3123, 11509, 36808, 13665],
+#  'Fibroblasts': [6538, 28443, 45277, 35879],
+#  'Macrophages': [1591, 13408, 15889, 20455],
+#  'T-cells': [936, 6491, 2963, 8807],
+#  'Endothelial': [1136, 2282, 9900, 1726]}
+
+res_dict = {}
+for cell_type in true.obs['cell_anno'].value_counts().index:
+    res_dict[cell_type] = [len(np.intersect1d(babel_marker_peaks[cell_type], true_marker_peaks[cell_type])),
+                           len(np.intersect1d(scbt_marker_peaks[cell_type], true_marker_peaks[cell_type])),
+                           len(np.intersect1d(cifm_marker_peaks[cell_type], true_marker_peaks[cell_type]))]
+# {'B-cells': [325, 845, 423],
+#  'Fibroblasts': [1462, 1835, 1739],
+#  'Macrophages': [335, 464, 509],
+#  'T-cells': [262, 152, 297],
+#  'Endothelial': [80, 213, 27]}
 
 
 
