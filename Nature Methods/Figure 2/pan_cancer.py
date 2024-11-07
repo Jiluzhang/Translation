@@ -790,26 +790,55 @@ for cell_type in true.obs['cell_anno'].value_counts().index:
 #  'Endothelial': [80, 213, 25]}
 
 
-
 #### motif enrichment
+## true
 true_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
                                        regions=true_marker_peaks,
                                        genome_fasta=snap.genome.hg38,
                                        background=None,
                                        method='hypergeometric')
-
-snap.pl.motif_enrichment(true_motifs, min_log_fc=0.5, max_fdr=0.00001, height=1600, interactive=False, show=False, out_file='marker_peak_enrichment_true.pdf')
-
-tf_lst = []
-for c in set(true.obs.cell_anno.values):
-    tf_lst += list(true_motifs[c].filter(pl.col('log2(fold change)')>1)['name'])
-
-
+# snap.pl.motif_enrichment(true_motifs, min_log_fc=0.5, max_fdr=0.00001, height=1600, interactive=False, show=False, out_file='marker_peak_enrichment_true.pdf')
 
 for c in set(true.obs.cell_anno.values):
     true_motifs_sp = true_motifs[c].to_pandas()
     del true_motifs_sp['family']
     true_motifs_sp.to_csv('motif_enrichment_true_'+c+'.txt', sep='\t', index=False)
+
+## babel
+babel_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                        regions=babel_marker_peaks,
+                                        genome_fasta=snap.genome.hg38,
+                                        background=None,
+                                        method='hypergeometric')
+
+for c in set(true.obs.cell_anno.values):
+    babel_motifs_sp = babel_motifs[c].to_pandas()
+    del babel_motifs_sp['family']
+    babel_motifs_sp.to_csv('motif_enrichment_babel_'+c+'.txt', sep='\t', index=False)
+
+## scbt
+scbt_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                       regions=scbt_marker_peaks,
+                                       genome_fasta=snap.genome.hg38,
+                                       background=None,
+                                       method='hypergeometric')
+
+for c in set(true.obs.cell_anno.values):
+    scbt_motifs_sp = scbt_motifs[c].to_pandas()
+    del scbt_motifs_sp['family']
+    scbt_motifs_sp.to_csv('motif_enrichment_scbt_'+c+'.txt', sep='\t', index=False)
+
+## cisformer
+cifm_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                       regions=cifm_marker_peaks,
+                                       genome_fasta=snap.genome.hg38,
+                                       background=None,
+                                       method='hypergeometric')
+
+for c in set(true.obs.cell_anno.values):
+    cifm_motifs_sp = cifm_motifs[c].to_pandas()
+    del cifm_motifs_sp['family']
+    cifm_motifs_sp.to_csv('motif_enrichment_cifm_'+c+'.txt', sep='\t', index=False)
 
 
 #### Plot top enriched motifs
@@ -819,34 +848,110 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 ## true
-df = pd.DataFrame()
-tf_lst = []
+true_df = pd.DataFrame()
 for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
     raw = pd.read_table('motif_enrichment_true_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
-    tf_lst += list(raw[(raw['log2(fold change)']>np.log2(1.5))&(raw['adjusted p-value']<0.00001)]['name'])
     raw.rename(columns={'log2(fold change)':c+'_logfc', 
                         'adjusted p-value': c+'_fdr'}, inplace=True)
-    df = pd.concat([df, raw], axis=1)
+    true_df = pd.concat([true_df, raw.iloc[:, 1:]], axis=1)
 
-df.index = df.iloc[:, 0].values
-df = df[['B-cells_logfc', 'Endothelial_logfc', 'Fibroblasts_logfc', 'Macrophages_logfc', 'T-cells_logfc']]
-dat = df.loc[tf_lst]
-dat.replace(-np.inf, -4, inplace=True)
-dat.replace(np.inf, 4, inplace=True)
+true_df.index = raw['name'].values
 
-plt.figure(figsize=(5, 8))
-#sns.clustermap(dat, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(5,8)) 
-sns.clustermap(dat, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, figsize=(5,8)) 
-plt.savefig('tmp.pdf')
+bcell_tf = list(true_df[(true_df['B-cells_logfc']>np.log2(1.2)) & 
+                        (true_df['B-cells_fdr']<0.05) & 
+                        (true_df['B-cells_logfc']>true_df['Endothelial_logfc']) & 
+                        (true_df['B-cells_logfc']>true_df['Fibroblasts_logfc']) &
+                        (true_df['B-cells_logfc']>true_df['Macrophages_logfc']) &
+                        (true_df['B-cells_logfc']>true_df['T-cells_logfc'])].index)
+endo_tf = list(true_df[(true_df['Endothelial_logfc']>np.log2(1.2)) & 
+                       (true_df['Endothelial_fdr']<0.05) & 
+                       (true_df['Endothelial_logfc']>true_df['B-cells_logfc']) & 
+                       (true_df['Endothelial_logfc']>true_df['Fibroblasts_logfc']) &
+                       (true_df['Endothelial_logfc']>true_df['Macrophages_logfc']) &
+                       (true_df['Endothelial_logfc']>true_df['T-cells_logfc'])].index)
+fibro_tf = list(true_df[(true_df['Fibroblasts_logfc']>np.log2(1.2)) & 
+                        (true_df['Fibroblasts_fdr']<0.05) & 
+                        (true_df['Fibroblasts_logfc']>true_df['B-cells_logfc']) & 
+                        (true_df['Fibroblasts_logfc']>true_df['Endothelial_logfc']) &
+                        (true_df['Fibroblasts_logfc']>true_df['Macrophages_logfc']) &
+                        (true_df['Fibroblasts_logfc']>true_df['T-cells_logfc'])].index)
+macro_tf = list(true_df[(true_df['Macrophages_logfc']>np.log2(1.2)) & 
+                        (true_df['Macrophages_fdr']<0.05) & 
+                        (true_df['Macrophages_logfc']>true_df['B-cells_logfc']) & 
+                        (true_df['Macrophages_logfc']>true_df['Endothelial_logfc']) &
+                        (true_df['Macrophages_logfc']>true_df['Fibroblasts_logfc']) &
+                        (true_df['Macrophages_logfc']>true_df['T-cells_logfc'])].index)
+tcell_tf = list(true_df[(true_df['T-cells_logfc']>np.log2(1.2)) & 
+                        (true_df['T-cells_fdr']<0.05) & 
+                        (true_df['T-cells_logfc']>true_df['Endothelial_logfc']) & 
+                        (true_df['T-cells_logfc']>true_df['Fibroblasts_logfc']) &
+                        (true_df['T-cells_logfc']>true_df['Macrophages_logfc']) &
+                        (true_df['T-cells_logfc']>true_df['B-cells_logfc'])].index)
+tf_lst = bcell_tf + endo_tf + fibro_tf + macro_tf + tcell_tf   # 296
+
+true_dat = true_df.loc[tf_lst].iloc[:, [0,2,4,6,8]]
+true_dat.replace(-np.inf, -4, inplace=True)
+true_dat.replace(np.inf, 4, inplace=True)
+
+sns.clustermap(true_dat, cmap='viridis', z_score=0, vmin=-2, vmax=2, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(4,15)) 
+plt.savefig('motif_diff_true_heatmap.pdf')
+plt.close()
+
+## babel
+babel_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_babel_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    babel_df = pd.concat([babel_df, raw.iloc[:, 1:]], axis=1)
+
+babel_df.index = raw['name'].values
+babel_dat = babel_df.loc[tf_lst].iloc[:, [0,2,4,6,8]]
+babel_dat.replace(-np.inf, -4, inplace=True)
+babel_dat.replace(np.inf, 4, inplace=True)
+
+sns.clustermap(babel_dat, cmap='viridis', z_score=0, vmin=-2, vmax=2, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(4,15)) 
+plt.savefig('motif_diff_babel_heatmap.pdf')
+plt.close()
+
+## scbt
+scbt_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_scbt_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    scbt_df = pd.concat([scbt_df, raw.iloc[:, 1:]], axis=1)
+
+scbt_df.index = raw['name'].values
+scbt_dat = scbt_df.loc[tf_lst].iloc[:, [0,2,4,6,8]]
+scbt_dat.replace(-np.inf, -4, inplace=True)
+scbt_dat.replace(np.inf, 4, inplace=True)
+
+sns.clustermap(scbt_dat, cmap='viridis', z_score=0, vmin=-2, vmax=2, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(4,15)) 
+plt.savefig('motif_diff_scbt_heatmap.pdf')
+plt.close()
+
+## cifm
+cifm_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_cifm_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    cifm_df = pd.concat([cifm_df, raw.iloc[:, 1:]], axis=1)
+
+cifm_df.index = raw['name'].values
+cifm_dat = cifm_df.loc[tf_lst].iloc[:, [0,2,4,6,8]]
+cifm_dat.replace(-np.inf, -4, inplace=True)
+cifm_dat.replace(np.inf, 4, inplace=True)
+
+sns.clustermap(cifm_dat, cmap='viridis', z_score=0, vmin=-2, vmax=2, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(4,15)) 
+plt.savefig('motif_diff_cifm_heatmap.pdf')
 plt.close()
 
 
-
-
-
-
-
-
+stats.pearsonr(babel_dat.values.flatten(), true_dat.values.flatten())[0]   # 0.45424571198089597
+stats.pearsonr(scbt_dat.values.flatten(), true_dat.values.flatten())[0]    # 0.46659538870807743
+stats.pearsonr(cifm_dat.values.flatten(), true_dat.values.flatten())[0]    # 0.4777760875672916
 
 
 
