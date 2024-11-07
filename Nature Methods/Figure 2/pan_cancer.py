@@ -297,7 +297,6 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
                   -l save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 30 min
 
 python npy2h5ad.py
-python cal_cluster.py --file atac_cisformer_umap.h5ad
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad  # 4 min
 
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
@@ -306,9 +305,9 @@ python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 # Peak-wise AUROC: 0.6459
 # Peak-wise AUPRC: 0.0405
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.5631
-# ARI: 0.3901
-# HOM: 0.7717
+# AMI: 0.563
+# ARI: 0.3648
+# HOM: 0.7824
 # NMI: 0.564
 
 
@@ -696,8 +695,10 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 #### marker peak overlap
 ## add 'zmin=zmin, zmax=zmax' & 'zmin: int = 0, zmax: int = 5' to '/fs/home/jiluzhang/softwares/miniconda3/envs/snapatac2/lib/python3.8/site-packages/snapatac2/plotting/__init__.py'
+## 'return render_plot(fig, width, height, interactive, show, out_file)' -> 'return mat, render_plot(fig, width, height, interactive, show, out_file)'
 import snapatac2 as snap
 import numpy as np
+from scipy import stats
 
 true = snap.read('atac_test.h5ad', backed=None)
 true.obs['cell_anno'].replace({'Plasma': 'B-cells'}, inplace=True)
@@ -721,143 +722,48 @@ babel_marker_peaks = snap.tl.marker_regions(babel, groupby='cell_anno', pvalue=0
 scbt_marker_peaks = snap.tl.marker_regions(scbt, groupby='cell_anno', pvalue=0.025)
 cifm_marker_peaks = snap.tl.marker_regions(cifm, groupby='cell_anno', pvalue=0.025)
 
-snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_true.pdf')
-snap.pl.regions(babel, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_babel.pdf')
-snap.pl.regions(scbt, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_scbt.pdf')
-snap.pl.regions(cifm, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=5, out_file='marker_peak_heatmap_cisformer.pdf')
+true_mat = snap.pl.regions(true, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=2.5, out_file='marker_peak_heatmap_true_true.pdf')[0]
+babel_mat = snap.pl.regions(babel, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=2.5, out_file='marker_peak_heatmap_true_babel.pdf')[0]
+scbt_mat = snap.pl.regions(scbt, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=2.5, out_file='marker_peak_heatmap_true_scbt.pdf')[0]
+cifm_mat = snap.pl.regions(cifm, groupby='cell_anno', peaks=true_marker_peaks, show=False, width=500, height=500, zmin=0, zmax=2.5, out_file='marker_peak_heatmap_true_cisformer.pdf')[0]
 
+stats.pearsonr(babel_mat.flatten(), true_mat.flatten())[0]   # 0.6588884017204633
+stats.pearsonr(scbt_mat.flatten(), true_mat.flatten())[0]    # 0.6605551608029702
+stats.pearsonr(cifm_mat.flatten(), true_mat.flatten())[0]    # 0.6739921318072876
 
+# import pandas as pd
+# import seaborn as sns
+# import matplotlib.pyplot as plt
 
+# true_bcell = true[true.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
+# true_bcell_norm = true_bcell/true_bcell.sum()
+# true_fibro = true[true.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
+# true_fibro_norm = true_fibro/true_fibro.sum()
+# true_macro = true[true.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
+# true_macro_norm = true_macro/true_macro.sum()
+# true_tcell = true[true.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
+# true_tcell_norm = true_tcell/true_tcell.sum()
+# true_endo = true[true.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
+# true_endo_norm = true_endo/true_endo.sum()
+# true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
+#                         'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
+# true_df.index = true.var.index
+# idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
+#       list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
+# df = true_df.loc[idx, :]
 
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+# plt.figure(figsize=(5, 8))
+# #sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
+# sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+# #plt.savefig('marker_peak_heatmap_true_true.pdf')
+# sns.clustermap(np.log10(df*1000000+1), row_cluster=False, col_cluster=False, yticklabels=False) 
+# plt.savefig('tmp.pdf')
+# plt.close()
 
-true_bcell = true[true.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
-true_bcell_norm = true_bcell/true_bcell.sum()
-true_fibro = true[true.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
-true_fibro_norm = true_fibro/true_fibro.sum()
-true_macro = true[true.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
-true_macro_norm = true_macro/true_macro.sum()
-true_tcell = true[true.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
-true_tcell_norm = true_tcell/true_tcell.sum()
-true_endo = true[true.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
-true_endo_norm = true_endo/true_endo.sum()
-true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
-                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
-true_df.index = true.var.index
-idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
-      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
-df = true_df.loc[idx, :]
-
-plt.figure(figsize=(5, 8))
-#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
-sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
-#plt.savefig('marker_peak_heatmap_true_true.pdf')
-sns.clustermap(np.log10(df*1000000+1), row_cluster=False, col_cluster=False, yticklabels=False) 
-plt.savefig('tmp.pdf')
-plt.close()
-
-true_adata = snap.tl.aggregate_X(true, groupby='cell_anno', normalize="RPKM")
-true_df = pd.DataFrame(true_adata.X.T)
-true_df.index = true_adata.var.index
-true_df.columns = true_adata.obs.index
-
-import random
-random.seed(0)
-idx_bcells = list(true_marker_peaks['B-cells'])
-random.shuffle(idx_bcells)
-idx_fibro = list(true_marker_peaks['Fibroblasts'])
-random.shuffle(idx_fibro)
-idx_macro = list(true_marker_peaks['Macrophages'])
-random.shuffle(idx_macro)
-idx_tcells = list(true_marker_peaks['T-cells'])
-random.shuffle(idx_tcells)
-idx_endo = list(true_marker_peaks['Endothelial'])
-random.shuffle(idx_endo)
-
-idx = idx_bcells+idx_fibro+idx_macro+idx_tcells+idx_endo
-df = true_df.loc[idx, :]
-
-plt.figure(figsize=(2, 5))
-sns.clustermap(np.log2(df+1), cmap='viridis', row_cluster=False, col_cluster=False, yticklabels=False, figsize=[2, 8]) 
-plt.savefig('tmp.png')
-plt.close()
-
-
-
-true_bcell = cifm[cifm.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
-true_bcell_norm = true_bcell/true_bcell.sum()
-true_fibro = cifm[cifm.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
-true_fibro_norm = true_fibro/true_fibro.sum()
-true_macro = cifm[cifm.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
-true_macro_norm = true_macro/true_macro.sum()
-true_tcell = cifm[cifm.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
-true_tcell_norm = true_tcell/true_tcell.sum()
-true_endo = cifm[cifm.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
-true_endo_norm = true_endo/true_endo.sum()
-true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
-                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
-true_df.index = true.var.index
-idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
-      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
-df = true_df.loc[idx, :]
-
-plt.figure(figsize=(5, 8))
-#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
-sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
-plt.savefig('marker_peak_heatmap_true_cisformer.pdf')
-plt.close()
-
-
-true_bcell = babel[babel.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
-true_bcell_norm = true_bcell/true_bcell.sum()
-true_fibro = babel[babel.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
-true_fibro_norm = true_fibro/true_fibro.sum()
-true_macro = babel[babel.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
-true_macro_norm = true_macro/true_macro.sum()
-true_tcell = babel[babel.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
-true_tcell_norm = true_tcell/true_tcell.sum()
-true_endo = babel[babel.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
-true_endo_norm = true_endo/true_endo.sum()
-true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
-                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
-true_df.index = true.var.index
-idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
-      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
-df = true_df.loc[idx, :]
-
-plt.figure(figsize=(5, 8))
-#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
-sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
-plt.savefig('marker_peak_heatmap_true_babel.pdf')
-plt.close()
-
-
-
-true_bcell = scbt[scbt.obs['cell_anno']=='B-cells', :].X.toarray().sum(axis=0)
-true_bcell_norm = true_bcell/true_bcell.sum()
-true_fibro = scbt[scbt.obs['cell_anno']=='Fibroblasts', :].X.toarray().sum(axis=0)
-true_fibro_norm = true_fibro/true_fibro.sum()
-true_macro = scbt[scbt.obs['cell_anno']=='Macrophages', :].X.toarray().sum(axis=0)
-true_macro_norm = true_macro/true_macro.sum()
-true_tcell = scbt[scbt.obs['cell_anno']=='T-cells', :].X.toarray().sum(axis=0)
-true_tcell_norm = true_tcell/true_tcell.sum()
-true_endo = scbt[scbt.obs['cell_anno']=='Endothelial', :].X.toarray().sum(axis=0)
-true_endo_norm = true_endo/true_endo.sum()
-true_df = pd.DataFrame({'B cells':true_bcell_norm, 'Fibroblasts':true_fibro_norm, 'Macrophages':true_macro_norm,
-                        'T cells':true_tcell_norm, 'Endothelial':true_endo_norm})
-true_df.index = true.var.index
-idx = list(true_marker_peaks['B-cells']) + list(true_marker_peaks['Fibroblasts']) + list(true_marker_peaks['Macrophages']) +\
-      list(true_marker_peaks['T-cells']) + list(true_marker_peaks['Endothelial'])
-df = true_df.loc[idx, :]
-
-plt.figure(figsize=(5, 8))
-#sns.heatmap(df, cmap='RdBu_r', yticklabels=False)  viridis
-sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
-plt.savefig('marker_peak_heatmap_true_scbt.pdf')
-plt.close()
-
+# true_adata = snap.tl.aggregate_X(true, groupby='cell_anno', normalize="RPKM")
+# true_df = pd.DataFrame(true_adata.X.T)
+# true_df.index = true_adata.var.index
+# true_df.columns = true_adata.obs.index
 
 
 cnt_dict = {}
@@ -866,30 +772,73 @@ for cell_type in true.obs['cell_anno'].value_counts().index:
                            len(babel_marker_peaks[cell_type]),
                            len(scbt_marker_peaks[cell_type]),
                            len(cifm_marker_peaks[cell_type])]
-# {'B-cells': [3123, 11509, 36808, 13665],
-#  'Fibroblasts': [6538, 28443, 45277, 35879],
-#  'Macrophages': [1591, 13408, 15889, 20455],
-#  'T-cells': [936, 6491, 2963, 8807],
-#  'Endothelial': [1136, 2282, 9900, 1726]}
+# {'B-cells': [3123, 11509, 36808, 9383],
+#  'Fibroblasts': [6538, 28443, 45277, 28179],
+#  'Macrophages': [1591, 13408, 15889, 20692],
+#  'T-cells': [936, 6491, 2963, 8066],
+#  'Endothelial': [1136, 2282, 9900, 1654]}
 
 res_dict = {}
 for cell_type in true.obs['cell_anno'].value_counts().index:
     res_dict[cell_type] = [len(np.intersect1d(babel_marker_peaks[cell_type], true_marker_peaks[cell_type])),
                            len(np.intersect1d(scbt_marker_peaks[cell_type], true_marker_peaks[cell_type])),
                            len(np.intersect1d(cifm_marker_peaks[cell_type], true_marker_peaks[cell_type]))]
-# {'B-cells': [325, 845, 423],
-#  'Fibroblasts': [1462, 1835, 1739],
-#  'Macrophages': [335, 464, 509],
-#  'T-cells': [262, 152, 297],
-#  'Endothelial': [80, 213, 27]}
+# {'B-cells': [325, 845, 301],
+#  'Fibroblasts': [1462, 1835, 1400],
+#  'Macrophages': [335, 464, 555],
+#  'T-cells': [262, 152, 299],
+#  'Endothelial': [80, 213, 25]}
 
 
 
+#### motif enrichment
+true_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                       regions=true_marker_peaks,
+                                       genome_fasta=snap.genome.hg38,
+                                       background=None,
+                                       method='hypergeometric')
+
+snap.pl.motif_enrichment(true_motifs, min_log_fc=0.5, max_fdr=0.00001, height=1600, interactive=False, show=False, out_file='marker_peak_enrichment_true.pdf')
+
+tf_lst = []
+for c in set(true.obs.cell_anno.values):
+    tf_lst += list(true_motifs[c].filter(pl.col('log2(fold change)')>1)['name'])
 
 
 
+for c in set(true.obs.cell_anno.values):
+    true_motifs_sp = true_motifs[c].to_pandas()
+    del true_motifs_sp['family']
+    true_motifs_sp.to_csv('motif_enrichment_true_'+c+'.txt', sep='\t', index=False)
 
 
+#### Plot top enriched motifs
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+## true
+df = pd.DataFrame()
+tf_lst = []
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_true_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    tf_lst += list(raw[(raw['log2(fold change)']>np.log2(1.5))&(raw['adjusted p-value']<0.00001)]['name'])
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    df = pd.concat([df, raw], axis=1)
+
+df.index = df.iloc[:, 0].values
+df = df[['B-cells_logfc', 'Endothelial_logfc', 'Fibroblasts_logfc', 'Macrophages_logfc', 'T-cells_logfc']]
+dat = df.loc[tf_lst]
+dat.replace(-np.inf, -4, inplace=True)
+dat.replace(np.inf, 4, inplace=True)
+
+plt.figure(figsize=(5, 8))
+#sns.clustermap(dat, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False, figsize=(5,8)) 
+sns.clustermap(dat, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, figsize=(5,8)) 
+plt.savefig('tmp.pdf')
+plt.close()
 
 
 
