@@ -862,31 +862,31 @@ bcell_tf = list(true_df[(true_df['B-cells_logfc']>np.log2(1.2)) &
                         (true_df['B-cells_logfc']>true_df['Endothelial_logfc']) & 
                         (true_df['B-cells_logfc']>true_df['Fibroblasts_logfc']) &
                         (true_df['B-cells_logfc']>true_df['Macrophages_logfc']) &
-                        (true_df['B-cells_logfc']>true_df['T-cells_logfc'])].index)
+                        (true_df['B-cells_logfc']>true_df['T-cells_logfc'])].index)  # 71
 endo_tf = list(true_df[(true_df['Endothelial_logfc']>np.log2(1.2)) & 
                        (true_df['Endothelial_fdr']<0.05) & 
                        (true_df['Endothelial_logfc']>true_df['B-cells_logfc']) & 
                        (true_df['Endothelial_logfc']>true_df['Fibroblasts_logfc']) &
                        (true_df['Endothelial_logfc']>true_df['Macrophages_logfc']) &
-                       (true_df['Endothelial_logfc']>true_df['T-cells_logfc'])].index)
+                       (true_df['Endothelial_logfc']>true_df['T-cells_logfc'])].index)  # 83
 fibro_tf = list(true_df[(true_df['Fibroblasts_logfc']>np.log2(1.2)) & 
                         (true_df['Fibroblasts_fdr']<0.05) & 
                         (true_df['Fibroblasts_logfc']>true_df['B-cells_logfc']) & 
                         (true_df['Fibroblasts_logfc']>true_df['Endothelial_logfc']) &
                         (true_df['Fibroblasts_logfc']>true_df['Macrophages_logfc']) &
-                        (true_df['Fibroblasts_logfc']>true_df['T-cells_logfc'])].index)
+                        (true_df['Fibroblasts_logfc']>true_df['T-cells_logfc'])].index)  # 85
 macro_tf = list(true_df[(true_df['Macrophages_logfc']>np.log2(1.2)) & 
                         (true_df['Macrophages_fdr']<0.05) & 
                         (true_df['Macrophages_logfc']>true_df['B-cells_logfc']) & 
                         (true_df['Macrophages_logfc']>true_df['Endothelial_logfc']) &
                         (true_df['Macrophages_logfc']>true_df['Fibroblasts_logfc']) &
-                        (true_df['Macrophages_logfc']>true_df['T-cells_logfc'])].index)
+                        (true_df['Macrophages_logfc']>true_df['T-cells_logfc'])].index)  # 11
 tcell_tf = list(true_df[(true_df['T-cells_logfc']>np.log2(1.2)) & 
                         (true_df['T-cells_fdr']<0.05) & 
                         (true_df['T-cells_logfc']>true_df['Endothelial_logfc']) & 
                         (true_df['T-cells_logfc']>true_df['Fibroblasts_logfc']) &
                         (true_df['T-cells_logfc']>true_df['Macrophages_logfc']) &
-                        (true_df['T-cells_logfc']>true_df['B-cells_logfc'])].index)
+                        (true_df['T-cells_logfc']>true_df['B-cells_logfc'])].index)   # 46
 tf_lst = bcell_tf + endo_tf + fibro_tf + macro_tf + tcell_tf   # 296
 
 true_dat = true_df.loc[tf_lst].iloc[:, [0,2,4,6,8]]
@@ -954,15 +954,549 @@ stats.pearsonr(scbt_dat.values.flatten(), true_dat.values.flatten())[0]    # 0.4
 stats.pearsonr(cifm_dat.values.flatten(), true_dat.values.flatten())[0]    # 0.4777760875672916
 
 
+#### motif overlapping
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+true_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_true_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    true_df = pd.concat([true_df, raw.iloc[:, 1:]], axis=1)
+
+true_df.index = raw['name'].values
+
+cifm_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_cifm_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    cifm_df = pd.concat([cifm_df, raw.iloc[:, 1:]], axis=1)
+
+cifm_df.index = raw['name'].values
+
+babel_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_babel_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    babel_df = pd.concat([babel_df, raw.iloc[:, 1:]], axis=1)
+
+babel_df.index = raw['name'].values
+
+scbt_df = pd.DataFrame()
+for c in ['B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells']:
+    raw = pd.read_table('motif_enrichment_scbt_'+c+'.txt')[['name', 'log2(fold change)', 'adjusted p-value']]
+    raw.rename(columns={'log2(fold change)':c+'_logfc', 
+                        'adjusted p-value': c+'_fdr'}, inplace=True)
+    scbt_df = pd.concat([scbt_df, raw.iloc[:, 1:]], axis=1)
+
+scbt_df.index = raw['name'].values
+
+## B-cells
+bcell_tf_true = list(true_df[(true_df['B-cells_logfc']>np.log2(1.2)) & 
+                             (true_df['B-cells_fdr']<0.05) & 
+                             (true_df['B-cells_logfc']>true_df['Endothelial_logfc']) & 
+                             (true_df['B-cells_logfc']>true_df['Fibroblasts_logfc']) &
+                             (true_df['B-cells_logfc']>true_df['Macrophages_logfc']) &
+                             (true_df['B-cells_logfc']>true_df['T-cells_logfc'])].index)  # 71
+bcell_tf_cifm = list(true_df[(cifm_df['B-cells_logfc']>np.log2(1.2)) & 
+                             (cifm_df['B-cells_fdr']<0.05) & 
+                             (cifm_df['B-cells_logfc']>cifm_df['Endothelial_logfc']) & 
+                             (cifm_df['B-cells_logfc']>cifm_df['Fibroblasts_logfc']) &
+                             (cifm_df['B-cells_logfc']>cifm_df['Macrophages_logfc']) &
+                             (cifm_df['B-cells_logfc']>cifm_df['T-cells_logfc'])].index)  # 77
+bcell_tf_babel = list(true_df[(babel_df['B-cells_logfc']>np.log2(1.2)) & 
+                              (babel_df['B-cells_fdr']<0.05) & 
+                              (babel_df['B-cells_logfc']>babel_df['Endothelial_logfc']) & 
+                              (babel_df['B-cells_logfc']>babel_df['Fibroblasts_logfc']) &
+                              (babel_df['B-cells_logfc']>babel_df['Macrophages_logfc']) &
+                              (babel_df['B-cells_logfc']>babel_df['T-cells_logfc'])].index)  # 169
+bcell_tf_scbt = list(true_df[(scbt_df['B-cells_logfc']>np.log2(1.2)) & 
+                             (scbt_df['B-cells_fdr']<0.05) & 
+                             (scbt_df['B-cells_logfc']>scbt_df['Endothelial_logfc']) & 
+                             (scbt_df['B-cells_logfc']>scbt_df['Fibroblasts_logfc']) &
+                             (scbt_df['B-cells_logfc']>scbt_df['Macrophages_logfc']) &
+                             (scbt_df['B-cells_logfc']>scbt_df['T-cells_logfc'])].index)  # 57
+
+from matplotlib_venn import venn2
+plt.rcParams['pdf.fonttype'] = 42
+
+## bcell true vs. cifm
+bcell_tf_true_cnt = len(bcell_tf_true)
+bcell_tf_cifm_cnt = len(bcell_tf_cifm)
+bcell_tf_true_cifm_cnt = len([i for i in bcell_tf_true if i in bcell_tf_cifm])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(bcell_tf_true_cnt-bcell_tf_true_cifm_cnt, 
+               bcell_tf_cifm_cnt-bcell_tf_true_cifm_cnt,
+               bcell_tf_true_cifm_cnt), set_labels=('True', 'Cisformer'))
+plt.savefig('bcell_tf_true_cifm_venn.pdf')
+plt.close()
+
+[i for i in bcell_tf_true if i in bcell_tf_cifm]
+
+## bcell true vs. babel
+bcell_tf_true_cnt = len(bcell_tf_true)
+bcell_tf_babel_cnt = len(bcell_tf_babel)
+bcell_tf_true_babel_cnt = len([i for i in bcell_tf_true if i in bcell_tf_babel])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(bcell_tf_true_cnt-bcell_tf_true_babel_cnt, 
+               bcell_tf_babel_cnt-bcell_tf_true_babel_cnt,
+               bcell_tf_true_babel_cnt), set_labels=('True', 'BABEL'))
+plt.savefig('bcell_tf_true_babel_venn.pdf')
+plt.close()
+
+## bcell true vs. scbt
+bcell_tf_true_cnt = len(bcell_tf_true)
+bcell_tf_scbt_cnt = len(bcell_tf_scbt)
+bcell_tf_true_scbt_cnt = len([i for i in bcell_tf_true if i in bcell_tf_scbt])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(bcell_tf_true_cnt-bcell_tf_true_scbt_cnt, 
+               bcell_tf_scbt_cnt-bcell_tf_true_scbt_cnt,
+               bcell_tf_true_scbt_cnt), set_labels=('True', 'scbt'))
+plt.savefig('bcell_tf_true_scbt_venn.pdf')
+plt.close()
+
+## endo
+endo_tf_true = list(true_df[(true_df['Endothelial_logfc']>np.log2(1.2)) & 
+                            (true_df['Endothelial_fdr']<0.05) & 
+                            (true_df['Endothelial_logfc']>true_df['B-cells_logfc']) & 
+                            (true_df['Endothelial_logfc']>true_df['Fibroblasts_logfc']) &
+                            (true_df['Endothelial_logfc']>true_df['Macrophages_logfc']) &
+                            (true_df['Endothelial_logfc']>true_df['T-cells_logfc'])].index)  # 83
+endo_tf_cifm = list(cifm_df[(cifm_df['Endothelial_logfc']>np.log2(1.2)) & 
+                            (cifm_df['Endothelial_fdr']<0.05) & 
+                            (cifm_df['Endothelial_logfc']>cifm_df['B-cells_logfc']) & 
+                            (cifm_df['Endothelial_logfc']>cifm_df['Fibroblasts_logfc']) &
+                            (cifm_df['Endothelial_logfc']>cifm_df['Macrophages_logfc']) &
+                            (cifm_df['Endothelial_logfc']>cifm_df['T-cells_logfc'])].index) 
+endo_tf_babel = list(babel_df[(babel_df['Endothelial_logfc']>np.log2(1.2)) & 
+                            (babel_df['Endothelial_fdr']<0.05) & 
+                            (babel_df['Endothelial_logfc']>babel_df['B-cells_logfc']) & 
+                            (babel_df['Endothelial_logfc']>babel_df['Fibroblasts_logfc']) &
+                            (babel_df['Endothelial_logfc']>babel_df['Macrophages_logfc']) &
+                            (babel_df['Endothelial_logfc']>babel_df['T-cells_logfc'])].index)
+endo_tf_scbt = list(scbt_df[(scbt_df['Endothelial_logfc']>np.log2(1.2)) & 
+                            (scbt_df['Endothelial_fdr']<0.05) & 
+                            (scbt_df['Endothelial_logfc']>scbt_df['B-cells_logfc']) & 
+                            (scbt_df['Endothelial_logfc']>scbt_df['Fibroblasts_logfc']) &
+                            (scbt_df['Endothelial_logfc']>scbt_df['Macrophages_logfc']) &
+                            (scbt_df['Endothelial_logfc']>scbt_df['T-cells_logfc'])].index) 
+
+## endo true vs. cifm
+endo_tf_true_cnt = len(endo_tf_true)
+endo_tf_cifm_cnt = len(endo_tf_cifm)
+endo_tf_true_cifm_cnt = len([i for i in endo_tf_true if i in endo_tf_cifm])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(endo_tf_true_cnt-endo_tf_true_cifm_cnt, 
+               endo_tf_cifm_cnt-endo_tf_true_cifm_cnt,
+               endo_tf_true_cifm_cnt), set_labels=('True', 'Cisformer'))
+plt.savefig('endo_tf_true_cifm_venn.pdf')
+plt.close()
+
+[i for i in endo_tf_true if i in endo_tf_cifm]
+
+## endo true vs. babel
+endo_tf_true_cnt = len(endo_tf_true)
+endo_tf_babel_cnt = len(endo_tf_babel)
+endo_tf_true_babel_cnt = len([i for i in endo_tf_true if i in endo_tf_babel])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(endo_tf_true_cnt-endo_tf_true_babel_cnt, 
+               endo_tf_babel_cnt-endo_tf_true_babel_cnt,
+               endo_tf_true_babel_cnt), set_labels=('True', 'BABEL'))
+plt.savefig('endo_tf_true_babel_venn.pdf')
+plt.close()
+
+## endo true vs. scbt
+endo_tf_true_cnt = len(endo_tf_true)
+endo_tf_scbt_cnt = len(endo_tf_scbt)
+endo_tf_true_scbt_cnt = len([i for i in endo_tf_true if i in endo_tf_scbt])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(endo_tf_true_cnt-endo_tf_true_scbt_cnt, 
+               endo_tf_scbt_cnt-endo_tf_true_scbt_cnt,
+               endo_tf_true_scbt_cnt), set_labels=('True', 'scbt'))
+plt.savefig('endo_tf_true_scbt_venn.pdf')
+plt.close()
 
 
+## fibro
+fibro_tf_true = list(true_df[(true_df['Fibroblasts_logfc']>np.log2(1.2)) & 
+                             (true_df['Fibroblasts_fdr']<0.05) & 
+                             (true_df['Fibroblasts_logfc']>true_df['B-cells_logfc']) & 
+                             (true_df['Fibroblasts_logfc']>true_df['Endothelial_logfc']) &
+                             (true_df['Fibroblasts_logfc']>true_df['Macrophages_logfc']) &
+                             (true_df['Fibroblasts_logfc']>true_df['T-cells_logfc'])].index)  # 85
+fibro_tf_cifm = list(cifm_df[(cifm_df['Fibroblasts_logfc']>np.log2(1.2)) & 
+                             (cifm_df['Fibroblasts_fdr']<0.05) & 
+                             (cifm_df['Fibroblasts_logfc']>cifm_df['B-cells_logfc']) & 
+                             (cifm_df['Fibroblasts_logfc']>cifm_df['Endothelial_logfc']) &
+                             (cifm_df['Fibroblasts_logfc']>cifm_df['Macrophages_logfc']) &
+                             (cifm_df['Fibroblasts_logfc']>cifm_df['T-cells_logfc'])].index)
+fibro_tf_babel = list(babel_df[(babel_df['Fibroblasts_logfc']>np.log2(1.2)) & 
+                             (babel_df['Fibroblasts_fdr']<0.05) & 
+                             (babel_df['Fibroblasts_logfc']>babel_df['B-cells_logfc']) & 
+                             (babel_df['Fibroblasts_logfc']>babel_df['Endothelial_logfc']) &
+                             (babel_df['Fibroblasts_logfc']>babel_df['Macrophages_logfc']) &
+                             (babel_df['Fibroblasts_logfc']>babel_df['T-cells_logfc'])].index)
+fibro_tf_scbt = list(scbt_df[(scbt_df['Fibroblasts_logfc']>np.log2(1.2)) & 
+                             (scbt_df['Fibroblasts_fdr']<0.05) & 
+                             (scbt_df['Fibroblasts_logfc']>scbt_df['B-cells_logfc']) & 
+                             (scbt_df['Fibroblasts_logfc']>scbt_df['Endothelial_logfc']) &
+                             (scbt_df['Fibroblasts_logfc']>scbt_df['Macrophages_logfc']) &
+                             (scbt_df['Fibroblasts_logfc']>scbt_df['T-cells_logfc'])].index)
+## fibro true vs. cifm
+fibro_tf_true_cnt = len(fibro_tf_true)
+fibro_tf_cifm_cnt = len(fibro_tf_cifm)
+fibro_tf_true_cifm_cnt = len([i for i in fibro_tf_true if i in fibro_tf_cifm])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(fibro_tf_true_cnt-fibro_tf_true_cifm_cnt, 
+               fibro_tf_cifm_cnt-fibro_tf_true_cifm_cnt,
+               fibro_tf_true_cifm_cnt), set_labels=('True', 'Cisformer'))
+plt.savefig('fibro_tf_true_cifm_venn.pdf')
+plt.close()
+
+[i for i in fibro_tf_true if i in fibro_tf_cifm]
+
+## fibro true vs. babel
+fibro_tf_true_cnt = len(fibro_tf_true)
+fibro_tf_babel_cnt = len(fibro_tf_babel)
+fibro_tf_true_babel_cnt = len([i for i in fibro_tf_true if i in fibro_tf_babel])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(fibro_tf_true_cnt-fibro_tf_true_babel_cnt, 
+               fibro_tf_babel_cnt-fibro_tf_true_babel_cnt,
+               fibro_tf_true_babel_cnt), set_labels=('True', 'BABEL'))
+plt.savefig('fibro_tf_true_babel_venn.pdf')
+plt.close()
+
+## fibro true vs. scbt
+fibro_tf_true_cnt = len(fibro_tf_true)
+fibro_tf_scbt_cnt = len(fibro_tf_scbt)
+fibro_tf_true_scbt_cnt = len([i for i in fibro_tf_true if i in fibro_tf_scbt])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(fibro_tf_true_cnt-fibro_tf_true_scbt_cnt, 
+               fibro_tf_scbt_cnt-fibro_tf_true_scbt_cnt,
+               fibro_tf_true_scbt_cnt), set_labels=('True', 'scbt'))
+plt.savefig('fibro_tf_true_scbt_venn.pdf')
+plt.close()
+
+## macro
+macro_tf_true = list(true_df[(true_df['Macrophages_logfc']>np.log2(1.2)) & 
+                             (true_df['Macrophages_fdr']<0.05) & 
+                             (true_df['Macrophages_logfc']>true_df['B-cells_logfc']) & 
+                             (true_df['Macrophages_logfc']>true_df['Endothelial_logfc']) &
+                             (true_df['Macrophages_logfc']>true_df['Fibroblasts_logfc']) &
+                             (true_df['Macrophages_logfc']>true_df['T-cells_logfc'])].index)  # 11
+macro_tf_cifm = list(cifm_df[(cifm_df['Macrophages_logfc']>np.log2(1.2)) & 
+                             (cifm_df['Macrophages_fdr']<0.05) & 
+                             (cifm_df['Macrophages_logfc']>cifm_df['B-cells_logfc']) & 
+                             (cifm_df['Macrophages_logfc']>cifm_df['Endothelial_logfc']) &
+                             (cifm_df['Macrophages_logfc']>cifm_df['Fibroblasts_logfc']) &
+                             (cifm_df['Macrophages_logfc']>cifm_df['T-cells_logfc'])].index)
+macro_tf_babel = list(babel_df[(babel_df['Macrophages_logfc']>np.log2(1.2)) & 
+                             (babel_df['Macrophages_fdr']<0.05) & 
+                             (babel_df['Macrophages_logfc']>babel_df['B-cells_logfc']) & 
+                             (babel_df['Macrophages_logfc']>babel_df['Endothelial_logfc']) &
+                             (babel_df['Macrophages_logfc']>babel_df['Fibroblasts_logfc']) &
+                             (babel_df['Macrophages_logfc']>babel_df['T-cells_logfc'])].index)
+macro_tf_scbt = list(scbt_df[(scbt_df['Macrophages_logfc']>np.log2(1.2)) & 
+                             (scbt_df['Macrophages_fdr']<0.05) & 
+                             (scbt_df['Macrophages_logfc']>scbt_df['B-cells_logfc']) & 
+                             (scbt_df['Macrophages_logfc']>scbt_df['Endothelial_logfc']) &
+                             (scbt_df['Macrophages_logfc']>scbt_df['Fibroblasts_logfc']) &
+                             (scbt_df['Macrophages_logfc']>scbt_df['T-cells_logfc'])].index)
+## macro true vs. cifm
+macro_tf_true_cnt = len(macro_tf_true)
+macro_tf_cifm_cnt = len(macro_tf_cifm)
+macro_tf_true_cifm_cnt = len([i for i in macro_tf_true if i in macro_tf_cifm])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(macro_tf_true_cnt-macro_tf_true_cifm_cnt, 
+               macro_tf_cifm_cnt-macro_tf_true_cifm_cnt,
+               macro_tf_true_cifm_cnt), set_labels=('True', 'Cisformer'))
+plt.savefig('macro_tf_true_cifm_venn.pdf')
+plt.close()
+
+[i for i in macro_tf_true if i in macro_tf_cifm]
+
+## macro true vs. babel
+macro_tf_true_cnt = len(macro_tf_true)
+macro_tf_babel_cnt = len(macro_tf_babel)
+macro_tf_true_babel_cnt = len([i for i in macro_tf_true if i in macro_tf_babel])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(macro_tf_true_cnt-macro_tf_true_babel_cnt, 
+               macro_tf_babel_cnt-macro_tf_true_babel_cnt,
+               macro_tf_true_babel_cnt), set_labels=('True', 'BABEL'))
+plt.savefig('macro_tf_true_babel_venn.pdf')
+plt.close()
+
+## macro true vs. scbt
+macro_tf_true_cnt = len(macro_tf_true)
+macro_tf_scbt_cnt = len(macro_tf_scbt)
+macro_tf_true_scbt_cnt = len([i for i in macro_tf_true if i in macro_tf_scbt])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(macro_tf_true_cnt-macro_tf_true_scbt_cnt, 
+               macro_tf_scbt_cnt-macro_tf_true_scbt_cnt,
+               macro_tf_true_scbt_cnt), set_labels=('True', 'scbt'))
+plt.savefig('macro_tf_true_scbt_venn.pdf')
+plt.close()
+
+## tcell
+tcell_tf_true = list(true_df[(true_df['T-cells_logfc']>np.log2(1.2)) & 
+                             (true_df['T-cells_fdr']<0.05) & 
+                             (true_df['T-cells_logfc']>true_df['Endothelial_logfc']) & 
+                             (true_df['T-cells_logfc']>true_df['Fibroblasts_logfc']) &
+                             (true_df['T-cells_logfc']>true_df['Macrophages_logfc']) &
+                             (true_df['T-cells_logfc']>true_df['B-cells_logfc'])].index)   # 46
+tcell_tf_cifm = list(cifm_df[(cifm_df['T-cells_logfc']>np.log2(1.2)) & 
+                             (cifm_df['T-cells_fdr']<0.05) & 
+                             (cifm_df['T-cells_logfc']>cifm_df['Endothelial_logfc']) & 
+                             (cifm_df['T-cells_logfc']>cifm_df['Fibroblasts_logfc']) &
+                             (cifm_df['T-cells_logfc']>cifm_df['Macrophages_logfc']) &
+                             (cifm_df['T-cells_logfc']>cifm_df['B-cells_logfc'])].index)
+tcell_tf_babel = list(babel_df[(babel_df['T-cells_logfc']>np.log2(1.2)) & 
+                             (babel_df['T-cells_fdr']<0.05) & 
+                             (babel_df['T-cells_logfc']>babel_df['Endothelial_logfc']) & 
+                             (babel_df['T-cells_logfc']>babel_df['Fibroblasts_logfc']) &
+                             (babel_df['T-cells_logfc']>babel_df['Macrophages_logfc']) &
+                             (babel_df['T-cells_logfc']>babel_df['B-cells_logfc'])].index)
+tcell_tf_scbt = list(scbt_df[(scbt_df['T-cells_logfc']>np.log2(1.2)) & 
+                             (scbt_df['T-cells_fdr']<0.05) & 
+                             (scbt_df['T-cells_logfc']>scbt_df['Endothelial_logfc']) & 
+                             (scbt_df['T-cells_logfc']>scbt_df['Fibroblasts_logfc']) &
+                             (scbt_df['T-cells_logfc']>scbt_df['Macrophages_logfc']) &
+                             (scbt_df['T-cells_logfc']>scbt_df['B-cells_logfc'])].index)
+## tcell true vs. cifm
+tcell_tf_true_cnt = len(tcell_tf_true)
+tcell_tf_cifm_cnt = len(tcell_tf_cifm)
+tcell_tf_true_cifm_cnt = len([i for i in tcell_tf_true if i in tcell_tf_cifm])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(tcell_tf_true_cnt-tcell_tf_true_cifm_cnt, 
+               tcell_tf_cifm_cnt-tcell_tf_true_cifm_cnt,
+               tcell_tf_true_cifm_cnt), set_labels=('True', 'Cisformer'))
+plt.savefig('tcell_tf_true_cifm_venn.pdf')
+plt.close()
+
+[i for i in tcell_tf_true if i in tcell_tf_cifm]
+
+## tcell true vs. babel
+tcell_tf_true_cnt = len(tcell_tf_true)
+tcell_tf_babel_cnt = len(tcell_tf_babel)
+tcell_tf_true_babel_cnt = len([i for i in tcell_tf_true if i in tcell_tf_babel])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(tcell_tf_true_cnt-tcell_tf_true_babel_cnt, 
+               tcell_tf_babel_cnt-tcell_tf_true_babel_cnt,
+               tcell_tf_true_babel_cnt), set_labels=('True', 'BABEL'))
+plt.savefig('tcell_tf_true_babel_venn.pdf')
+plt.close()
+
+## tcell true vs. scbt
+tcell_tf_true_cnt = len(tcell_tf_true)
+tcell_tf_scbt_cnt = len(tcell_tf_scbt)
+tcell_tf_true_scbt_cnt = len([i for i in tcell_tf_true if i in tcell_tf_scbt])
+
+plt.figure(figsize=(4, 4))
+venn2(subsets=(tcell_tf_true_cnt-tcell_tf_true_scbt_cnt, 
+               tcell_tf_scbt_cnt-tcell_tf_true_scbt_cnt,
+               tcell_tf_true_scbt_cnt), set_labels=('True', 'scbt'))
+plt.savefig('tcell_tf_true_scbt_venn.pdf')
+plt.close()
 
 
+## Attention based chromatin accessibility regulator screening & ranking
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
+
+import h5py
+from tqdm import tqdm
+
+from multiprocessing import Pool
+import pickle
+
+rna  = sc.read_h5ad('rna_test.h5ad')
+atac = sc.read_h5ad('atac_test.h5ad')
+
+data = torch.load("./test_pt/test_0.pt")
+# from config
+with open("rna2atac_config_test.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+
+model.load_state_dict(torch.load('./save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
+
+################################ B cells ################################
+bcell_idx = np.argwhere(rna.obs.cell_anno=='B-cells')[:2].flatten()
+bcell_data = []
+for i in range(len(data)):
+    bcell_data.append(data[i][bcell_idx])
+
+dataset = PreDataset(bcell_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+device = torch.device('cuda:0')
+model.to(device)
+model.eval()
+
+i = 0
+for inputs in loader:
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0].to(torch.float16)
+    with h5py.File('attn_bcell_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    
+    i += 1
+    torch.cuda.empty_cache()
+    print(str(i), 'cell done')
+    
+    if i==20:
+        break
+
+rna_tumor_20 = rna[tumor_idx].copy()
+nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
+gene_lst = rna.var.index[nonzero>0]  # 10956
+
+gene_attn = {}
+for gene in tqdm(gene_lst, ncols=80):
+    gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float16')
+
+# ~ 40 min
+for i in range(20):
+    rna_sequence = tumor_data[0][i].flatten()
+    with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('tumor_attn_20_cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('tumor_attn_no_norm_cnt_20.txt', sep='\t', header=None, index=None)
+
+# def cnt(tf):
+#     return sum((tf_attn[tf].flatten())>((0.000)*3))
+
+# with Pool(40) as p:
+#     tf_peak_cnt = p.map(cnt, tf_lst)
+
+# df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
+# # df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
+# df.to_csv('tumor_attn_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
 
 
+## factor enrichment
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+from scipy import stats
+
+rna = sc.read_h5ad('rna.h5ad')
+
+# wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt
+# grep ">" JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt | grep -v "::" | grep -v "-" | awk '{print toupper($2)}' | sort | uniq > TF_jaspar.txt
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']
+
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)
+
+df = pd.read_csv('tumor_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
+df.index = range(df.shape[0])
+
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 24
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 352
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 10580
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]*20)
+
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                      scale_y_continuous(limits=[0, 0.03], breaks=np.arange(0, 0.03+0.001, 0.005)) + theme_bw()
+                                                                      # + annotate("text", x=1.5, y=0.035, label=f"P = {p_value:.2e}", ha='center')
+p.save(filename='cr_tf_others_box_cnt_20_tumor.pdf', dpi=300, height=4, width=4)
+stats.ttest_ind(df_cr['attn'], df_tf['attn'])[1]      # 0.006237903399623997
+stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 3.583299943765924e-05
+stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 0.0025025401898605736
 
 
+# all_genes = pd.DataFrame({'tf': rna.var.index.values})
+# tmp = pd.merge(all_genes, df, how='left')
+# tmp.fillna(0, inplace=True)
+# df = tmp.copy()
 
+# sum(df['cnt']>1000)                       # 120 (120/863=0.13904982618771727)
+# sum((df['cnt']>100) & (df['cnt']<=1000))  # 257 (257/863=0.29779837775202783)
+# sum(df['cnt']<=100)                       # 486 (486/863=0.5631517960602549)
 
+# sum(df_cr['cnt']>1000)                          # 12 (12/105=0.11428571428571428)
+# sum((df_cr['cnt']>100) & (df_cr['cnt']<=1000))  # 32 (32/105=0.3047619047619048)
+# sum(df_cr['cnt']<=100)                          # 61 (61/105=0.580952380952381)
 
+# sum(df_non_cr['cnt']>1000)                              # 108 (108/758=0.1424802110817942)
+# sum((df_non_cr['cnt']>100) & (df_non_cr['cnt']<=1000))  # 225 (225/758=0.29683377308707126)
+# sum(df_non_cr['cnt']<=100)                              # 425 (425/758=0.5606860158311345)
 
+# from scipy.stats import chi2_contingency
+# chi2_contingency(np.array([[108, 225, 425], [12, 32, 61]]))
