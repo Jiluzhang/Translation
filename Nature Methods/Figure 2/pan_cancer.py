@@ -1386,6 +1386,8 @@ device = torch.device('cuda:0')
 model.to(device)
 model.eval()
 
+# atac_sequence_tmp = atac_sequence[:, :15, :]
+
 i = 0
 for inputs in loader:
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
