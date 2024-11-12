@@ -1406,7 +1406,7 @@ gene_lst = rna_bcell_20.var.index[nonzero>0]  # 8679
 
 gene_attn = {}
 for gene in tqdm(gene_lst, ncols=80):
-    gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float16')
+    gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float32')  # not float16
 
 # ~ 5 min
 for i in range(20):
@@ -1423,17 +1423,7 @@ with open('./attn_h5/attn_20_bcell.pkl', 'wb') as file:
 
 gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
-df.to_csv('tumor_attn_no_norm_cnt_20.txt', sep='\t', header=None, index=None)
-
-# def cnt(tf):
-#     return sum((tf_attn[tf].flatten())>((0.000)*3))
-
-# with Pool(40) as p:
-#     tf_peak_cnt = p.map(cnt, tf_lst)
-
-# df = pd.DataFrame({'tf':tf_lst, 'cnt':tf_peak_cnt})
-# # df.sort_values('cnt', ascending=False)[:100]['tf'].to_csv('tmp.txt',  index=False, header=False)
-# df.to_csv('tumor_attn_no_norm_cnt_3.txt', sep='\t', header=None, index=None)
+df.to_csv('attn_no_norm_cnt_20_bcell.txt', sep='\t', header=None, index=None)
 
 
 ## factor enrichment
@@ -1443,7 +1433,7 @@ import numpy as np
 from plotnine import *
 from scipy import stats
 
-rna = sc.read_h5ad('rna.h5ad')
+rna = sc.read_h5ad('../rna_test_bcell_20.h5ad')
 
 # wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt
 # grep ">" JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.txt | grep -v "::" | grep -v "-" | awk '{print toupper($2)}' | sort | uniq > TF_jaspar.txt
@@ -1459,14 +1449,14 @@ cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
 tf_lst = pd.read_table('TF_jaspar.txt', header=None)
 tf = list(tf_lst[0].values)
 
-df = pd.read_csv('tumor_attn_no_norm_cnt_20.txt', header=None, sep='\t')
+df = pd.read_csv('attn_no_norm_cnt_20_bcell.txt', header=None, sep='\t')
 df.columns = ['gene', 'attn']
 df = df.sort_values('attn', ascending=False)
 df.index = range(df.shape[0])
 
-df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 24
-df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 352
-df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 10580
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 22
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 259
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 8398
 df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
 df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
 df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]*20)
@@ -1474,7 +1464,7 @@ df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]
 p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                                       scale_y_continuous(limits=[0, 0.03], breaks=np.arange(0, 0.03+0.001, 0.005)) + theme_bw()
                                                                       # + annotate("text", x=1.5, y=0.035, label=f"P = {p_value:.2e}", ha='center')
-p.save(filename='cr_tf_others_box_cnt_20_tumor.pdf', dpi=300, height=4, width=4)
+p.save(filename='cr_tf_others_box_cnt_20_bcell.pdf', dpi=300, height=4, width=4)
 stats.ttest_ind(df_cr['attn'], df_tf['attn'])[1]      # 0.006237903399623997
 stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 3.583299943765924e-05
 stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 0.0025025401898605736
