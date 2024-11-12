@@ -1340,10 +1340,6 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import pickle
 
-rna  = sc.read_h5ad('rna_test.h5ad')
-atac = sc.read_h5ad('atac_test.h5ad')
-
-data = torch.load("./test_pt/test_0.pt")
 # from config
 with open("rna2atac_config_test.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -1370,58 +1366,59 @@ model = M2M_rna2atac(
             dec_attn_dropout = config["model"].get("dec_attn_dropout")
         )
 model = model.half()
-
 model.load_state_dict(torch.load('./save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
-
-################################ B cells ################################
-bcell_idx = np.argwhere(rna.obs.cell_anno=='B-cells')[:2].flatten()
-bcell_data = []
-for i in range(len(data)):
-    bcell_data.append(data[i][bcell_idx])
-
-dataset = PreDataset(bcell_data)
-dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
-loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 device = torch.device('cuda:0')
 model.to(device)
 model.eval()
 
-# atac_sequence_tmp = atac_sequence[:, :15, :]
+################################ B cells ################################
+rna  = sc.read_h5ad('rna_test.h5ad')
+random.seed(0)
+bcell_idx = list(np.argwhere(rna.obs['cell_anno']=='B-cells').flatten())
+bcell_idx_20 = random.sample(list(bcell_idx), 20)
+rna[bcell_idx_20].write('rna_test_bcell_20.h5ad')
+
+atac = sc.read_h5ad('atac_test.h5ad')
+atac[bcell_idx_20].write('atac_test_bcell_20.h5ad')
+
+# python data_preprocess.py -r rna_test_bcell_20.h5ad -a atac_test_bcell_20.h5ad -s test_pt_20 --dt test -n test_bcell --config rna2atac_config_test.yaml
+
+bcell_data = torch.load("./test_pt_20/test_bcell_0.pt")
+dataset = PreDataset(bcell_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
 i = 0
 for inputs in loader:
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
     attn = attn[0].to(torch.float16)
-    with h5py.File('attn_bcell_'+str(i)+'.h5', 'w') as f:
+    with h5py.File('attn_h5/attn_bcell_'+str(i)+'.h5', 'w') as f:
         f.create_dataset('attn', data=attn)
     
     i += 1
     torch.cuda.empty_cache()
     print(str(i), 'cell done')
-    
-    if i==20:
-        break
 
-rna_tumor_20 = rna[tumor_idx].copy()
-nonzero = np.count_nonzero(rna_tumor_20.X.toarray(), axis=0)
-gene_lst = rna.var.index[nonzero>0]  # 10956
+rna_bcell_20 = rna[bcell_idx_20].copy()
+nonzero = np.count_nonzero(rna_bcell_20.X.toarray(), axis=0)
+gene_lst = rna_bcell_20.var.index[nonzero>0]  # 8679
 
 gene_attn = {}
 for gene in tqdm(gene_lst, ncols=80):
     gene_attn[gene] = np.zeros([atac.shape[1], 1], dtype='float16')
 
-# ~ 40 min
+# ~ 5 min
 for i in range(20):
-    rna_sequence = tumor_data[0][i].flatten()
-    with h5py.File('attn_tumor_'+str(i)+'.h5', 'r') as f:
+    rna_sequence = bcell_data[0][i].flatten()
+    with h5py.File('attn_h5/attn_bcell_'+str(i)+'.h5', 'r') as f:
         attn = f['attn'][:]
         for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
             idx = torch.argwhere((rna_sequence==(np.argwhere(rna.var.index==gene))[0][0]+1).flatten())
             if len(idx)!=0:
                 gene_attn[gene] += attn[:, [idx.item()]]
 
-with open('tumor_attn_20_cell.pkl', 'wb') as file:
+with open('./attn_h5/attn_20_bcell.pkl', 'wb') as file:
     pickle.dump(gene_attn, file)
 
 gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
