@@ -1367,7 +1367,7 @@ model = M2M_rna2atac(
         )
 model = model.half()
 model.load_state_dict(torch.load('./save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
-device = torch.device('cuda:7')
+device = torch.device('cuda:4')
 model.to(device)
 model.eval()
 
@@ -1401,7 +1401,8 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
 
 rna_bcell_20 = sc.read_h5ad('rna_test_bcell_20.h5ad')
 nonzero = np.count_nonzero(rna_bcell_20.X.toarray(), axis=0)
-gene_lst = rna_bcell_20.var.index[nonzero>0]  # 8679
+# gene_lst = rna_bcell_20.var.index[nonzero>0]  # 8679 (maybe the cutoff is too loose)
+gene_lst = rna_bcell_20.var.index[nonzero>=3]  # 3333
 
 atac_bcell_20 = sc.read_h5ad('atac_test_bcell_20.h5ad')
 
@@ -1409,7 +1410,6 @@ gene_attn = {}
 for gene in gene_lst:
     gene_attn[gene] = np.zeros([atac_bcell_20.shape[1], 1], dtype='float32')  # not float16
 
-# ~ 5 min
 for i in range(20):
     rna_sequence = bcell_data[0][i].flatten()
     with h5py.File('attn/attn_bcell_'+str(i)+'.h5', 'r') as f:
@@ -1419,12 +1419,171 @@ for i in range(20):
             if len(idx)!=0:
                 gene_attn[gene] += attn[:, [idx.item()]]
 
-with open('./attn/attn_20_bcell.pkl', 'wb') as file:
+with open('./attn/attn_20_bcell_3cell.pkl', 'wb') as file:
     pickle.dump(gene_attn, file)
 
 gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
-df.to_csv('attn_no_norm_cnt_20_bcell.txt', sep='\t', header=None, index=None)
+df.to_csv('./attn/attn_no_norm_cnt_20_bcell_3cell.txt', sep='\t', header=None, index=None)
+
+################################ Endothelial ################################
+# rna  = sc.read_h5ad('rna_test.h5ad')
+# random.seed(0)
+# endo_idx = list(np.argwhere(rna.obs['cell_anno']=='Endothelial').flatten())
+# endo_idx_20 = random.sample(list(endo_idx), 20)
+# rna[endo_idx_20].write('rna_test_endo_20.h5ad')
+
+# atac = sc.read_h5ad('atac_test.h5ad')
+# atac[endo_idx_20].write('atac_test_endo_20.h5ad')
+
+# python data_preprocess.py -r rna_test_endo_20.h5ad -a atac_test_endo_20.h5ad -s test_pt_20 --dt test -n test_endo --config rna2atac_config_test.yaml
+
+endo_data = torch.load("./test_pt_20/test_endo_0.pt")
+dataset = PreDataset(endo_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/attn_endo_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_endo_20 = sc.read_h5ad('rna_test_endo_20.h5ad')
+nonzero = np.count_nonzero(rna_endo_20.X.toarray(), axis=0)
+gene_lst = rna_endo_20.var.index[nonzero>=3]  # 5437
+
+atac_endo_20 = sc.read_h5ad('atac_test_endo_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_endo_20.shape[1], 1], dtype='float32')  # not float16
+
+for i in range(20):
+    rna_sequence = endo_data[0][i].flatten()
+    with h5py.File('attn/attn_endo_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_endo_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/attn_20_endo_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('./attn/attn_no_norm_cnt_20_endo_3cell.txt', sep='\t', header=None, index=None)
+
+################################ Fibroblasts ################################
+# rna  = sc.read_h5ad('rna_test.h5ad')
+# random.seed(0)
+# fibro_idx = list(np.argwhere(rna.obs['cell_anno']=='Fibroblasts').flatten())
+# fibro_idx_20 = random.sample(list(fibro_idx), 20)
+# rna[fibro_idx_20].write('rna_test_fibro_20.h5ad')
+
+# atac = sc.read_h5ad('atac_test.h5ad')
+# atac[fibro_idx_20].write('atac_test_fibro_20.h5ad')
+
+# python data_preprocess.py -r rna_test_fibro_20.h5ad -a atac_test_fibro_20.h5ad -s test_pt_20 --dt test -n test_fibro --config rna2atac_config_test.yaml
+
+fibro_data = torch.load("./test_pt_20/test_fibro_0.pt")
+dataset = PreDataset(fibro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/attn_fibro_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_fibro_20 = sc.read_h5ad('rna_test_fibro_20.h5ad')
+nonzero = np.count_nonzero(rna_fibro_20.X.toarray(), axis=0)
+gene_lst = rna_fibro_20.var.index[nonzero>=3]  # 6750
+
+atac_fibro_20 = sc.read_h5ad('atac_test_fibro_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_fibro_20.shape[1], 1], dtype='float32')  # not float16
+
+for i in range(20):
+    rna_sequence = fibro_data[0][i].flatten()
+    with h5py.File('attn/attn_fibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_fibro_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/attn_20_fibro_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('./attn/attn_no_norm_cnt_20_fibro_3cell.txt', sep='\t', header=None, index=None)
+
+################################ Macrophages ################################
+# rna  = sc.read_h5ad('rna_test.h5ad')
+# random.seed(0)
+# macro_idx = list(np.argwhere(rna.obs['cell_anno']=='Macrophages').flatten())
+# macro_idx_20 = random.sample(list(macro_idx), 20)
+# rna[macro_idx_20].write('rna_test_macro_20.h5ad')
+
+# atac = sc.read_h5ad('atac_test.h5ad')
+# atac[macro_idx_20].write('atac_test_macro_20.h5ad')
+
+# python data_preprocess.py -r rna_test_macro_20.h5ad -a atac_test_macro_20.h5ad -s test_pt_20 --dt test -n test_macro --config rna2atac_config_test.yaml
+
+macro_data = torch.load("./test_pt_20/test_macro_0.pt")
+dataset = PreDataset(macro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/attn_macro_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_macro_20 = sc.read_h5ad('rna_test_macro_20.h5ad')
+nonzero = np.count_nonzero(rna_macro_20.X.toarray(), axis=0)
+gene_lst = rna_macro_20.var.index[nonzero>=3]  # 6750
+
+atac_macro_20 = sc.read_h5ad('atac_test_macro_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_macro_20.shape[1], 1], dtype='float32')  # not float16
+
+for i in range(20):
+    rna_sequence = macro_data[0][i].flatten()
+    with h5py.File('attn/attn_macro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_macro_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/attn_20_macro_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('./attn/attn_no_norm_cnt_20_macro_3cell.txt', sep='\t', header=None, index=None)
 
 
 ## factor enrichment
@@ -1433,6 +1592,7 @@ import pandas as pd
 import numpy as np
 from plotnine import *
 from scipy import stats
+import matplotlib.pyplot as plt
 
 rna = sc.read_h5ad('../rna_test_bcell_20.h5ad')
 
@@ -1450,43 +1610,135 @@ cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
 tf_lst = pd.read_table('TF_jaspar.txt', header=None)
 tf = list(tf_lst[0].values)
 
-df = pd.read_csv('attn_no_norm_cnt_20_bcell.txt', header=None, sep='\t')
+## B cells
+df = pd.read_csv('attn_no_norm_cnt_20_bcell_3cell.txt', header=None, sep='\t')
 df.columns = ['gene', 'attn']
 df = df.sort_values('attn', ascending=False)
 df.index = range(df.shape[0])
 
-df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 22
-df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 259
-df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 8398
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 12
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 108
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 3213
 df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
 df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
-df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/(df_cr_tf_others.shape[0]*20)
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
 
-p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                      scale_y_continuous(limits=[0, 0.03], breaks=np.arange(0, 0.03+0.001, 0.005)) + theme_bw()
-                                                                      # + annotate("text", x=1.5, y=0.035, label=f"P = {p_value:.2e}", ha='center')
-p.save(filename='cr_tf_others_box_cnt_20_bcell.pdf', dpi=300, height=4, width=4)
-stats.ttest_ind(df_cr['attn'], df_tf['attn'])[1]      # 0.006237903399623997
-stats.ttest_ind(df_cr['attn'], df_others['attn'])[1]  # 3.583299943765924e-05
-stats.ttest_ind(df_tf['attn'], df_others['attn'])[1]  # 0.0025025401898605736
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_bcell_3cell.pdf', dpi=300, height=4, width=4)
 
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6955349610735737
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.6640555687558144
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.6271017256046776
 
-# all_genes = pd.DataFrame({'tf': rna.var.index.values})
-# tmp = pd.merge(all_genes, df, how='left')
-# tmp.fillna(0, inplace=True)
-# df = tmp.copy()
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.3200225406455772
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.02460240862081797
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.8168420631826141
 
-# sum(df['cnt']>1000)                       # 120 (120/863=0.13904982618771727)
-# sum((df['cnt']>100) & (df['cnt']<=1000))  # 257 (257/863=0.29779837775202783)
-# sum(df['cnt']<=100)                       # 486 (486/863=0.5631517960602549)
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.014787446940820742
 
-# sum(df_cr['cnt']>1000)                          # 12 (12/105=0.11428571428571428)
-# sum((df_cr['cnt']>100) & (df_cr['cnt']<=1000))  # 32 (32/105=0.3047619047619048)
-# sum(df_cr['cnt']<=100)                          # 61 (61/105=0.580952380952381)
+## Endothelial
+df = pd.read_csv('attn_no_norm_cnt_20_endo_3cell.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
+df.index = range(df.shape[0])
 
-# sum(df_non_cr['cnt']>1000)                              # 108 (108/758=0.1424802110817942)
-# sum((df_non_cr['cnt']>100) & (df_non_cr['cnt']<=1000))  # 225 (225/758=0.29683377308707126)
-# sum(df_non_cr['cnt']<=100)                              # 425 (425/758=0.5606860158311345)
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 21
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 181
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 5235
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
 
-# from scipy.stats import chi2_contingency
-# chi2_contingency(np.array([[108, 225, 425], [12, 32, 61]]))
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_endo_3cell.pdf', dpi=300, height=4, width=4)
+
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.7058555261215231
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.5623256433322571
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.5714279115236991
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.44836968765627316
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.661982133524154
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.5880467672943193
+
+## Fibroblasts
+df = pd.read_csv('attn_no_norm_cnt_20_fibro_3cell.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
+df.index = range(df.shape[0])
+
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 19
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 233
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 6498
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_fibro_3cell.pdf', dpi=300, height=4, width=4)
+
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6655984950690559
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.565262057878596
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.5331135601223107
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.4161597254044507
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.2156659261463783
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.6851610027662458
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.15954336841596595
+
+## Macrophages
+df = pd.read_csv('attn_no_norm_cnt_20_macro_3cell.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
+df.index = range(df.shape[0])
+
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 19
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 233
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 6498
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_macro_3cell.pdf', dpi=300, height=4, width=4)
+
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6655984950690559
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.565262057878596
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.5331135601223107
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.4161597254044507
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.2156659261463783
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.6851610027662458
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.15954336841596595
