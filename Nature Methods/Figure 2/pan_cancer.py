@@ -1585,6 +1585,59 @@ gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
 df.to_csv('./attn/attn_no_norm_cnt_20_macro_3cell.txt', sep='\t', header=None, index=None)
 
+################################ T-cells ################################
+# rna  = sc.read_h5ad('rna_test.h5ad')
+# random.seed(0)
+# tcell_idx = list(np.argwhere(rna.obs['cell_anno']=='T-cells').flatten())
+# tcell_idx_20 = random.sample(list(tcell_idx), 20)
+# rna[tcell_idx_20].write('rna_test_tcell_20.h5ad')
+
+# atac = sc.read_h5ad('atac_test.h5ad')
+# atac[tcell_idx_20].write('atac_test_tcell_20.h5ad')
+
+# python data_preprocess.py -r rna_test_tcell_20.h5ad -a atac_test_tcell_20.h5ad -s test_pt_20 --dt test -n test_tcell --config rna2atac_config_test.yaml
+
+tcell_data = torch.load("./test_pt_20/test_tcell_0.pt")
+dataset = PreDataset(tcell_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/attn_tcell_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_tcell_20 = sc.read_h5ad('rna_test_tcell_20.h5ad')
+nonzero = np.count_nonzero(rna_tcell_20.X.toarray(), axis=0)
+gene_lst = rna_tcell_20.var.index[nonzero>=3]  # 6750
+
+atac_tcell_20 = sc.read_h5ad('atac_test_tcell_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_tcell_20.shape[1], 1], dtype='float32')  # not float16
+
+for i in range(20):
+    rna_sequence = tcell_data[0][i].flatten()
+    with h5py.File('attn/attn_tcell_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_tcell_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/attn_20_tcell_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
+df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
+df.to_csv('./attn/attn_no_norm_cnt_20_tcell_3cell.txt', sep='\t', header=None, index=None)
+
 
 ## factor enrichment
 import scanpy as sc
@@ -1715,9 +1768,9 @@ df.columns = ['gene', 'attn']
 df = df.sort_values('attn', ascending=False)
 df.index = range(df.shape[0])
 
-df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 19
-df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 233
-df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 6498
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 16
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 137
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 4083
 df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
 df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
 df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
@@ -1729,16 +1782,50 @@ p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_
                                                                            scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='cr_tf_others_box_cnt_20_macro_3cell.pdf', dpi=300, height=4, width=4)
 
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6655984950690559
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.565262057878596
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.5331135601223107
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.7665129389451164
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.6918338217334038
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.6315503715085543
 
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.4161597254044507
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.4005924770661283
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.2156659261463783
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.03105355289359248
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.6851610027662458
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.9334925984335126
 
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.15954336841596595
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.021326851530636147
+
+## T-cells
+df = pd.read_csv('attn_no_norm_cnt_20_tcell_3cell.txt', header=None, sep='\t')
+df.columns = ['gene', 'attn']
+df = df.sort_values('attn', ascending=False)
+df.index = range(df.shape[0])
+
+df_cr = pd.DataFrame({'idx': 'CR', 'attn': df[df['gene'].isin(cr)]['attn'].values})               # 15
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 105
+df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 3105
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_tcell_3cell.pdf', dpi=300, height=4, width=4)
+
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6866661752571018
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.6766970426257376
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.6453717776836605
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.7907526703266188
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.05588771897861935
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.6684072216866288
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.060765003505965906
