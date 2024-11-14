@@ -1829,3 +1829,38 @@ stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
 
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
                 df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.060765003505965906
+
+
+
+###### rank genes based on attention score
+import pandas as pd
+import numpy as np
+from plotnine import *
+import matplotlib.pyplot as plt
+
+def plot_output_top(ct='bcell'):
+    df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
+    df.columns = ['gene', 'attn']
+    df = df_bcell.sort_values('attn', ascending=False)
+    df.index = range(df.shape[0])
+    df['Avg_attn'] =  df['attn']/20
+    df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
+    df['Avg_attn_norm'] = df['Avg_attn_norm']/(df['Avg_attn_norm'].max())
+    df_top10 = df[:10]
+    gene_top10 = list(df_top10['gene'])
+    gene_top10.reverse()
+    df_top10['gene'] = pd.Categorical(df_top10['gene'], categories=gene_top10)
+
+    plt.rcParams['pdf.fonttype'] = 42
+    p = ggplot(df_top10) + aes(x='gene', y='Avg_attn_norm') + geom_segment(aes(x='gene', xend='gene', y=0.95, yend='Avg_attn_norm'), color='red', size=1) + \
+                                                              geom_point(color='red', size=3) + coord_flip() + \
+                                                              xlab('Genes') + ylab('Attn') + labs(title=ct) + \
+                                                              scale_y_continuous(limits=[0.95, 1], breaks=np.arange(0.95, 1+0.01, 0.01)) + \
+                                                              theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+    p.save(filename='top10_lollipp_'+ct+'.pdf', dpi=300, height=4, width=5)
+    
+    df[:100]['gene'].to_csv('gene_top100_'+ct+'.txt', header=None, index=None)
+
+plot_output_top(ct='bcell')
+
+
