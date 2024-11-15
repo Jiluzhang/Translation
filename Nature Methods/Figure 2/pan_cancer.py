@@ -1841,7 +1841,7 @@ import matplotlib.pyplot as plt
 def plot_output_top(ct='bcell'):
     df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
     df.columns = ['gene', 'attn']
-    df = df_bcell.sort_values('attn', ascending=False)
+    df = df.sort_values('attn', ascending=False)
     df.index = range(df.shape[0])
     df['Avg_attn'] =  df['attn']/20
     df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
@@ -1862,5 +1862,7 @@ def plot_output_top(ct='bcell'):
     df[:100]['gene'].to_csv('gene_top100_'+ct+'.txt', header=None, index=None)
 
 plot_output_top(ct='bcell')
-
-
+plot_output_top(ct='endo')
+plot_output_top(ct='fibro')
+plot_output_top(ct='macro')
+plot_output_top(ct='tcell')
