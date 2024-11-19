@@ -1674,7 +1674,7 @@ df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].value
 df_others = pd.DataFrame({'idx': 'Others', 'attn': df[~df['gene'].isin(cr+tf)]['attn'].values})   # 3213
 df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
 df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
-df_cr_tf_others['Avg_attn'] =  df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn'] = df_cr_tf_others['attn']/20  # 20 cells
 df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
 df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
 
@@ -1866,3 +1866,108 @@ plot_output_top(ct='endo')
 plot_output_top(ct='fibro')
 plot_output_top(ct='macro')
 plot_output_top(ct='tcell')
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+def ext_cr_tf(ct='bcell'):
+    df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
+    df.columns = ['gene', 'attn']
+    df = df.sort_values('attn', ascending=False)
+    df.index = range(df.shape[0])
+    df['Avg_attn'] =  df['attn']/20
+    df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
+    df['Avg_attn_norm'] = df['Avg_attn_norm']/(df['Avg_attn_norm'].max())
+    df = df[df['gene'].isin(cr_tf)]
+    df.index = range(df.shape[0])
+    del df['attn']
+    del df['Avg_attn']
+    del df['Avg_attn_norm']
+    #df[ct+'_rank'] = list(reversed(range(1, df.shape[0]+1)))
+    df[ct+'_rank'] = range(1, df.shape[0]+1)
+    return df
+
+bcell = ext_cr_tf(ct='bcell')
+endo = ext_cr_tf(ct='endo')
+fibro = ext_cr_tf(ct='fibro')
+macro = ext_cr_tf(ct='macro')
+tcell = ext_cr_tf(ct='tcell')
+
+bcell_endo = pd.merge(bcell, endo, how='outer')
+fibro_macro = pd.merge(fibro, macro, how='outer')
+tcell_not = pd.merge(bcell_endo, fibro_macro, how='outer')
+cells = pd.merge(tcell_not, tcell, how='outer')
+cells.fillna(500, inplace=True)
+
+bcell_top100_lst = list(cells.sort_values('bcell_rank')['gene'])[:100]
+endo_top100_lst = list(cells.sort_values('endo_rank')['gene'])[:100]
+fibro_top100_lst = list(cells.sort_values('fibro_rank')['gene'])[:100]
+macro_top100_lst = list(cells.sort_values('macro_rank')['gene'])[:100]
+tcell_top100_lst = list(cells.sort_values('tcell_rank')['gene'])[:100]
+
+bcell_spe_lst = [i for i in bcell_top100_lst if i not in (endo_top100_lst+fibro_top100_lst+macro_top100_lst+tcell_top100_lst)]   # 13
+endo_spe_lst = [i for i in endo_top100_lst if i not in (bcell_top100_lst+fibro_top100_lst+macro_top100_lst+tcell_top100_lst)]    # 10
+fibro_spe_lst = [i for i in fibro_top100_lst if i not in (bcell_top100_lst+endo_top100_lst+macro_top100_lst+tcell_top100_lst)]   # 18
+macro_spe_lst = [i for i in macro_top100_lst if i not in (bcell_top100_lst+endo_top100_lst+fibro_top100_lst+tcell_top100_lst)]   # 14
+tcell_spe_lst = [i for i in tcell_top100_lst if i not in (bcell_top100_lst+endo_top100_lst+fibro_top100_lst+macro_top100_lst)]   # 14
+
+common_lst = [i for i in bcell_top100_lst if ((i in endo_top100_lst) & (i in fibro_top100_lst) & (i in macro_top100_lst) & (i in tcell_top100_lst))]  # 28
+
+lst = bcell_spe_lst + endo_spe_lst + fibro_spe_lst + macro_spe_lst + tcell_spe_lst  # exclude common factors
+cells.index = cells['gene'].values
+df = cells.loc[lst]
+
+import seaborn as sns
+
+
+# sns.clustermap(1/df.iloc[:, 1:], cmap='viridis', row_cluster=False, col_cluster=False, standard_scale=0) 
+# sns.clustermap(1/(np.log10(df.iloc[:, 1:])+1), cmap='viridis', row_cluster=False, col_cluster=False, standard_scale=0) 
+sns.clustermap(1/(df.iloc[:, 1:]), cmap='viridis', row_cluster=False, col_cluster=False, z_score=0, vmin=-2, vmax=2, figsize=(5, 20)) 
+plt.savefig('cell_specific_factor_heatmap.pdf')
+plt.close()
+
+
+
+# sns.clustermap(df, cmap='RdBu_r', z_score=0, vmin=-4, vmax=4, row_cluster=False, col_cluster=False, yticklabels=False) 
+# #plt.savefig('marker_peak_heatmap_true_true.pdf')
+# sns.clustermap(np.log10(df*1000000+1), row_cluster=False, col_cluster=False, yticklabels=False) 
+# plt.savefig('tmp.pdf')
+# plt.close()
+
+
+# def plot_output_top_cr_tf(ct='bcell'):
+#     df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
+#     df.columns = ['gene', 'attn']
+#     df = df.sort_values('attn', ascending=False)
+#     df.index = range(df.shape[0])
+#     df['Avg_attn'] =  df['attn']/20
+#     df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
+#     df['Avg_attn_norm'] = df['Avg_attn_norm']/(df['Avg_attn_norm'].max())
+#     df_top10 = df[df['gene'].isin(cr_tf)][:10]
+#     gene_top10 = list(df_top10['gene'])
+#     gene_top10.reverse()
+#     df_top10['gene'] = pd.Categorical(df_top10['gene'], categories=gene_top10)
+
+#     plt.rcParams['pdf.fonttype'] = 42
+#     p = ggplot(df_top10) + aes(x='gene', y='Avg_attn_norm') + geom_segment(aes(x='gene', xend='gene', y=0.95, yend='Avg_attn_norm'), color='red', size=1) + \
+#                                                               geom_point(color='red', size=3) + coord_flip() + \
+#                                                               xlab('Genes') + ylab('Attn') + labs(title=ct) + \
+#                                                               scale_y_continuous(limits=[0.95, 1], breaks=np.arange(0.95, 1+0.01, 0.01)) + \
+#                                                               theme_bw() + theme(plot_title=element_text(hjust=0.5)) 
+#     p.save(filename='top10_lollipp_'+ct+'.pdf', dpi=300, height=4, width=5)
+    
+#     df[:100]['gene'].to_csv('gene_top100_'+ct+'.txt', header=None, index=None)
+
+# plot_output_top_cr_tf(ct='bcell')
+# plot_output_top_cr_tf(ct='endo')
+# plot_output_top_cr_tf(ct='fibro')
+# plot_output_top_cr_tf(ct='macro')
+# plot_output_top_cr_tf(ct='tcell')
