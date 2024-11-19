@@ -1927,11 +1927,8 @@ df = cells.loc[lst]
 
 import seaborn as sns
 
-
-# sns.clustermap(1/df.iloc[:, 1:], cmap='viridis', row_cluster=False, col_cluster=False, standard_scale=0) 
-# sns.clustermap(1/(np.log10(df.iloc[:, 1:])+1), cmap='viridis', row_cluster=False, col_cluster=False, standard_scale=0) 
-sns.clustermap(1/(df.iloc[:, 1:]), cmap='viridis', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.5, vmax=1.5, figsize=(5, 20)) 
-sns.clustermap(1/(df.iloc[:, 1:]), cmap='viridis', row_cluster=False, col_cluster=False, standard_scale=0, figsize=(5, 20)) 
+plt.rcParams['pdf.fonttype'] = 42
+sns.clustermap(1/(df.iloc[:, 1:]), cmap='viridis', row_cluster=False, col_cluster=False, z_score=0, vmin=-1, vmax=1, figsize=(5, 20)) 
 plt.savefig('cell_specific_factor_heatmap.pdf')
 plt.close()
 
