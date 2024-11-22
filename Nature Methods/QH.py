@@ -4,6 +4,8 @@ from scipy.sparse import csr_matrix
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import spearmanr
+
 
 def intersect_adata(adata1, adata2):
     """intersect two adata by their obs and var indices, and drop NA in obs and var
@@ -101,6 +103,14 @@ def gene_wise_correlations(predict_rna, raw_rna, plot=False):
     # plot peason correlation
     raw_gp_corr = predict_rna.var.copy()
     raw_gp_corr = raw_gp_corr.dropna()
+
+    # Spearman Correlation
+    raw_gs_corr_value = [spearmanr(predict_array[:, j], raw_array[:, j]) for j in range(raw_array.shape[1])]
+    predict_rna.var["spearman_corr"] = [each[0] for each in raw_gs_corr_value]
+    predict_rna.var["spearman_p_value"] = [each[1] for each in raw_gs_corr_value]
+    # plot spearman correlation
+    raw_gs_corr = predict_rna.var.copy()
+    raw_gs_corr = raw_gs_corr.dropna()
     
     return predict_rna
 
@@ -116,7 +126,7 @@ def plot_comparing_scatter_plot(
     data = pd.DataFrame({'x': xdata, 'y': ydata})
     data['Color'] = np.where(data['x'] > data['y'], 'Better', 'Worse')
     palette = {'Better': 'orangered', 'Worse': 'dodgerblue'}
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(8, 8))  # set width equal to height
     sns.scatterplot(data=data, x='x', y='y', hue='Color', palette=palette, edgecolor=None, alpha=1, s=5)  # 's' is to set size
     plt.plot([0, 1], [0, 1], linestyle='--', color='black')
     plt.title(title)
@@ -130,9 +140,16 @@ def plot_comparing_scatter_plot(
     return None
 
 
+## archr
 predict_rna_0, archr_rna_0 = intersect_adata(predict_rna, f_archr_rna)
 predict_rna_0, raw_rna_0 = intersect_adata(predict_rna_0, raw_rna)
 predict_rna_1 = gene_wise_correlations(predict_rna_0, raw_rna_0)
 archr_rna_1 = gene_wise_correlations(archr_rna_0, raw_rna_0)
 plot_comparing_scatter_plot(predict_rna_1.var["peason_corr"].to_list(), archr_rna_1.var["peason_corr"].to_list(), title="", xlabel='cisformer', ylabel='archr', save_name='CA_pearson_scatter.pdf')
 
+## scarlink
+predict_rna_0, scarlink_rna_0 = intersect_adata(predict_rna, scarlink_rna)  # not use f_scarlink_rna???
+predict_rna_0, raw_rna_0 = intersect_adata(predict_rna_0, raw_rna)
+predict_rna_1 = gene_wise_correlations(predict_rna_0, raw_rna_0)
+scarlink_rna_1 = gene_wise_correlations(scarlink_rna_0, raw_rna_0)
+plot_comparing_scatter_plot(predict_rna_1.var["peason_corr"].to_list(), scarlink_rna_1.var["peason_corr"].to_list(), title="", xlabel='cisformer', ylabel='scarlink', save_name='CS_pearson_scatter.pdf')
