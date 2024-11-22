@@ -150,6 +150,10 @@ plot_comparing_scatter_plot(predict_rna_1.var["peason_corr"].to_list(), archr_rn
 ## scarlink
 predict_rna_0, scarlink_rna_0 = intersect_adata(predict_rna, scarlink_rna)  # not use f_scarlink_rna???
 predict_rna_0, raw_rna_0 = intersect_adata(predict_rna_0, raw_rna)
+# scarlink_rna_0.X[raw_rna_0.X == 0] = 0
 predict_rna_1 = gene_wise_correlations(predict_rna_0, raw_rna_0)
 scarlink_rna_1 = gene_wise_correlations(scarlink_rna_0, raw_rna_0)
+# plot_comparing_scatter_plot(predict_rna_1.var["peason_corr"].to_list(), scarlink_rna_1.var["peason_corr"].to_list(), title="", xlabel='cisformer', ylabel='scarlink', save_name='test_pearson.pdf')
+# plot_comparing_scatter_plot(predict_rna_1.var["spearman_corr"].to_list(), scarlink_rna_1.var["spearman_corr"].to_list(), title="", xlabel='cisformer', ylabel='scarlink', save_name='test_spearman.pdf')
 plot_comparing_scatter_plot(predict_rna_1.var["peason_corr"].to_list(), scarlink_rna_1.var["peason_corr"].to_list(), title="", xlabel='cisformer', ylabel='scarlink', save_name='CS_pearson_scatter.pdf')
+plot_comparing_scatter_plot(predict_rna_1.var["spearman_corr"].to_list(), scarlink_rna_1.var["spearman_corr"].to_list(), title="", xlabel='cisformer', ylabel='scarlink', save_name='CS_spearman_scatter.pdf')
