@@ -15,8 +15,13 @@ atac = dat[:, dat.var['feature_types']=='Peaks'].copy()            # 14652 × 65
 atac.X[atac.X!=0] = 1
 atac.write('atac.h5ad')
 
+conda create -n cisformer_Luz --clone /data/home/zouqihang/miniconda3/envs/cisformer
+pip install torcheval
+conda activate cisformer_Luz
+
 python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_pan_cancer > rna2atac_train_20241025.log &   # gamma_step:1  gamma:0.5
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_aging > rna2atac_train_20241210.log &   # gamma_step:1  gamma:0.5
+# 3542410
