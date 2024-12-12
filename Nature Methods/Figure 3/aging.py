@@ -13,7 +13,7 @@ rna.write('rna.h5ad')
 
 atac = dat[:, dat.var['feature_types']=='Peaks'].copy()            # 14652 × 65352
 atac.X[atac.X!=0] = 1
-atac.write('atac.h5ad')
+atac.write('atac.h5ad')  # peak number is not very high
 
 conda create -n cisformer_Luz --clone /data/home/zouqihang/miniconda3/envs/cisformer
 pip install torcheval
@@ -72,10 +72,17 @@ python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
 
-
 #### 1_1_epoch_15
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
                   -d ./test_pt -l save/2024-12-12_rna2atac_aging_15/pytorch_model.bin --config_file rna2atac_config_test_1_1.yaml
+python npy2h5ad.py
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+
+#### 1_1_epoch_30 (not better than epoch_15)
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./test_pt -l save/2024-12-12_rna2atac_aging_30/pytorch_model.bin --config_file rna2atac_config_test_1_1.yaml
 python npy2h5ad.py
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
