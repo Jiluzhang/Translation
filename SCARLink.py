@@ -1,7 +1,7 @@
 ## SCARlink
 # https://github.com/snehamitra/SCARlink
 
-#### Installation
+############################################ Installation #######################################################################################################################
 conda create -n scarlink-env python=3.8.10
 conda activate scarlink-env
 
@@ -16,34 +16,19 @@ install.packages('BiocManager')
 BiocManager::install("rhdf5")
 BiocManager::install("GenomeInfoDbData")
 
+conda install gsl
 BiocManager::install("chromVAR")
 BiocManager::install("motifmatchr")
 
-
 BiocManager::install("ComplexHeatmap")
 
+devtools::install_github("GreenleafLab/ArchR", ref="master", repos = BiocManager::repositories())
 
-1: In install.packages(...) :
-  installation of package ‘DirichletMultinomial’ had non-zero exit status
-2: In install.packages(...) :
-  installation of package ‘TFBSTools’ had non-zero exit status
-3: In install.packages(...) :
-  installation of package ‘chromVAR’ had non-zero exit status
+wget -c https://codeload.github.com/snehamitra/SCARlink/zip/refs/heads/main  # git clone https://github.com/snehamitra/SCARlink.git
+pip install -e SCARlink-main
+################################################################################################################################################################################
 
-
-conda install -c conda-forge r-seurat 
-
-r-devtools r-biocmanager
-conda install -c bioconda bioconductor-rhdf5 \
-      	      	          bioconductor-genomeinfodbdata \
-                          bioconductor-chromvar \
-                          bioconductor-motifmatchr \
-                          bioconductor-complexheatmap
-devtools::install_github("GreenleafLab/ArchR", ref="master", repos=BiocManager::repositories())
-
-
-
-
+conda activate /fs/home/jiluzhang/softwares/miniconda3/envs/scarlink-env
 
 
 conda activate /data/home/zouqihang/miniconda3/envs/scarlink-env
