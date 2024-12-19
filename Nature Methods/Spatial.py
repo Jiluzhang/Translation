@@ -75,6 +75,50 @@ atac_new.X = csr_matrix(atac_new.X)   # 2172 × 217893
 atac_new.write('spatial_atac_test.h5ad')
 ########################################################################################################################################################################
 
+#### plot true umap for val
+import snapatac2 as snap
+import scanpy as sc
 
+atac = sc.read_h5ad('atac_val.h5ad')
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_atac_val_true.pdf')
+
+#### val prediction
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s test_pt --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+
+
+#### plot true umap for test
+import snapatac2 as snap
+import scanpy as sc
+
+atac = sc.read_h5ad('spatial_atac_test.h5ad')
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)
+snap.tl.umap(atac)
+snap.pp.knn(atac)
+snap.tl.leiden(atac)
+atac.obs['cell_anno'] = atac.obs['leiden']
+sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_atac_test_true.pdf')
+atac.write('spatial_atac_test_leiden.h5ad')
+
+
+#### spatial prediction
+python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 
