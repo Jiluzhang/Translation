@@ -122,3 +122,52 @@ python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 
+#### plot spatial pattern
+# cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
+
+import scanpy as sc
+import pandas as pd
+import numpy as np
+
+atac = sc.read_h5ad('atac_test.h5ad')
+
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+
+(atac.var['chrom']=='chr22') & (atac.var['start']<119424985) & (atac.var['end']>119424985)
+
+
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos.index = pos[0].values
+
+mat = np.zeros([50, 50])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
