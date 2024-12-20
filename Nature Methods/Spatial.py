@@ -122,7 +122,7 @@ python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 
-#### plot spatial pattern
+#### plot spatial pattern for ground truth
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
 # barcode    in_tissue    array_row    array_column    pxl_col_in_fullres    pxl_row_in_fullres
 
@@ -138,42 +138,135 @@ atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
 atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
 atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
 
-# atac.var[(atac.var['chrom']=='chr11') & (abs(atac.var['start']-119424985)<2000)].index
-# Index(['chr11:119423074-119423415', 'chr11:119423495-119423658'], dtype='object')
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos = pos.iloc[:, [0, 2, 3]]
+pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
 
-# df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
-#                         'peak':atac.X[:, np.argwhere(atac.var.index=='chr11:119423495-119423658').item()].toarray().flatten()})  # too sparse
-
+## THY1
 df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
                         'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
+df_thy1_pos = pd.merge(df_thy1, pos)
+
+mat_thy1 = np.zeros([50, 50])
+for i in range(df_thy1_pos.shape[0]):
+    if df_thy1_pos['peak'][i]!=0:
+        mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_THY1_true.pdf')
+plt.close()
+
+## BCL11B
+df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
+                          'peak':atac.X[:, ((atac.var['chrom']=='chr14') & ((abs((atac.var['start']+atac.var['end'])*0.5-99272197)<50000)))].toarray().sum(axis=1)})
+df_bcl11b_pos = pd.merge(df_bcl11b, pos)
+
+mat_bcl11b = np.zeros([50, 50])
+for i in range(df_bcl11b_pos.shape[0]):
+    if df_bcl11b_pos['peak'][i]!=0:
+        mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_BCL11B_true.pdf')
+plt.close()
+
+
+#### plot spatial pattern for cisformer prediction
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+atac = sc.read_h5ad('atac_cisformer_umap.h5ad')
+
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
 
 pos = pd.read_csv('tissue_positions_list.csv', header=None)
 pos = pos.iloc[:, [0, 2, 3]]
 pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
 
+## THY1
+df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
+                        'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
 df_thy1_pos = pd.merge(df_thy1, pos)
 
-mat = np.zeros([50, 50])
-
+mat_thy1 = np.zeros([50, 50])
 for i in range(df_thy1_pos.shape[0]):
     if df_thy1_pos['peak'][i]!=0:
-        mat[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
+        mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
-plt.figure(figsize=(5, 5))
-sns.heatmap(mat, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
-plt.savefig('ATAC_THY1_true.pdf')
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_THY1_cisformer.pdf')
+plt.close()
+
+## BCL11B
+df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
+                          'peak':atac.X[:, ((atac.var['chrom']=='chr14') & ((abs((atac.var['start']+atac.var['end'])*0.5-99272197)<50000)))].toarray().sum(axis=1)})
+df_bcl11b_pos = pd.merge(df_bcl11b, pos)
+
+mat_bcl11b = np.zeros([50, 50])
+for i in range(df_bcl11b_pos.shape[0]):
+    if df_bcl11b_pos['peak'][i]!=0:
+        mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_BCL11B_cisformer.pdf')
 plt.close()
 
 
+#### cell spatial distribution
+import scanpy as sc
+import snapatac2 as snap
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos = pos.iloc[:, [0, 2, 3]]
+pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
 
+## plot for true
+atac_true = sc.read_h5ad('atac_test.h5ad')
 
+df_true = pd.DataFrame({'cell_idx':atac_true.obs.index, 'cell_anno':atac_true.obs.cell_anno.astype('int')+1})
+df_pos_true = pd.merge(df_true, pos)
 
+mat_true = np.zeros([50, 50])
+for i in range(df_pos_true.shape[0]):
+    if df_pos_true['cell_anno'][i]!=0:
+        mat_true[df_pos_true['X'][i], (49-df_pos_true['Y'][i])] = df_pos_true['cell_anno'][i]  # start from upper right
 
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_true, cmap=sns.color_palette(['grey', 'cyan', 'green', 'purple', 'orange', 'yellow', 'red']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_true.pdf')
+plt.close()
 
+## plot for cisformer
+atac_cisformer = sc.read_h5ad('atac_cisformer_umap.h5ad')
 
+snap.pp.knn(atac_cisformer)
+snap.tl.leiden(atac_cisformer, resolution=1)  # keep cluster number to 6 (resolution=0.7)
 
+df_cisformer = pd.DataFrame({'cell_idx':atac_cisformer.obs.index, 'cell_anno':atac_cisformer.obs.leiden.astype('int')+1})
+df_pos_cisformer = pd.merge(df_cisformer, pos)
 
+mat_cisformer = np.zeros([50, 50])
+for i in range(df_pos_cisformer.shape[0]):
+    if df_pos_cisformer['cell_anno'][i]!=0:
+        mat_cisformer[df_pos_cisformer['X'][i], (49-df_pos_cisformer['Y'][i])] = df_pos_cisformer['cell_anno'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_cisformer, cmap=sns.color_palette(['grey', 'pink', 'red', 'green', 'cyan', 'yellow', 'orange', 'black', 'brown']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_cisformer.pdf')
+plt.close()
 
 
 
