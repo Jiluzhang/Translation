@@ -124,6 +124,7 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 #### plot spatial pattern
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
+# barcode    in_tissue    array_row    array_column    pxl_col_in_fullres    pxl_row_in_fullres
 
 import scanpy as sc
 import pandas as pd
@@ -137,11 +138,14 @@ atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
 atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
 atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
 
-atac.var[(atac.var['chrom']=='chr11') & (abs(atac.var['start']-119424985)<2000)].index
+# atac.var[(atac.var['chrom']=='chr11') & (abs(atac.var['start']-119424985)<2000)].index
 # Index(['chr11:119423074-119423415', 'chr11:119423495-119423658'], dtype='object')
 
+# df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
+#                         'peak':atac.X[:, np.argwhere(atac.var.index=='chr11:119423495-119423658').item()].toarray().flatten()})  # too sparse
+
 df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
-                        'peak':atac.X[:, np.argwhere(atac.var.index=='chr11:119423495-119423658').item()-1].toarray().flatten()})  #!!!!!!!!!!!!!!!!!!!!!!
+                        'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
 
 pos = pd.read_csv('tissue_positions_list.csv', header=None)
 pos = pos.iloc[:, [0, 2, 3]]
@@ -153,10 +157,10 @@ mat = np.zeros([50, 50])
 
 for i in range(df_thy1_pos.shape[0]):
     if df_thy1_pos['peak'][i]!=0:
-        mat[df_thy1_pos['X'][i], df_thy1_pos['Y'][i]] = df_thy1_pos['peak'][i]
+        mat[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(5, 5))
-sns.heatmap(mat, cmap='Reds', linewidths=0.1, linecolor='grey', cbar=False)
+sns.heatmap(mat, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_true.pdf')
 plt.close()
 
