@@ -9,6 +9,10 @@ nohup accelerate launch --config_file accelerator_config_train.yaml --main_proce
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20241219.log &   # dec_depth:1  dec_heads:1  lr:2e-4  length:2048  mlt:40  gamma_step:5  gamma:0.5
 # 1917494
 
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_large.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save_large -n rna2atac_brain > 20241226.log &   # dec_depth:6  dec_heads:6  lr:2e-4  length:2048  mlt:40  gamma_step:5  gamma:0.5
+# 3775748
+
 
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_rna.h5ad .
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_atac.h5ad .
