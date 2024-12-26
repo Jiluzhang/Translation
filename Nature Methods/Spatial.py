@@ -269,8 +269,13 @@ plt.savefig('ATAC_spatial_cisformer.pdf')
 plt.close()
 
 
+#### scbutterfly
+nohup python scbt_b.py > scbt_b_20241226.log &   # 3280602
 
 
+#### BABEL
+python h5ad2h5.py -n train_val
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20241226.log &  # 3384749
 
 
 
