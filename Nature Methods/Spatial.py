@@ -272,12 +272,171 @@ plt.close()
 #### scbutterfly
 nohup python scbt_b.py > scbt_b_20241226.log &   # 3280602
 
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_scbt_umap.h5ad
+
+nohup python scbt_b_predict.py > scbt_b_predict.log &  # 3580964
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_scbt_umap.h5ad
+
+#### plot spatial pattern for scbt prediction
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import snapatac2 as snap
+
+atac = sc.read_h5ad('atac_scbt_umap.h5ad')
+atac_true = sc.read_h5ad('atac_test.h5ad')
+atac.var.index = atac_true.var.index.values
+
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos = pos.iloc[:, [0, 2, 3]]
+pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
+
+## THY1
+df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
+                        'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
+df_thy1_pos = pd.merge(df_thy1, pos)
+
+mat_thy1 = np.zeros([50, 50])
+for i in range(df_thy1_pos.shape[0]):
+    if df_thy1_pos['peak'][i]!=0:
+        mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_THY1_scbt.pdf')
+plt.close()
+
+## BCL11B
+df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
+                          'peak':atac.X[:, ((atac.var['chrom']=='chr14') & ((abs((atac.var['start']+atac.var['end'])*0.5-99272197)<50000)))].toarray().sum(axis=1)})
+df_bcl11b_pos = pd.merge(df_bcl11b, pos)
+
+mat_bcl11b = np.zeros([50, 50])
+for i in range(df_bcl11b_pos.shape[0]):
+    if df_bcl11b_pos['peak'][i]!=0:
+        mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_BCL11B_scbt.pdf')
+plt.close()
+
+## spatial
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=1)
+
+df_scbt = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')+1})
+df_pos_scbt = pd.merge(df_scbt, pos)
+
+mat_scbt = np.zeros([50, 50])
+for i in range(df_pos_scbt.shape[0]):
+    if df_pos_scbt['cell_anno'][i]!=0:
+        mat_scbt[df_pos_scbt['X'][i], (49-df_pos_scbt['Y'][i])] = df_pos_scbt['cell_anno'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_scbt, cmap=sns.color_palette(['grey', 'pink', 'brown', 'purple', 'cyan', 'green', 'black', 'red', 'bisque', 'blue', 'orange']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_scbt.pdf')
+plt.close()
+
 
 #### BABEL
 python h5ad2h5.py -n train_val
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20241226.log &  # 3384749
 
+python h5ad2h5.py -n test
+nohup python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 1 --nofilter --noplot --transonly > predict_20241226.log &
+# 3582789
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
 
+python h5ad2h5.py -n test
+nohup python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ../train_out --data test.h5 --outdir test_out --device 1 --nofilter --noplot --transonly > predict_20241226.log &
+# 3593000
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
+
+#### plot spatial pattern for scbt prediction
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import snapatac2 as snap
+
+atac = sc.read_h5ad('atac_babel_umap.h5ad')
+atac_true = sc.read_h5ad('atac_test.h5ad')
+atac.var.index = atac_true.var.index.values
+
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos = pos.iloc[:, [0, 2, 3]]
+pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
+
+## THY1
+df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
+                        'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
+df_thy1_pos = pd.merge(df_thy1, pos)
+
+mat_thy1 = np.zeros([50, 50])
+for i in range(df_thy1_pos.shape[0]):
+    if df_thy1_pos['peak'][i]!=0:
+        mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_THY1_babel.pdf')
+plt.close()
+
+## BCL11B
+df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
+                          'peak':atac.X[:, ((atac.var['chrom']=='chr14') & ((abs((atac.var['start']+atac.var['end'])*0.5-99272197)<50000)))].toarray().sum(axis=1)})
+df_bcl11b_pos = pd.merge(df_bcl11b, pos)
+
+mat_bcl11b = np.zeros([50, 50])
+for i in range(df_bcl11b_pos.shape[0]):
+    if df_bcl11b_pos['peak'][i]!=0:
+        mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_BCL11B_babel.pdf')
+plt.close()
+
+## spatial
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=1)
+
+df_babel = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')+1})
+df_pos_babel = pd.merge(df_babel, pos)
+
+mat_babel = np.zeros([50, 50])
+for i in range(df_pos_babel.shape[0]):
+    if df_pos_babel['cell_anno'][i]!=0:
+        mat_babel[df_pos_babel['X'][i], (49-df_pos_babel['Y'][i])] = df_pos_babel['cell_anno'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_babel, cmap=sns.color_palette(['grey', 'pink', 'red', 'purple', 'cyan', 'green', 'black', 'brown', 'bisque', 'blue', 'orange']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_babel.pdf')
+plt.close()
 
 
 
