@@ -118,6 +118,8 @@ atac.write('spatial_atac_test_leiden.h5ad')
 
 #### spatial prediction
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
+
+## few parameters
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
                   -d ./spatial_test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
@@ -125,6 +127,13 @@ python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
 
+## more parameters
+accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l save_large/2024-12-26_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 #### plot spatial pattern for ground truth
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
