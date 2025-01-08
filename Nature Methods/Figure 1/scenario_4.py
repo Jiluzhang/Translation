@@ -140,8 +140,6 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # HOM: 0.759
 # NMI: 0.613
 
-
-
 #### scbutterfly
 ## python scbt_b_predict.py  # 10 min
 import os
