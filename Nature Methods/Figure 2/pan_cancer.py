@@ -693,6 +693,25 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 # NMI: 0.5396
 
 
+#### plot metrics comparison
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+dat = pd.DataFrame({'val': [0.5387, 0.3473, 0.7428, 0.5396, 0.5018, 0.2915, 0.7154, 0.5029, 0.5630, 0.3648, 0.7824, 0.5640]})
+dat['alg'] = ['babel']*4 + ['scbt']*4 + ['cifm']*4
+dat['alg'] = pd.Categorical(dat['alg'], categories=['babel', 'scbt', 'cifm'])
+dat['evl'] = ['ARI', 'AMI', 'NMI', 'HOM']*3
+dat['evl'] = pd.Categorical(dat['evl'], categories=['AMI', 'NMI', 'ARI', 'HOM'])
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(dat, aes(x='factor(evl)', y='val', fill='alg')) + geom_bar(stat='identity', position=position_dodge()) + xlab('') + ylab('') +\
+                                                             scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='babel_scbt_cifm_ari_ami_nmi_hom.pdf', dpi=600, height=4, width=5)
+
+
+
 #### marker peak overlap
 ## add 'zmin=zmin, zmax=zmax' & 'zmin: int = 0, zmax: int = 5' to '/fs/home/jiluzhang/softwares/miniconda3/envs/snapatac2/lib/python3.8/site-packages/snapatac2/plotting/__init__.py'
 ## 'return render_plot(fig, width, height, interactive, show, out_file)' -> 'return mat, render_plot(fig, width, height, interactive, show, out_file)'
@@ -1830,6 +1849,32 @@ stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
 stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
                 df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.060765003505965906
 
+
+#### specific tf families
+# tf_family is the subclass of tf_class
+# wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_non-redundant_pfms_transfac.txt
+# grep "ID " JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/ID //g' | awk '{print toupper($0)}' > tf_ref_id.txt
+# grep "tf_family" JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/CC tf_family://g' > tf_ref_family.txt
+# grep "CC tax_group" JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/CC tax_group://g' > tf_ref_tax.txt
+
+import pandas as pd
+
+tf = pd.read_table('TF_jaspar.txt', header=None)
+tf.rename(columns={0: 'id'}, inplace=True)
+
+tf_ref_id = pd.read_table('tf_ref_id.txt', header=None)
+tf_ref_id.rename(columns={0: 'id'}, inplace=True)
+
+tf_ref_family = pd.read_table('tf_ref_family.txt', header=None, skip_blank_lines=False)
+tf_ref_family.rename(columns={0: 'family'}, inplace=True)
+
+tf_ref_tax = pd.read_table('tf_ref_tax.txt', header=None)
+tf_ref_tax.rename(columns={0: 'tax'}, inplace=True)
+
+tf_ref = pd.concat([tf_ref_tax, tf_ref_id, tf_ref_family], axis=1)
+
+
+############################################################# HERE #############################################################
 
 
 ###### rank genes based on attention score
