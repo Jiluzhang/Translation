@@ -1855,9 +1855,17 @@ stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm
 # wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_non-redundant_pfms_transfac.txt
 # grep "ID " JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/ID //g' | awk '{print toupper($0)}' > tf_ref_id.txt
 # grep "tf_family" JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/CC tf_family://g' > tf_ref_family.txt
+# grep "tf_class" JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/CC tf_class://g' > tf_ref_class.txt
 # grep "CC tax_group" JASPAR2024_CORE_non-redundant_pfms_transfac.txt | sed 's/CC tax_group://g' > tf_ref_tax.txt
+# tf_class: 65
+# tf_family: 161
 
+import scanpy as sc
 import pandas as pd
+import numpy as np
+from plotnine import *
+from scipy import stats
+import matplotlib.pyplot as plt
 
 tf = pd.read_table('TF_jaspar.txt', header=None)
 tf.rename(columns={0: 'id'}, inplace=True)
@@ -1865,16 +1873,67 @@ tf.rename(columns={0: 'id'}, inplace=True)
 tf_ref_id = pd.read_table('tf_ref_id.txt', header=None)
 tf_ref_id.rename(columns={0: 'id'}, inplace=True)
 
+tf_ref_class = pd.read_table('tf_ref_class.txt', header=None, skip_blank_lines=False)
+tf_ref_class.rename(columns={0: 'class'}, inplace=True)
+
 tf_ref_family = pd.read_table('tf_ref_family.txt', header=None, skip_blank_lines=False)
 tf_ref_family.rename(columns={0: 'family'}, inplace=True)
 
 tf_ref_tax = pd.read_table('tf_ref_tax.txt', header=None)
 tf_ref_tax.rename(columns={0: 'tax'}, inplace=True)
 
-tf_ref = pd.concat([tf_ref_tax, tf_ref_id, tf_ref_family], axis=1)
+tf_ref = pd.concat([tf_ref_tax, tf_ref_id, tf_ref_class, tf_ref_family], axis=1)
+tf_ref = tf_ref[tf_ref['tax']=='vertebrates'].drop_duplicates().dropna()
+tf_dict = pd.merge(tf, tf_ref, how='left', on='id')[['id', 'class', 'family']]
+tf_dict.columns = ['gene', 'class', 'family']
+
+rna = sc.read_h5ad('../rna_test_bcell_20.h5ad')
+
+## B cells
 
 
-############################################################# HERE #############################################################
+#####################################################################################################################################################################
+#####################################################################################################################################################################
+#####################################################################################################################################################################
+#####################################################################################################################################################################
+#####################################################################################################################################################################
+
+
+
+# b_cell_tf_family = ['E2A', 'Early B-Cell Factor-related factors', 'Paired domain only', 'Paired plus homeo domain']
+df_attn = pd.read_csv('attn_no_norm_cnt_20_bcell_3cell.txt', header=None, sep='\t')
+df_attn.columns = ['gene', 'attn']
+
+tf_attn = pd.merge(tf_dict, df_attn)
+
+df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 108
+df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
+df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
+df_cr_tf_others['Avg_attn'] = df_cr_tf_others['attn']/20  # 20 cells
+df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
+df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cr_tf_others_box_cnt_20_bcell_3cell.pdf', dpi=300, height=4, width=4)
+
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6955349610735737
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.6640555687558144
+np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.6271017256046776
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.3200225406455772
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.02460240862081797
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.8168420631826141
+
+stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
+                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.014787446940820742
+
+
+
 
 
 ###### rank genes based on attention score
