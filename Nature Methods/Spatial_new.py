@@ -1,18 +1,13 @@
-## workdir: /fs/home/jiluzhang/Nature_methods/Spatial
+## workdir: /fs/home/jiluzhang/Nature_methods/Spatial_new
 # cp /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/rna.h5ad rna.h5ad     # 2597 × 17699
 # cp /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/atac.h5ad atac.h5ad   # 2597 × 217893
 
 python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20241219.log &   # dec_depth:1  dec_heads:1  lr:2e-4  length:2048  mlt:40  gamma_step:5  gamma:0.5
-# 1917494
 
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_large.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save_large -n rna2atac_brain > 20241226.log &   # dec_depth:6  dec_heads:6  lr:2e-4  length:2048  mlt:40  gamma_step:5  gamma:0.5
-# 3775748
-
 
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_rna.h5ad .
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_atac.h5ad .
@@ -26,24 +21,22 @@ from scipy.sparse import csr_matrix
 rna = sc.read_h5ad('spatial_rna.h5ad')  #  2500 × 38244
 
 sc.pp.filter_genes(rna, min_cells=10)       # 2500 × 13997
-sc.pp.filter_cells(rna, min_genes=200)      # 2196 × 13997
-sc.pp.filter_cells(rna, max_genes=20000)    # 2196 × 13997
-rna.obs['n_genes'].max()                    # 6589
+# sc.pp.filter_cells(rna, min_genes=200)      # 2196 × 13997  (do not filter cells)
+# sc.pp.filter_cells(rna, max_genes=20000)    # 2196 × 13997
+np.count_nonzero(rna.X.toarray(), axis=1).max()   # 6589
 
 atac = sc.read_h5ad('spatial_atac.h5ad')  #  2500 × 1033239
 
 sc.pp.filter_genes(atac, min_cells=10)       # 2500 × 657953
-sc.pp.filter_cells(atac, min_genes=500)      # 2429 × 657953
-sc.pp.filter_cells(atac, max_genes=50000)    # 2424 × 657953
-atac.obs['n_genes'].max()                    # 48867
+# sc.pp.filter_cells(atac, min_genes=500)      # 2429 × 657953
+# sc.pp.filter_cells(atac, max_genes=50000)    # 2424 × 657953
+np.count_nonzero(atac.X.toarray(), axis=1).max()   # 60239
 
 idx = np.intersect1d(rna.obs.index, atac.obs.index)
-del rna.obs['n_genes']
 del rna.var['n_cells']
-rna[idx, :].copy().write('spatial_rna_filtered.h5ad')     # 2172 × 13997
-del atac.obs['n_genes']
+rna[idx, :].copy().write('spatial_rna_filtered.h5ad')     # 2500 × 13997
 del atac.var['n_cells']
-atac[idx, :].copy().write('spatial_atac_filtered.h5ad')   # 2172 × 657953
+atac[idx, :].copy().write('spatial_atac_filtered.h5ad')   # 2500 × 657953
 
 rna = rna[idx, :].copy()
 atac = atac[idx, :].copy()
@@ -52,15 +45,15 @@ rna_ref = sc.read_h5ad('./rna.h5ad')   # 2597 × 17699
 genes = rna_ref.var[['gene_ids']].copy()
 genes['gene_name'] = genes.index.values
 genes.reset_index(drop=True, inplace=True)
-rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.T, index=rna.var.index)], axis=1)
+rna_exp = pd.concat([rna.var, pd.DataFrame(rna.X.toarray().T, index=rna.var.index)], axis=1)
 X_new = pd.merge(genes, rna_exp, how='left', on='gene_ids').iloc[:, 3:].T
 X_new.fillna(value=0, inplace=True)
 rna_new = sc.AnnData(X_new.values, obs=rna.obs, var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'})) 
 # rna_new = sc.AnnData(X_new.values, obs=rna.obs[['cell_anno']], var=pd.DataFrame({'gene_ids': genes['gene_ids'], 'feature_types': 'Gene Expression'}))
 rna_new.var.index = genes['gene_name'].values
-rna_new.X = csr_matrix(rna_new.X)   # 2172 × 17699
+rna_new.X = csr_matrix(rna_new.X)   # 2500 × 17699
 rna_new.write('spatial_rna_test.h5ad')
-np.count_nonzero(rna_new.X.toarray(), axis=1).max()  # 6287
+np.count_nonzero(rna_new.X.toarray(), axis=1).max()  # 6423
 
 ## atac
 atac_ref = sc.read_h5ad('./atac.h5ad')   # 2597 × 217893
@@ -68,68 +61,69 @@ atac_ref = sc.read_h5ad('./atac.h5ad')   # 2597 × 217893
 peaks = atac_ref.var[['gene_ids']].copy()
 peaks['gene_name'] = peaks.index.values
 peaks.reset_index(drop=True, inplace=True)
-atac.X = atac.X.toarray()
 atac_exp = pd.concat([atac.var, pd.DataFrame(atac.X.T, index=atac.var.index)], axis=1)
 X_new = pd.merge(peaks, atac_exp, how='left', on='gene_ids').iloc[:, 3:].T
 X_new.fillna(value=0, inplace=True)
 atac_new = sc.AnnData(X_new.values, obs=atac.obs, var=pd.DataFrame({'gene_ids': peaks['gene_ids'], 'feature_types': 'Peaks'}))
 # atac_new = sc.AnnData(X_new.values, obs=atac.obs[['cell_anno']], var=pd.DataFrame({'gene_ids': peaks['gene_ids'], 'feature_types': 'Peaks'}))
 atac_new.var.index = peaks['gene_name'].values
-atac_new.X = csr_matrix(atac_new.X)   # 2172 × 217893
+atac_new.X = csr_matrix(atac_new.X)   # 2500 × 217893
 atac_new.write('spatial_atac_test.h5ad')
 ########################################################################################################################################################################
 
 #### plot true umap for val
-import snapatac2 as snap
-import scanpy as sc
+# import snapatac2 as snap
+# import scanpy as sc
 
-atac = sc.read_h5ad('atac_val.h5ad')
-snap.pp.select_features(atac)
-snap.tl.spectral(atac)
-snap.tl.umap(atac)
-sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_atac_val_true.pdf')
+# atac = sc.read_h5ad('atac_val.h5ad')
+# snap.pp.select_features(atac)
+# snap.tl.spectral(atac)
+# snap.tl.umap(atac)
+# sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True, save='_atac_val_true.pdf')
 
 #### val prediction
-python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s test_pt --dt test --config rna2atac_config_test.yaml
-accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
-python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_cluster.py --file atac_cisformer_umap.h5ad
+# python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s test_pt --dt test --config rna2atac_config_test.yaml
+# accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
+#                   -d ./test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+# python npy2h5ad.py
+# python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# python cal_cluster.py --file atac_cisformer_umap.h5ad
 
 
 #### plot true umap for test
-import snapatac2 as snap
-import scanpy as sc
+# import snapatac2 as snap
+# import scanpy as sc
 
-atac = sc.read_h5ad('spatial_atac_test.h5ad')
-snap.pp.select_features(atac)
-snap.tl.spectral(atac)
-snap.tl.umap(atac)
-snap.pp.knn(atac)
-snap.tl.leiden(atac)
-atac.obs['cell_anno'] = atac.obs['leiden']
-sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_atac_test_true.pdf')
-atac.write('spatial_atac_test_leiden.h5ad')
+# atac = sc.read_h5ad('spatial_atac_test.h5ad')
+# snap.pp.select_features(atac)
+# snap.tl.spectral(atac)
+# snap.tl.umap(atac)
+# snap.pp.knn(atac)
+# snap.tl.leiden(atac)
+# atac.obs['cell_anno'] = atac.obs['leiden']
+# sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True, save='_atac_test_true.pdf')
+# atac.write('spatial_atac_test_leiden.h5ad')
 
 
 #### spatial prediction
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
-
-## few parameters
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
-python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_cluster.py --file atac_cisformer_umap.h5ad
+                  -d ./spatial_test_pt -l ../Spatial/save_large/2024-12-26_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
 
-## more parameters
-accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l save_large/2024-12-26_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
+
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+######################################################## HERE #############################################################################
+
+
 python npy2h5ad.py
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
