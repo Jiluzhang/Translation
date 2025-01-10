@@ -1887,53 +1887,134 @@ tf_ref = tf_ref[tf_ref['tax']=='vertebrates'].drop_duplicates().dropna()
 tf_dict = pd.merge(tf, tf_ref, how='left', on='id')[['id', 'class', 'family']]
 tf_dict.columns = ['gene', 'class', 'family']
 
-rna = sc.read_h5ad('../rna_test_bcell_20.h5ad')
-
 ## B cells
+# E2A & EBF & PAX & IRF
+# b_cell_tf_family = ['E2A',
+#                     'Early B-Cell Factor-related factors',
+#                     'Paired domain only', 'Paired plus homeo domain',
+#                     'Runt-related factors',
+#                     'Interferon-regulatory factors']
+# not all tfs in the same family are all specific
 
-
-#####################################################################################################################################################################
-#####################################################################################################################################################################
-#####################################################################################################################################################################
-#####################################################################################################################################################################
-#####################################################################################################################################################################
-
-
-
-# b_cell_tf_family = ['E2A', 'Early B-Cell Factor-related factors', 'Paired domain only', 'Paired plus homeo domain']
 df_attn = pd.read_csv('attn_no_norm_cnt_20_bcell_3cell.txt', header=None, sep='\t')
 df_attn.columns = ['gene', 'attn']
 
+df_attn['Avg_attn'] = df_attn['attn']/20  # 20 cells
+df_attn['Avg_attn_norm'] = np.log10(df_attn['Avg_attn']/min(df_attn['Avg_attn']))
+df_attn['Avg_attn_norm'] = df_attn['Avg_attn_norm']/(df_attn['Avg_attn_norm'].max())
+
 tf_attn = pd.merge(tf_dict, df_attn)
 
-df_tf = pd.DataFrame({'idx': 'TF', 'attn': df[df['gene'].isin(tf)]['attn'].values})               # 108
-df_cr_tf_others = pd.concat([df_cr, df_tf, df_others])
-df_cr_tf_others['idx'] = pd.Categorical(df_cr_tf_others['idx'], categories=['CR', 'TF', 'Others'])
-df_cr_tf_others['Avg_attn'] = df_cr_tf_others['attn']/20  # 20 cells
-df_cr_tf_others['Avg_attn_norm'] = np.log10(df_cr_tf_others['Avg_attn']/min(df_cr_tf_others['Avg_attn']))
-df_cr_tf_others['Avg_attn_norm'] = df_cr_tf_others['Avg_attn_norm']/(df_cr_tf_others['Avg_attn_norm'].max())  # the same as min-max normalization
+tf_class = tf_dict['class'].value_counts().index.values[:7]  # top 7 count tf
+
+df = pd.DataFrame()
+for i in tf_class:
+    df = pd.concat([df, pd.DataFrame({'idx':i, 'val':tf_attn[tf_attn['class']==i]['Avg_attn_norm'].values})])
+
+df['idx'] = pd.Categorical(df['idx'], categories=df.groupby('idx')['val'].median().sort_values(ascending=False).index)
 
 plt.rcParams['pdf.fonttype'] = 42
-p = ggplot(df_cr_tf_others, aes(x='idx', y='Avg_attn_norm', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                           scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
-p.save(filename='cr_tf_others_box_cnt_20_bcell_3cell.pdf', dpi=300, height=4, width=4)
-
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'])       # 0.6955349610735737
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])       # 0.6640555687558144
-np.median(df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])   # 0.6271017256046776
-
-stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.3200225406455772
-stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.02460240862081797
-stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']=='CR']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='TF']['Avg_attn_norm'])[1]      # 0.8168420631826141
-
-stats.ttest_ind(df_cr_tf_others[df_cr_tf_others['idx']!='Others']['Avg_attn_norm'],
-                df_cr_tf_others[df_cr_tf_others['idx']=='Others']['Avg_attn_norm'])[1]  # 0.014787446940820742
+p = ggplot(df, aes(x='idx', y='val', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                    scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                    theme_bw() + theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tf_class_box_cnt_20_bcell_3cell.pdf', dpi=300, height=4, width=4)
 
 
+## endothelial
+df_attn = pd.read_csv('attn_no_norm_cnt_20_endo_3cell.txt', header=None, sep='\t')
+df_attn.columns = ['gene', 'attn']
 
+df_attn['Avg_attn'] = df_attn['attn']/20  # 20 cells
+df_attn['Avg_attn_norm'] = np.log10(df_attn['Avg_attn']/min(df_attn['Avg_attn']))
+df_attn['Avg_attn_norm'] = df_attn['Avg_attn_norm']/(df_attn['Avg_attn_norm'].max())
+
+tf_attn = pd.merge(tf_dict, df_attn)
+
+tf_class = tf_dict['class'].value_counts().index.values[:7]  # top 7 count tf
+
+df = pd.DataFrame()
+for i in tf_class:
+    df = pd.concat([df, pd.DataFrame({'idx':i, 'val':tf_attn[tf_attn['class']==i]['Avg_attn_norm'].values})])
+
+df['idx'] = pd.Categorical(df['idx'], categories=df.groupby('idx')['val'].median().sort_values(ascending=False).index)
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df, aes(x='idx', y='val', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                    scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                    theme_bw() + theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tf_class_box_cnt_20_endo_3cell.pdf', dpi=300, height=4, width=4)
+
+## fibroblast
+df_attn = pd.read_csv('attn_no_norm_cnt_20_fibro_3cell.txt', header=None, sep='\t')
+df_attn.columns = ['gene', 'attn']
+
+df_attn['Avg_attn'] = df_attn['attn']/20  # 20 cells
+df_attn['Avg_attn_norm'] = np.log10(df_attn['Avg_attn']/min(df_attn['Avg_attn']))
+df_attn['Avg_attn_norm'] = df_attn['Avg_attn_norm']/(df_attn['Avg_attn_norm'].max())
+
+tf_attn = pd.merge(tf_dict, df_attn)
+
+tf_class = tf_dict['class'].value_counts().index.values[:7]  # top 7 count tf
+
+df = pd.DataFrame()
+for i in tf_class:
+    df = pd.concat([df, pd.DataFrame({'idx':i, 'val':tf_attn[tf_attn['class']==i]['Avg_attn_norm'].values})])
+
+df['idx'] = pd.Categorical(df['idx'], categories=df.groupby('idx')['val'].median().sort_values(ascending=False).index)
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df, aes(x='idx', y='val', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                    scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                    theme_bw() + theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tf_class_box_cnt_20_fibro_3cell.pdf', dpi=300, height=4, width=4)
+
+## macrophages
+df_attn = pd.read_csv('attn_no_norm_cnt_20_macro_3cell.txt', header=None, sep='\t')
+df_attn.columns = ['gene', 'attn']
+
+df_attn['Avg_attn'] = df_attn['attn']/20  # 20 cells
+df_attn['Avg_attn_norm'] = np.log10(df_attn['Avg_attn']/min(df_attn['Avg_attn']))
+df_attn['Avg_attn_norm'] = df_attn['Avg_attn_norm']/(df_attn['Avg_attn_norm'].max())
+
+tf_attn = pd.merge(tf_dict, df_attn)
+
+tf_class = tf_dict['class'].value_counts().index.values[:7]  # top 7 count tf
+
+df = pd.DataFrame()
+for i in tf_class:
+    df = pd.concat([df, pd.DataFrame({'idx':i, 'val':tf_attn[tf_attn['class']==i]['Avg_attn_norm'].values})])
+
+df['idx'] = pd.Categorical(df['idx'], categories=df.groupby('idx')['val'].median().sort_values(ascending=False).index)
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df, aes(x='idx', y='val', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                    scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                    theme_bw() + theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tf_class_box_cnt_20_macro_3cell.pdf', dpi=300, height=4, width=4)
+
+## T cells
+df_attn = pd.read_csv('attn_no_norm_cnt_20_tcell_3cell.txt', header=None, sep='\t')
+df_attn.columns = ['gene', 'attn']
+
+df_attn['Avg_attn'] = df_attn['attn']/20  # 20 cells
+df_attn['Avg_attn_norm'] = np.log10(df_attn['Avg_attn']/min(df_attn['Avg_attn']))
+df_attn['Avg_attn_norm'] = df_attn['Avg_attn_norm']/(df_attn['Avg_attn_norm'].max())
+
+tf_attn = pd.merge(tf_dict, df_attn)
+
+tf_class = tf_dict['class'].value_counts().index.values[:7]  # top 7 count tf
+
+df = pd.DataFrame()
+for i in tf_class:
+    df = pd.concat([df, pd.DataFrame({'idx':i, 'val':tf_attn[tf_attn['class']==i]['Avg_attn_norm'].values})])
+
+df['idx'] = pd.Categorical(df['idx'], categories=df.groupby('idx')['val'].median().sort_values(ascending=False).index)
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(df, aes(x='idx', y='val', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                    scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                    theme_bw() + theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tf_class_box_cnt_20_tcell_3cell.pdf', dpi=300, height=4, width=4)
 
 
 ###### rank genes based on attention score
@@ -2073,3 +2154,56 @@ plt.close()
 # plot_output_top_cr_tf(ct='fibro')
 # plot_output_top_cr_tf(ct='macro')
 # plot_output_top_cr_tf(ct='tcell')
+
+
+###### rank all genes based on attention score
+import pandas as pd
+import numpy as np
+from plotnine import *
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+def out_norm_attn(ct='bcell'):
+    df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
+    df.columns = ['gene', 'attn']
+    df = df.sort_values('attn', ascending=False)
+    df.index = range(df.shape[0])
+    df['Avg_attn'] =  df['attn']/20
+    df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
+    df['Avg_attn_norm'] = df['Avg_attn_norm']/(df['Avg_attn_norm'].max())
+    df = df[df['gene'].isin(cr_tf)][['gene', 'Avg_attn_norm']]
+    df.columns = ['gene', ct+'_avg_attn_norm']
+    return df
+    
+bcell = out_norm_attn(ct='bcell')
+endo = out_norm_attn(ct='endo')
+fibro = out_norm_attn(ct='fibro')
+macro = out_norm_attn(ct='macro')
+tcell = out_norm_attn(ct='tcell')
+
+bcell_endo = pd.merge(bcell, endo, how='outer')
+fibro_macro = pd.merge(fibro, macro, how='outer')
+tcell_not = pd.merge(bcell_endo, fibro_macro, how='outer')
+cells = pd.merge(tcell_not, tcell, how='outer')
+cells.fillna(0, inplace=True)
+
+# cells[(cells['bcell_avg_attn_norm']>cells['endo_avg_attn_norm']) &
+#       (cells['bcell_avg_attn_norm']>cells['fibro_avg_attn_norm']) &
+#       (cells['bcell_avg_attn_norm']>cells['macro_avg_attn_norm']) &
+#       (cells['bcell_avg_attn_norm']>cells['tcell_avg_attn_norm'])]
+
+plt.rcParams['pdf.fonttype'] = 42
+sns.clustermap(cells.iloc[:, 1:], cmap='viridis', row_cluster=True, col_cluster=True, figsize=(5, 20)) 
+plt.savefig('tf_cr_attn_heatmap.pdf')
+plt.close()
