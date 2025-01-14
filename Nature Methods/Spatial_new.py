@@ -7,7 +7,7 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt 
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250114.log &   # 807779
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250114.log &   # 1348106
 
 
 
@@ -153,14 +153,14 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 #### retrain cisformer
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ./save/2025-01-14_rna2atac_brain_7/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -d ./spatial_test_pt -l ./save/2025-01-14_rna2atac_brain_40/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.6777
+# Cell-wise AUPRC: 0.0294
+# Peak-wise AUROC: 0.5844
+# Peak-wise AUPRC: 0.0190
 python cal_cluster.py --file atac_cisformer_umap.h5ad
 # AMI: 
 # ARI: 
