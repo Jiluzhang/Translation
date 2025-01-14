@@ -115,6 +115,40 @@ atac.obs['cell_anno'] = atac.obs['leiden']
 atac.write('atac_test.h5ad')
 
 
+
+#### clustering for true with rna
+import scanpy as sc
+
+rna = sc.read_h5ad('spatial_rna_test.h5ad')
+sc.pp.normalize_total(rna, target_sum=1e4)
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna = rna[:, rna.var.highly_variable]
+sc.tl.pca(rna)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+sc.tl.leiden(rna)
+rna.obs['leiden'].value_counts()
+# 0    500
+# 1    463
+# 2    330
+# 3    263
+# 4    246
+# 5    234
+# 6    176
+# 7    154
+# 8     72
+# 9     62
+
+rna.obs['cell_anno'] = rna.obs['leiden']
+rna.write('rna_test.h5ad')
+
+atac = sc.read_h5ad('spatial_atac_test.h5ad')
+atac.obs['cell_anno'] = rna.obs['leiden']
+atac.write('atac_test.h5ad')
+
+
+
 #### spatial prediction 2048
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
