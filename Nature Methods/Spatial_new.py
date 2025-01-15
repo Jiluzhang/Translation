@@ -7,14 +7,7 @@ python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt 
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250114.log &   # 1348106
-
-
-
-
-
-nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_large.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save_large -n rna2atac_brain > 20241226.log &   # dec_depth:6  dec_heads:6  lr:2e-4  length:2048  mlt:40  gamma_step:5  gamma:0.5
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250115.log & 
 
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_rna.h5ad .
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_atac.h5ad .
@@ -78,42 +71,20 @@ atac_new.X = csr_matrix(atac_new.X)   # 2500 × 217893
 atac_new.write('spatial_atac_test.h5ad')
 ########################################################################################################################################################################
 
-#### plot true umap for val
+# #### clustering for true with atac
 # import snapatac2 as snap
 # import scanpy as sc
 
-# atac = sc.read_h5ad('atac_val.h5ad')
+# atac = sc.read_h5ad('../spatial_atac_test.h5ad')
 # snap.pp.select_features(atac)
 # snap.tl.spectral(atac)
 # snap.tl.umap(atac)
-# sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-#            title='', frameon=True, save='_atac_val_true.pdf')
-
-#### val prediction
-# python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s test_pt --dt test --config rna2atac_config_test.yaml
-# accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-#                   -d ./test_pt -l save/2024-12-19_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
-# python npy2h5ad.py
-# python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# python cal_cluster.py --file atac_cisformer_umap.h5ad
-
-
-#### clustering for true
-import snapatac2 as snap
-import scanpy as sc
-
-atac = sc.read_h5ad('../spatial_atac_test.h5ad')
-snap.pp.select_features(atac)
-snap.tl.spectral(atac)
-snap.tl.umap(atac)
-snap.pp.knn(atac)
-snap.tl.leiden(atac)
-atac.obs['cell_anno'] = atac.obs['leiden']
-# sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-#            title='', frameon=True, save='_atac_test_true.pdf')
-atac.write('atac_test.h5ad')
-
+# snap.pp.knn(atac)
+# snap.tl.leiden(atac)
+# atac.obs['cell_anno'] = atac.obs['leiden']
+# # sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+# #            title='', frameon=True, save='_atac_test_true.pdf')
+# atac.write('atac_test.h5ad')
 
 
 #### clustering for true with rna
@@ -127,18 +98,16 @@ rna = rna[:, rna.var.highly_variable]
 sc.tl.pca(rna)
 sc.pp.neighbors(rna)
 sc.tl.umap(rna)
-sc.tl.leiden(rna)
+sc.tl.leiden(rna, resolution=0.9)
 rna.obs['leiden'].value_counts()
-# 0    500
-# 1    463
-# 2    330
-# 3    263
-# 4    246
-# 5    234
-# 6    176
-# 7    154
-# 8     72
-# 9     62
+# 0    710
+# 1    518
+# 2    367
+# 3    326
+# 4    294
+# 5    155
+# 6     68
+# 7     62
 
 rna.obs['cell_anno'] = rna.obs['leiden']
 rna.write('rna_test.h5ad')
@@ -147,60 +116,51 @@ atac = sc.read_h5ad('spatial_atac_test.h5ad')
 atac.obs['cell_anno'] = rna.obs['leiden']
 atac.write('atac_test.h5ad')
 
-
-
-#### spatial prediction 2048
-python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
-accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ../Spatial/save_large/2024-12-26_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
-python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6807
-# Cell-wise AUPRC: 0.0294
-# Peak-wise AUROC: 0.5659
-# Peak-wise AUPRC: 0.017
-python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.1709
-# ARI: 0.086
-# HOM: 0.2038
-# NMI: 0.1756
-
-#### spatial prediction 6423 (max count)
-python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
-accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ../Spatial/save_large/2024-12-26_rna2atac_brain_50/pytorch_model.bin --config_file rna2atac_config_test.yaml
-python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6783
-# Cell-wise AUPRC: 0.0291
-# Peak-wise AUROC: 0.5292
-# Peak-wise AUPRC: 0.0161
-python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.1961
-# ARI: 0.0968
-# HOM: 0.2337
-# NMI: 0.2008
-
-
-#### retrain cisformer
+## spatial evaluation
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ./save/2025-01-14_rna2atac_brain_40/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -d ./spatial_test_pt -l ./save/2025-01-15_rna2atac_brain_15/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6777
-# Cell-wise AUPRC: 0.0294
-# Peak-wise AUROC: 0.5844
-# Peak-wise AUPRC: 0.0190
+# Cell-wise AUROC: 0.6665
+# Cell-wise AUPRC: 0.0285
+# Peak-wise AUROC: 0.5597
+# Peak-wise AUPRC: 0.0169
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.3189
+# ARI: 0.1971
+# HOM: 0.3489
+# NMI: 0.3230
 
+# model = M2M_rna2atac(
+#             dim = 210,
+
+#             enc_num_gene_tokens = 17699 + 1, # +1 for <PAD>
+#             enc_num_value_tokens = 64 + 1, # +1 for <PAD>
+#             enc_depth = 0,
+#             enc_heads = 1,
+#             enc_ff_mult = 4,
+#             enc_dim_head = 128,
+#             enc_emb_dropout = 0.1,
+#             enc_ff_dropout = 0.1,
+#             enc_attn_dropout = 0.1,
+
+#             dec_depth = 10,
+#             dec_heads = 10,
+#             dec_ff_mult = 10,
+#             dec_dim_head = 128,
+#             dec_emb_dropout = 0.1,
+#             dec_ff_dropout = 0.1,
+#             dec_attn_dropout = 0.1
+#         )
+
+# param_sum = 0
+# for name, param in model.named_parameters():
+#     if param.requires_grad:
+#         param_sum += np.prod(list(param.shape))
+
+# print(param_sum)
 
 #### plot spatial pattern for ground truth
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
@@ -211,6 +171,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
 
 atac = sc.read_h5ad('atac_test.h5ad')
 
@@ -233,7 +195,7 @@ for i in range(df_thy1_pos.shape[0]):
         mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=10)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_true.pdf')
 plt.close()
 
@@ -248,7 +210,7 @@ for i in range(df_bcl11b_pos.shape[0]):
         mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=9)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_BCL11B_true.pdf')
 plt.close()
 
@@ -259,6 +221,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
 
 atac = sc.read_h5ad('atac_cisformer_umap.h5ad')
 
@@ -281,7 +245,7 @@ for i in range(df_thy1_pos.shape[0]):
         mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=25)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_cisformer.pdf')
 plt.close()
 
@@ -296,7 +260,7 @@ for i in range(df_bcl11b_pos.shape[0]):
         mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=27)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_BCL11B_cisformer.pdf')
 plt.close()
 
@@ -316,7 +280,7 @@ pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
 ## plot for true
 atac_true = sc.read_h5ad('atac_test.h5ad')
 
-df_true = pd.DataFrame({'cell_idx':atac_true.obs.index, 'cell_anno':atac_true.obs.cell_anno.astype('int')+1})
+df_true = pd.DataFrame({'cell_idx':atac_true.obs.index, 'cell_anno':atac_true.obs.cell_anno.astype('int')})
 df_pos_true = pd.merge(df_true, pos)
 
 mat_true = np.zeros([50, 50])
@@ -325,7 +289,7 @@ for i in range(df_pos_true.shape[0]):
         mat_true[df_pos_true['X'][i], (49-df_pos_true['Y'][i])] = df_pos_true['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_true, cmap=sns.color_palette(['grey', 'cyan', 'green', 'purple', 'orange', 'yellow', 'red']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_true, cmap=sns.color_palette(['grey', 'cornflowerblue', 'green', 'purple', 'orange', 'red', 'yellow', 'blue']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_true.pdf')
 plt.close()
 
@@ -333,9 +297,18 @@ plt.close()
 atac_cisformer = sc.read_h5ad('atac_cisformer_umap.h5ad')
 
 snap.pp.knn(atac_cisformer)
-snap.tl.leiden(atac_cisformer, resolution=1)  # keep cluster number to 6 (resolution=0.7)
+snap.tl.leiden(atac_cisformer, resolution=0.85)  # keep cluster number to 8
+atac_cisformer.obs['leiden'].value_counts()
+# 0    425
+# 1    388
+# 2    376
+# 3    375
+# 4    325
+# 5    267
+# 6    252
+# 7     92
 
-df_cisformer = pd.DataFrame({'cell_idx':atac_cisformer.obs.index, 'cell_anno':atac_cisformer.obs.leiden.astype('int')+1})
+df_cisformer = pd.DataFrame({'cell_idx':atac_cisformer.obs.index, 'cell_anno':atac_cisformer.obs.leiden.astype('int')})
 df_pos_cisformer = pd.merge(df_cisformer, pos)
 
 mat_cisformer = np.zeros([50, 50])
@@ -344,13 +317,13 @@ for i in range(df_pos_cisformer.shape[0]):
         mat_cisformer[df_pos_cisformer['X'][i], (49-df_pos_cisformer['Y'][i])] = df_pos_cisformer['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_cisformer, cmap=sns.color_palette(['grey', 'pink', 'red', 'green', 'cyan', 'yellow', 'orange', 'black', 'brown']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_cisformer, cmap=sns.color_palette(['grey', 'cornflowerblue', 'green', 'red', 'orange', 'blue', 'yellow', 'purple']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_cisformer.pdf')
 plt.close()
 
+from sklearn.metrics import normalized_mutual_info_score
 
-
-
+normalized_mutual_info_score(atac_cisformer.obs['cell_anno'], atac_cisformer.obs['leiden']  # 0.31030679154742474
 
 
 #### scbutterfly
@@ -364,16 +337,16 @@ nohup python scbt_b.py > scbt_b_20241226.log &   # 3280602
 nohup python scbt_b_predict.py > scbt_b_predict.log &  # 559057
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6904
-# Cell-wise AUPRC: 0.0314
-# Peak-wise AUROC: 0.5995
-# Peak-wise AUPRC: 0.0258
+# Cell-wise AUROC: 0.6888
+# Cell-wise AUPRC: 0.0296
+# Peak-wise AUROC: 0.5998
+# Peak-wise AUPRC: 0.026
 python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 0.2061
-# ARI: 0.0884
-# HOM: 0.2511
-# NMI: 0.2109
+# AMI: 0.3577
+# ARI: 0.2096
+# HOM: 0.4093
+# NMI: 0.3621
 
 #### plot spatial pattern for scbt prediction
 import scanpy as sc
@@ -382,6 +355,8 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import snapatac2 as snap
+
+plt.rcParams['pdf.fonttype'] = 42
 
 atac = sc.read_h5ad('atac_scbt_umap.h5ad')
 atac_true = sc.read_h5ad('atac_test.h5ad')
@@ -406,7 +381,7 @@ for i in range(df_thy1_pos.shape[0]):
         mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=20)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_scbt.pdf')
 plt.close()
 
@@ -421,15 +396,28 @@ for i in range(df_bcl11b_pos.shape[0]):
         mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=24)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_BCL11B_scbt.pdf')
 plt.close()
 
 ## spatial
 snap.pp.knn(atac)
-snap.tl.leiden(atac, resolution=1)
+snap.tl.leiden(atac, resolution=0.65)
+atac.obs['leiden'].value_counts()
+# 0    510
+# 1    478
+# 2    375
+# 3    361
+# 4    317
+# 5    221
+# 6    173
+# 7     65
 
-df_scbt = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')+1})
+from sklearn.metrics import normalized_mutual_info_score
+
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden']  # 0.3760858556890463
+
+df_scbt = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
 df_pos_scbt = pd.merge(df_scbt, pos)
 
 mat_scbt = np.zeros([50, 50])
@@ -438,12 +426,27 @@ for i in range(df_pos_scbt.shape[0]):
         mat_scbt[df_pos_scbt['X'][i], (49-df_pos_scbt['Y'][i])] = df_pos_scbt['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_scbt, cmap=sns.color_palette(['grey', 'pink', 'brown', 'purple', 'cyan', 'green', 'black', 'red', 'bisque', 'blue', 'orange']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_scbt, cmap=sns.color_palette(['grey', 'cornflowerblue', 'green', 'orange', 'red', 'purple', 'yellow', 'blue']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_scbt.pdf')
 plt.close()
 
 
+from scipy import stats
+stats.pearsonr(mat_thy1_scbt.flatten(), mat_thy1_true.flatten())[0]       # 0.3287928872046775
+stats.pearsonr(mat_thy1_cifm.flatten(), mat_thy1_true.flatten())[0]       # 0.23474590003006277
+stats.pearsonr(mat_bcl11b_scbt.flatten(), mat_bcl11b_true.flatten())[0]   # 0.17057192864978218
+stats.pearsonr(mat_bcl11b_cifm.flatten(), mat_bcl11b_true.flatten())[0]   # 0.2621234653897852
 
+
+
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
+############################################################################################################################################
 
 
 #### BABEL
