@@ -431,24 +431,6 @@ plt.savefig('ATAC_spatial_scbt.pdf')
 plt.close()
 
 
-from scipy import stats
-stats.pearsonr(mat_thy1_scbt.flatten(), mat_thy1_true.flatten())[0]       # 0.3287928872046775
-stats.pearsonr(mat_thy1_cifm.flatten(), mat_thy1_true.flatten())[0]       # 0.23474590003006277
-stats.pearsonr(mat_bcl11b_scbt.flatten(), mat_bcl11b_true.flatten())[0]   # 0.17057192864978218
-stats.pearsonr(mat_bcl11b_cifm.flatten(), mat_bcl11b_true.flatten())[0]   # 0.2621234653897852
-
-
-
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-############################################################################################################################################
-
-
 #### BABEL
 python h5ad2h5.py -n train_val
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20241226.log &  # 3384749
@@ -466,19 +448,19 @@ nohup python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint /fs/home
                                                            --device 1 --nofilter --noplot --transonly > predict_20250114.log &   # 569614
 python match_cell.py
 python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6911
-# Cell-wise AUPRC: 0.0315
-# Peak-wise AUROC: 0.6083
+# Cell-wise AUROC: 0.6889
+# Cell-wise AUPRC: 0.0296
+# Peak-wise AUROC: 0.6082
 # Peak-wise AUPRC: 0.0261
 python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 0.2049
-# ARI: 0.0946
-# HOM: 0.2454
-# NMI: 0.2094
+# AMI: 0.3448
+# ARI: 0.2020
+# HOM: 0.3893
+# NMI: 0.3490
 
 
-#### plot spatial pattern for scbt prediction
+#### plot spatial pattern for babel prediction
 import scanpy as sc
 import pandas as pd
 import numpy as np
@@ -509,7 +491,7 @@ for i in range(df_thy1_pos.shape[0]):
         mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=14)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_babel.pdf')
 plt.close()
 
@@ -524,15 +506,33 @@ for i in range(df_bcl11b_pos.shape[0]):
         mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=3)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_BCL11B_babel.pdf')
 plt.close()
 
+
+from scipy import stats
+stats.pearsonr(mat_thy1_scbt.flatten(), mat_thy1_true.flatten())[0]       # 0.3287928872046775
+stats.pearsonr(mat_thy1_cifm.flatten(), mat_thy1_true.flatten())[0]       # 0.23474590003006277
+stats.pearsonr(mat_thy1_babel.flatten(), mat_thy1_true.flatten())[0]       # 0.20658652164925642
+stats.pearsonr(mat_bcl11b_scbt.flatten(), mat_bcl11b_true.flatten())[0]   # 0.17057192864978218
+stats.pearsonr(mat_bcl11b_cifm.flatten(), mat_bcl11b_true.flatten())[0]   # 0.2621234653897852
+stats.pearsonr(mat_bcl11b_babel.flatten(), mat_bcl11b_true.flatten())[0]   # 0.40318798708760156
+
 ## spatial
 snap.pp.knn(atac)
-snap.tl.leiden(atac, resolution=1)
+snap.tl.leiden(atac, resolution=0.75)
+atac.obs['leiden'].value_counts()
+# 0    468
+# 1    431
+# 2    412
+# 3    405
+# 4    324
+# 5    238
+# 6    157
+# 7     65
 
-df_babel = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')+1})
+df_babel = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
 df_pos_babel = pd.merge(df_babel, pos)
 
 mat_babel = np.zeros([50, 50])
@@ -541,6 +541,10 @@ for i in range(df_pos_babel.shape[0]):
         mat_babel[df_pos_babel['X'][i], (49-df_pos_babel['Y'][i])] = df_pos_babel['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_babel, cmap=sns.color_palette(['grey', 'pink', 'red', 'purple', 'cyan', 'green', 'black', 'brown', 'bisque', 'blue', 'orange']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_babel, cmap=sns.color_palette(['grey', 'red', 'green', 'orange', 'cornflowerblue', 'purple', 'yellow', 'blue']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_babel.pdf')
 plt.close()
+
+from sklearn.metrics import normalized_mutual_info_score
+
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden']  # 0.3444513808689984
