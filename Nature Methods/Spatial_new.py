@@ -12,6 +12,40 @@ nohup accelerate launch --config_file accelerator_config_train.yaml --main_proce
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_rna.h5ad .
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/spatial_atac.h5ad .
 
+
+######################################################## compare no_norm and with_norm ####################################################################################
+import scanpy as sc
+
+rna = sc.read_h5ad('rna_train.h5ad')
+rna[:100, :].write('rna_train_100_no_norm.h5ad')
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna[:100, :].write('rna_train_100_with_norm.h5ad')
+
+atac = sc.read_h5ad('atac_train.h5ad')
+atac[:100, :].write('atac_train_100.h5ad')
+
+rna = sc.read_h5ad('rna_val.h5ad')
+rna.write('rna_val_no_norm.h5ad')
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna.write('rna_val_with_norm.h5ad')
+
+
+python data_preprocess.py -r rna_train_100_no_norm.h5ad -a atac_train_100.h5ad -s train_pt_no_norm --dt train -n train --config rna2atac_config_train_no_norm.yaml
+python data_preprocess.py -r rna_val_no_norm.h5ad -a atac_val.h5ad -s val_pt_no_norm --dt val -n val --config rna2atac_config_val_no_norm.yaml
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_no_norm.yaml \
+                        --train_data_dir train_pt_no_norm --val_data_dir val_pt_no_norm -s save_no_norm -n rna2atac_brain > no_norm.log &  # 344226
+
+python data_preprocess.py -r rna_train_100_with_norm.h5ad -a atac_train_100.h5ad -s train_pt_with_norm --dt train -n train --config rna2atac_config_train_with_norm.yaml
+python data_preprocess.py -r rna_val_with_norm.h5ad -a atac_val.h5ad -s val_pt_with_norm --dt val -n val --config rna2atac_config_val_with_norm.yaml
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29825 rna2atac_train.py --config_file rna2atac_config_train_with_norm.yaml \
+                        --train_data_dir train_pt_with_norm --val_data_dir val_pt_with_norm -s save_with_norm -n rna2atac_brain > with_norm.log &  # 358890
+#################################################################################################################################################################################
+
+
+
+
 ######################################################## filter & map rna & atac h5ad ########################################################
 import scanpy as sc
 import numpy as np
