@@ -41,6 +41,9 @@ python data_preprocess.py -r rna_train_100_with_norm.h5ad -a atac_train_100.h5ad
 python data_preprocess.py -r rna_val_with_norm.h5ad -a atac_val.h5ad -s val_pt_with_norm --dt val -n val --config rna2atac_config_val_with_norm.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29825 rna2atac_train.py --config_file rna2atac_config_train_with_norm.yaml \
                         --train_data_dir train_pt_with_norm --val_data_dir val_pt_with_norm -s save_with_norm -n rna2atac_brain > with_norm.log &  # 358890
+
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29825 rna2atac_train.py --config_file rna2atac_config_train_with_norm_128.yaml \
+                        --train_data_dir train_pt_with_norm --val_data_dir val_pt_with_norm -s save_with_norm_128 -n rna2atac_brain > with_norm_128.log &  # 547440
 #################################################################################################################################################################################
 
 
