@@ -97,6 +97,10 @@ python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250120.log &   # 2789948
 
+## train model (small)  depth=3 & heads=3
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_small.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save_small -n rna2atac_brain > 20250120.log &   # 3517099
+
 
 ######################################################## filter & map rna & atac h5ad ########################################################
 import scanpy as sc
@@ -188,6 +192,7 @@ atac.obs['cell_anno'] = rna.obs['leiden']
 atac.write('atac_test.h5ad')
 
 
+## epoch=3
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
                   -d ./spatial_test_pt -l ./save/2025-01-20_rna2atac_brain_3/pytorch_model.bin --config_file rna2atac_config_test.yaml
@@ -202,7 +207,103 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # AMI: 0.3581
 # ARI: 0.2608
 # HOM: 0.3848
-# NMI: 0.362
+# NMI: 0.3620
+
+## epoch=2
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save/2025-01-20_rna2atac_brain_2/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6395
+# Cell-wise AUPRC: 0.0333
+# Peak-wise AUROC: 0.6718
+# Peak-wise AUPRC: 0.0362
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3564
+# ARI: 0.2489
+# HOM: 0.3714
+# NMI: 0.3597
+
+## epoch=5
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save/2025-01-20_rna2atac_brain_5/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6399
+# Cell-wise AUPRC: 0.0340
+# Peak-wise AUROC: 0.6504
+# Peak-wise AUPRC: 0.0306
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3262
+# ARI: 0.2223
+# HOM: 0.3365
+# NMI: 0.3294
+
+## epoch=8
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save/2025-01-20_rna2atac_brain_8/pytorch_model.bin --config_file rna2atac_config_test.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6387
+# Cell-wise AUPRC: 0.0342
+# Peak-wise AUROC: 0.6298
+# Peak-wise AUPRC: 0.0275
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3294
+# ARI: 0.2461
+# HOM: 0.3326
+# NMI: 0.3324
+
+## evaluation for validataion dataset
+python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s test_val_pt --dt test --config rna2atac_config_test_val.yaml
+accelerate launch --config_file accelerator_config_test_val.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./test_val_pt -l ./save/2025-01-20_rna2atac_brain_3/pytorch_model.bin --config_file rna2atac_config_test_val.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.7318
+# Cell-wise AUPRC: 0.1007
+# Peak-wise AUROC: 0.6206
+# Peak-wise AUPRC: 0.0539
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.7358
+# ARI: 0.5605
+# HOM: 0.7411
+# NMI: 0.7393
+
+
+#### clustering for true with rna
+import scanpy as sc
+
+rna = sc.read_h5ad('../rna_val.h5ad')
+sc.pp.normalize_total(rna, target_sum=1e4)
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna = rna[:, rna.var.highly_variable]
+sc.tl.pca(rna)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+sc.tl.leiden(rna, resolution=0.5)
+rna.obs['leiden'].value_counts()
+# 0    223
+# 1    180
+# 2    124
+# 3     88
+# 4     86
+# 5     48
+# 6     48
+# 7     40
+
+rna.obs['cell_anno'] = rna.obs['leiden']
+rna.write('rna_test.h5ad')
+
+atac = sc.read_h5ad('../atac_val.h5ad')
+atac.obs['cell_anno'] = rna.obs['leiden']
+atac.write('atac_test.h5ad')
+
 
 
 #### plot spatial pattern for ground truth
@@ -390,6 +491,20 @@ python cal_cluster.py --file atac_scbt_umap.h5ad
 # HOM: 0.4161
 # NMI: 0.3764
 
+## evaluation for val
+cp predict_val/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.7603
+# Cell-wise AUPRC: 0.1118
+# Peak-wise AUROC: 0.6759
+# Peak-wise AUPRC: 0.0741
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_scbt_umap.h5ad
+# AMI: 0.7424
+# ARI: 0.5610
+# HOM: 0.7327
+# NMI: 0.7457
+
 
 #### plot spatial pattern for scbt prediction
 import scanpy as sc
@@ -510,6 +625,23 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 # HOM: 0.4224
 # NMI: 0.3826
 
+## evaluation for val
+python h5ad2h5.py -n test
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ../train_out --data test.h5 --outdir test_out --device 6 --nofilter --noplot --transonly 
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.7097
+# Cell-wise AUPRC: 0.099
+# Peak-wise AUROC: 0.5887
+# Peak-wise AUPRC: 0.0605
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
+# AMI: 0.5713
+# ARI: 0.3985
+# HOM: 0.5753
+# NMI: 0.5771
+
+
 #### plot spatial pattern for babel prediction
 import scanpy as sc
 import pandas as pd
@@ -599,12 +731,3 @@ import numpy as np
 
 stats.pearsonr(np.load('mat_thy1_babel.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.27912440524970544
 stats.pearsonr(np.load('mat_bcl11b_babel.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.2524620672510995
-
-
-
-
-
-
-
-
-
