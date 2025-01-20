@@ -188,22 +188,21 @@ atac.obs['cell_anno'] = rna.obs['leiden']
 atac.write('atac_test.h5ad')
 
 
-
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ./save/2025-01-17_rna2atac_brain_10/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -d ./spatial_test_pt -l ./save/2025-01-20_rna2atac_brain_3/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6478
-# Cell-wise AUPRC: 0.0236
-# Peak-wise AUROC: 0.4969
-# Peak-wise AUPRC: 0.0124
+# Cell-wise AUROC: 0.6424
+# Cell-wise AUPRC: 0.0339
+# Peak-wise AUROC: 0.6712
+# Peak-wise AUPRC: 0.0352
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.3578
-# ARI: 0.233
-# HOM: 0.3859
-# NMI: 0.3617
+# AMI: 0.3581
+# ARI: 0.2608
+# HOM: 0.3848
+# NMI: 0.362
 
 
 #### plot spatial pattern for ground truth
@@ -283,6 +282,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import snapatac2 as snap
+from sklearn.metrics import normalized_mutual_info_score
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -307,9 +308,11 @@ for i in range(df_thy1_pos.shape[0]):
         mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=25)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=mat_thy1.flatten().max())  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_THY1_cisformer.pdf')
 plt.close()
+
+np.save('mat_thy1_cisformer', mat_thy1)
 
 ## BCL11B
 df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
@@ -322,10 +325,46 @@ for i in range(df_bcl11b_pos.shape[0]):
         mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=27)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=mat_bcl11b.flatten().max())  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
 plt.savefig('ATAC_BCL11B_cisformer.pdf')
 plt.close()
 
+np.save('mat_bcl11b_cisformer', mat_bcl11b)
+
+## spatial
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=0.8)
+atac.obs['leiden'].value_counts()
+# 0    481
+# 1    450
+# 2    378
+# 3    332
+# 4    275
+# 5    272
+# 6    180
+# 7    132
+
+df_cifm = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
+df_pos_cifm = pd.merge(df_cifm, pos)
+
+mat_cifm = np.zeros([50, 50])
+for i in range(df_pos_cifm.shape[0]):
+    if df_pos_cifm['cell_anno'][i]!=0:
+        mat_cifm[df_pos_cifm['X'][i], (49-df_pos_cifm['Y'][i])] = df_pos_cifm['cell_anno'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_cifm, cmap=sns.color_palette(['grey', 'yellow', 'green', 'red', 'blue', 'purple', 'orange', 'cornflowerblue']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_cisformer.pdf')
+plt.close()
+
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.3599611011166151
+
+## correlation
+from scipy import stats
+import numpy as np
+
+stats.pearsonr(np.load('mat_thy1_cisformer.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.2260101020231856
+stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.18265064492508273
 
 
 #### scbutterfly
@@ -350,6 +389,97 @@ python cal_cluster.py --file atac_scbt_umap.h5ad
 # ARI: 0.2013
 # HOM: 0.4161
 # NMI: 0.3764
+
+
+#### plot spatial pattern for scbt prediction
+import scanpy as sc
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import snapatac2 as snap
+from sklearn.metrics import normalized_mutual_info_score
+
+atac = sc.read_h5ad('atac_scbt_umap.h5ad')
+atac_true = sc.read_h5ad('atac_test.h5ad')
+atac.var.index = atac_true.var.index.values
+
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+pos = pd.read_csv('tissue_positions_list.csv', header=None)
+pos = pos.iloc[:, [0, 2, 3]]
+pos.rename(columns={0:'cell_idx', 2:'X', 3:'Y'}, inplace=True)
+
+## THY1
+df_thy1 = pd.DataFrame({'cell_idx':atac.obs.index, 
+                        'peak':atac.X[:, ((atac.var['chrom']=='chr11') & ((abs((atac.var['start']+atac.var['end'])*0.5-119424985)<50000)))].toarray().sum(axis=1)})
+df_thy1_pos = pd.merge(df_thy1, pos)
+
+mat_thy1 = np.zeros([50, 50])
+for i in range(df_thy1_pos.shape[0]):
+    if df_thy1_pos['peak'][i]!=0:
+        mat_thy1[df_thy1_pos['X'][i], (49-df_thy1_pos['Y'][i])] = df_thy1_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_thy1, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=mat_thy1.flatten().max())  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_THY1_scbt.pdf')
+plt.close()
+
+np.save('mat_thy1_scbt', mat_thy1)
+
+## BCL11B
+df_bcl11b = pd.DataFrame({'cell_idx':atac.obs.index, 
+                          'peak':atac.X[:, ((atac.var['chrom']=='chr14') & ((abs((atac.var['start']+atac.var['end'])*0.5-99272197)<50000)))].toarray().sum(axis=1)})
+df_bcl11b_pos = pd.merge(df_bcl11b, pos)
+
+mat_bcl11b = np.zeros([50, 50])
+for i in range(df_bcl11b_pos.shape[0]):
+    if df_bcl11b_pos['peak'][i]!=0:
+        mat_bcl11b[df_bcl11b_pos['X'][i], (49-df_bcl11b_pos['Y'][i])] = df_bcl11b_pos['peak'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=0, vmax=mat_bcl11b.flatten().max())  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('ATAC_BCL11B_scbt.pdf')
+plt.close()
+
+np.save('mat_bcl11b_scbt', mat_bcl11b)
+
+## spatial
+snap.pp.knn(atac)
+snap.tl.leiden(atac, resolution=0.7)
+atac.obs['leiden'].value_counts()
+# 0    451
+# 1    399
+# 2    353
+# 3    351
+# 4    290
+# 5    243
+# 6    240
+# 7    173
+
+df_scbt = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
+df_pos_scbt = pd.merge(df_scbt, pos)
+
+mat_scbt = np.zeros([50, 50])
+for i in range(df_pos_scbt.shape[0]):
+    if df_pos_scbt['cell_anno'][i]!=0:
+        mat_scbt[df_pos_scbt['X'][i], (49-df_pos_scbt['Y'][i])] = df_pos_scbt['cell_anno'][i]  # start from upper right
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(mat_scbt, cmap=sns.color_palette(['grey', 'orange', 'green', 'red', 'blue', 'purple', 'yellow', 'cornflowerblue']), xticklabels=False, yticklabels=False)
+plt.savefig('ATAC_spatial_scbt.pdf')
+plt.close()
+
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.36542319219235764
+
+## correlation
+from scipy import stats
+import numpy as np
+
+stats.pearsonr(np.load('mat_thy1_scbt.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.3049408763956322
+stats.pearsonr(np.load('mat_bcl11b_scbt.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.1493882939065321
 
 
 #### BABEL
@@ -433,7 +563,7 @@ sns.heatmap(mat_bcl11b, cmap='Reds', xticklabels=False, yticklabels=False, vmin=
 plt.savefig('ATAC_BCL11B_babel.pdf')
 plt.close()
 
-np.save('mat_bcl11b_babel', mat_thy1)
+np.save('mat_bcl11b_babel', mat_bcl11b)
 
 ## spatial
 snap.pp.knn(atac)
@@ -468,7 +598,7 @@ from scipy import stats
 import numpy as np
 
 stats.pearsonr(np.load('mat_thy1_babel.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.27912440524970544
-stats.pearsonr(np.load('mat_bcl11b_babel.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.20056300915901737
+stats.pearsonr(np.load('mat_bcl11b_babel.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.2524620672510995
 
 
 
