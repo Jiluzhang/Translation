@@ -99,8 +99,11 @@ nohup accelerate launch --config_file accelerator_config_train.yaml --main_proce
 
 ## train model (small)  depth=3 & heads=3
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_small.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save_small -n rna2atac_brain > 20250120.log &   # 3517099
+                        --train_data_dir train_pt --val_data_dir val_pt -s save_small -n rna2atac_brain > 20250120_small.log &   # 3517099
 
+## train model (little)  depth=1 & heads=1
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train_little.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save_little -n rna2atac_brain > 20250121_little.log &   # 609309
 
 ######################################################## filter & map rna & atac h5ad ########################################################
 import scanpy as sc
@@ -306,6 +309,119 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # ARI: 0.2282
 # HOM: 0.3409
 # NMI: 0.3380
+
+## epoch=10
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_small/2025-01-20_rna2atac_brain_10/pytorch_model.bin --config_file rna2atac_config_test_small.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6419
+# Cell-wise AUPRC: 0.0344
+# Peak-wise AUROC: 0.6762
+# Peak-wise AUPRC: 0.0358
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3320
+# ARI: 0.2326
+# HOM: 0.3435
+# NMI: 0.3354
+
+## epoch=5
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_small/2025-01-20_rna2atac_brain_5/pytorch_model.bin --config_file rna2atac_config_test_small.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6455
+# Cell-wise AUPRC: 0.0344
+# Peak-wise AUROC: 0.6846
+# Peak-wise AUPRC: 0.0394
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3400
+# ARI: 0.2109
+# HOM: 0.3584
+# NMI: 0.3437
+
+## epoch=2
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_small/2025-01-20_rna2atac_brain_2/pytorch_model.bin --config_file rna2atac_config_test_small.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6442
+# Cell-wise AUPRC: 0.0338
+# Peak-wise AUROC: 0.6870
+# Peak-wise AUPRC: 0.0407
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3507
+# ARI: 0.2007
+# HOM: 0.3928
+# NMI: 0.3549
+
+#### evaluation for little model
+## epoch=1
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_little/2025-01-21_rna2atac_brain_1/pytorch_model.bin --config_file rna2atac_config_test_little.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6169
+# Cell-wise AUPRC: 0.0301
+# Peak-wise AUROC: 0.5220
+# Peak-wise AUPRC: 0.0210
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3513
+# ARI: 0.225
+# HOM: 0.3562
+# NMI: 0.3545
+
+## epoch=5
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_little/2025-01-21_rna2atac_brain_5/pytorch_model.bin --config_file rna2atac_config_test_little.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6409
+# Cell-wise AUPRC: 0.0331
+# Peak-wise AUROC: 0.5338
+# Peak-wise AUPRC: 0.0209
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3980
+# ARI: 0.3077
+# HOM: 0.3976
+# NMI: 0.4010
+
+## epoch=7
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_little/2025-01-21_rna2atac_brain_7/pytorch_model.bin --config_file rna2atac_config_test_little.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6426
+# Cell-wise AUPRC: 0.0335
+# Peak-wise AUROC: 0.5325
+# Peak-wise AUPRC: 0.0208
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3904
+# ARI: 0.2734
+# HOM: 0.3992
+# NMI: 0.3935
+
+## epoch=10
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_little/2025-01-21_rna2atac_brain_10/pytorch_model.bin --config_file rna2atac_config_test_little.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6414
+# Cell-wise AUPRC: 0.0334
+# Peak-wise AUROC: 0.5310
+# Peak-wise AUPRC: 0.0205
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3941
+# ARI: 0.2784
+# HOM: 0.3900
+# NMI: 0.3969
 
 
 #### clustering for true with rna
@@ -633,6 +749,15 @@ stats.pearsonr(np.load('mat_bcl11b_scbt.npy').flatten(), np.load('mat_bcl11b_tru
 #### BABEL
 python h5ad2h5.py -n train_val   # train + val -> train_val
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20250120.log &  # 2726382
+
+
+####################################################################################################################################################################################################
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20250121.log &  # 1321827
+####################################################################################################################################################################################################
+
+
+
+
 
 # python h5ad2h5.py -n test
 # nohup python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint train_out --data test.h5 --outdir test_out --device 1 --nofilter --noplot --transonly > predict_20241226.log &
