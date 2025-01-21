@@ -618,6 +618,29 @@ stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11
 
 
 #### scbutterfly
+# /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/train_model.py
+# line 329: "reconstruct_loss = r_loss_w * (lossR2R + lossA2R) + a_loss_w * (lossR2A + lossA2A)" -> "reconstruct_loss = lossR2A"
+# line 374: "loss2 = d_loss(predict_rna.reshape(batch_size), torch.tensor(temp).cuda().float())" -> "loss2 = 0"
+# butterfly.train_model() parameters: R2R_pretrain_epoch=0, A2A_pretrain_epoch=0, translation_kl_warmup=0, patience=10
+
+nohup python scbt_b.py > scbt_b_20250121.log &   # 1527522
+mv predict predict_val  # avoid no output
+python scbt_b_predict.py
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6596
+# Cell-wise AUPRC: 0.0356
+# Peak-wise AUROC: 0.6979
+# Peak-wise AUPRC: 0.0607
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_scbt_umap.h5ad
+# AMI: 0.3091
+# ARI: 0.1725
+# HOM: 0.3444
+# NMI: 0.3135
+
+
+
 nohup python scbt_b.py > scbt_b_20250120.log &   # 2667825
 
 # cp predict/R2A.h5ad atac_scbt.h5ad
@@ -747,12 +770,50 @@ stats.pearsonr(np.load('mat_bcl11b_scbt.npy').flatten(), np.load('mat_bcl11b_tru
 
 
 #### BABEL
+## /fs/home/jiluzhang/BABEL/babel/loss_functions.py
+## line 430: "loss = loss11 + self.loss2_weight * loss22" -> "loss = 0*loss11 + 0*self.loss2_weight * loss22"
+## line 431: "loss += next(self.cross_warmup) * (loss21 + self.loss2_weight * loss12)" -> "loss += next(self.cross_warmup) * (0*loss21 + 0*self.loss2_weight * loss12 + loss12)"
+
 python h5ad2h5.py -n train_val   # train + val -> train_val
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20250120.log &  # 2726382
 
 
 ####################################################################################################################################################################################################
+## earlystop=25
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 25 --device 6 --nofilter > train_20250121.log &  # 1321827
+
+# python h5ad2h5.py -n test
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 6 --nofilter --noplot --transonly
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6600
+# Cell-wise AUPRC: 0.0348
+# Peak-wise AUROC: 0.5563
+# Peak-wise AUPRC: 0.0284
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
+# AMI: 0.2473
+# ARI: 0.1439
+# HOM: 0.256
+# NMI: 0.2509
+
+## earlystop=10
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 10 --device 6 --nofilter > train_20250121.log &  # 1465297
+
+# python h5ad2h5.py -n test
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 6 --nofilter --noplot --transonly
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6650
+# Cell-wise AUPRC: 0.0358
+# Peak-wise AUROC: 0.5606
+# Peak-wise AUPRC: 0.0264
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
+# AMI: 0.2090
+# ARI: 0.0886
+# HOM: 0.2352
+# NMI: 0.2140
 ####################################################################################################################################################################################################
 
 
