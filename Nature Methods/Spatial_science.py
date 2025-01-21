@@ -274,6 +274,23 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # HOM: 0.7411
 # NMI: 0.7393
 
+#### evaluation for small model
+## epoch=20
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save_small/2025-01-20_rna2atac_brain_20/pytorch_model.bin --config_file rna2atac_config_test_small.yaml
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6399
+# Cell-wise AUPRC: 0.0342
+# Peak-wise AUROC: 0.6527
+# Peak-wise AUPRC: 0.0304
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.3369
+# ARI: 0.2351
+# HOM: 0.3389
+# NMI: 0.3400
+
 
 #### clustering for true with rna
 import scanpy as sc
