@@ -103,19 +103,19 @@ atac.write('atac_test.h5ad')
 ## spatial evaluation
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ./save/2025-01-21_rna2atac_brain_15/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -d ./spatial_test_pt -l ./save/2025-01-21_rna2atac_brain_10/pytorch_model.bin --config_file rna2atac_config_test.yaml
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.6825
+# Cell-wise AUPRC: 0.0293
+# Peak-wise AUROC: 0.5662
+# Peak-wise AUPRC: 0.0166
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.2928
+# ARI: 0.1986
+# HOM: 0.3144
+# NMI: 0.2970
 
 
 
@@ -130,16 +130,16 @@ mv predict predict_val  # avoid no output
 python scbt_b_predict.py
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.6743
+# Cell-wise AUPRC: 0.0284
+# Peak-wise AUROC: 0.6434
+# Peak-wise AUPRC: 0.0335
 python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.2656
+# ARI: 0.1217
+# HOM: 0.3202
+# NMI: 0.2716
 
 
 
@@ -153,20 +153,20 @@ cp ../atac.h5ad atac_train_val.h5ad
 python h5ad2h5.py -n train_val   # train + val -> train_val
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 10 --device 0 --nofilter > train_20250121.log &  # 1655108
 
-# python h5ad2h5.py -n test
-python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 6 --nofilter --noplot --transonly
+python h5ad2h5.py -n test
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 0 --nofilter --noplot --transonly
 python match_cell.py
 python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.6820
+# Cell-wise AUPRC: 0.0289
+# Peak-wise AUROC: 0.6591
+# Peak-wise AUPRC: 0.0350
 python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.1952
+# ARI: 0.0916
+# HOM: 0.2239
+# NMI: 0.2005
 
 
 
