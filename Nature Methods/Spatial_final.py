@@ -319,9 +319,10 @@ stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11
 #### scbutterfly
 # /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/train_model.py
 # line 329: "reconstruct_loss = r_loss_w * (lossR2R + lossA2R) + a_loss_w * (lossR2A + lossA2A)" -> "reconstruct_loss = lossR2A"
-# line 331: "kl_div = kl_div_r + kl_div_a" -> "kl_div = kl_div_r"
+# line 331: "kl_div = kl_div_r + kl_div_a" -> "kl_div = np.array(0)"
 # line 374: "loss2 = d_loss(predict_rna.reshape(batch_size), torch.tensor(temp).cuda().float())" -> "loss2 = 0"
 # butterfly.train_model() parameters: R2R_pretrain_epoch=0, A2A_pretrain_epoch=0, translation_kl_warmup=0, patience=10
+# line 974-977 (add # Luz) not pca
 
 # /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/butterfly.py
 # line 338: "R_encoder_dim_list = [256, 128]," -> "R_encoder_dim_list = [64, 16]," 
@@ -566,4 +567,5 @@ stats.pearsonr(np.load('mat_bcl11b_babel.npy').flatten(), np.load('mat_bcl11b_tr
 # scbt: 0.3136268806448111     0.29894978188093657     0.31026103815849715
 # scbt: 0.34248733645998697    0.3793128531619313    0.3565337192047811  (modify loss again)
 # scbt: 0.2741391818663338    0.3467068488459373    0.3684382758281502  (reduce embedding dimension from 128 to 16)
+# scbt: 0.32997422775242474   0.19735683274616217   0.1864139448438923  (remove kl loss)
 # babel: 0.23355932140479316   0.05806806333751863    0.05780821367095134
