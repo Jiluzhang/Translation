@@ -210,6 +210,21 @@ atac = sc.read_h5ad('spatial_atac_test.h5ad')
 atac.obs['cell_anno'] = rna.obs['leiden']
 atac.write('atac_test.h5ad')
 
+
+
+################################### find DEGs ###################################
+# import scanpy as sc
+
+# rna = sc.read_h5ad('rna_test.h5ad')
+# rna_raw = sc.read_h5ad('spatial_atac_test.h5ad')
+
+# rna.raw = rna_raw
+##################################################################################
+
+
+
+
+
 #### plot spatial pattern for ground truth
 # cp /fs/home/jiluzhang/2023_nature_RF/human_brain/HumanBrain_50um_spatial/tissue_positions_list.csv .
 # barcode    in_tissue    array_row    array_column    pxl_col_in_fullres    pxl_row_in_fullres
@@ -289,27 +304,45 @@ python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_brain > 20250122.log &   # 2649393
 
-## spatial evaluation
-## epoch=3
+## spatial evaluation (epoch_1 > epoch_2)
+## epoch=1
 python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./spatial_test_pt -l ./save/2025-01-21_rna2atac_brain_3/pytorch_model.bin --config_file rna2atac_config_test.yaml
+                  -d ./spatial_test_pt -l ./save/2025-01-22_rna2atac_brain_1/pytorch_model.bin --config_file rna2atac_config_test.yaml
 mv ../predict.npy .
 python npy2h5ad.py
 python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6799
-# Cell-wise AUPRC: 0.0289
-# Peak-wise AUROC: 0.5678
-# Peak-wise AUPRC: 0.0167
+# Cell-wise AUROC: 0.6458
+# Cell-wise AUPRC: 0.0280
+# Peak-wise AUROC: 0.6479
+# Peak-wise AUPRC: 0.0250
 python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_cisformer_umap.h5ad
-# AMI: 0.2687
-# ARI: 0.1735
-# HOM: 0.2833
-# NMI: 0.2725
+# AMI: 0.2910
+# ARI: 0.1701
+# HOM: 0.3122
+# NMI: 0.2951
+
+## epoch=2
+# python data_preprocess.py -r spatial_rna_test.h5ad -a spatial_atac_test.h5ad -s spatial_test_pt --dt test --config rna2atac_config_test.yaml
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./spatial_test_pt -l ./save/2025-01-22_rna2atac_brain_2/pytorch_model.bin --config_file rna2atac_config_test.yaml
+mv ../predict.npy .
+python npy2h5ad.py
+python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6579
+# Cell-wise AUPRC: 0.0292
+# Peak-wise AUROC: 0.6219
+# Peak-wise AUPRC: 0.0226
+python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_cisformer_umap.h5ad
+# AMI: 0.2899
+# ARI: 0.1763
+# HOM: 0.2950
+# NMI: 0.2933
 
 
-#### plot spatial pattern for cisformer prediction
+#### plot spatial pattern for cisformer prediction (epoch 1)
 import scanpy as sc
 import pandas as pd
 import numpy as np
@@ -366,16 +399,16 @@ np.save('mat_bcl11b_cisformer', mat_bcl11b)
 
 ## spatial
 snap.pp.knn(atac)
-snap.tl.leiden(atac, resolution=0.9)
+snap.tl.leiden(atac, resolution=0.8)
 atac.obs['leiden'].value_counts()
-# 0    480
-# 1    391
-# 2    332
-# 3    281
-# 4    278
-# 5    262
-# 6    255
-# 7    221
+# 0    583
+# 1    420
+# 2    390
+# 3    298
+# 4    240
+# 5    228
+# 6    194
+# 7    147
 
 df_cifm = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
 df_pos_cifm = pd.merge(df_cifm, pos)
@@ -386,21 +419,22 @@ for i in range(df_pos_cifm.shape[0]):
         mat_cifm[df_pos_cifm['X'][i], (49-df_pos_cifm['Y'][i])] = df_pos_cifm['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_cifm, cmap=sns.color_palette(['grey', 'yellow', 'green', 'red', 'blue', 'purple', 'orange', 'cornflowerblue']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_cifm, cmap=sns.color_palette(['grey', 'yellow', 'cornflowerblue', 'green', 'red', 'purple', 'orange', 'blue']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_cisformer.pdf')
 plt.close()
 
-normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.28876717756132614
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.2920756424920979
 
 ## correlation
 from scipy import stats
 import numpy as np
 
-stats.pearsonr(np.load('mat_thy1_cisformer.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.08258100908394941
-stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.1365499864406945
+stats.pearsonr(np.load('mat_thy1_cisformer.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.3947967177145891
+stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.16325353296556036
 
 
 ############################################################################ scButterfly ############################################################################
+## scbt_new
 # /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/train_model.py
 # line 329: "reconstruct_loss = r_loss_w * (lossR2R + lossA2R) + a_loss_w * (lossR2A + lossA2A)" -> "reconstruct_loss = lossR2A"
 # line 331: "kl_div = kl_div_r + kl_div_a" -> "kl_div = np.array(0)"
@@ -419,6 +453,28 @@ stats.pearsonr(np.load('mat_bcl11b_cisformer.npy').flatten(), np.load('mat_bcl11
 # line 351: "discriminator_dim_list_R = [128]," -> "discriminator_dim_list_R = [16],"
 # line 352: "discriminator_dim_list_A = [128]," -> "discriminator_dim_list_A = [16],"
 
+## scbt_new_2
+# /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/train_model.py
+# line 329: "reconstruct_loss = r_loss_w * (lossR2R + lossA2R) + a_loss_w * (lossR2A + lossA2A)" -> "reconstruct_loss = lossR2A"
+# line 333: "loss_g = kl_div_w * kl_div + reconstruct_loss" -> "loss_g = reconstruct_loss"
+# line 751: "loss_d.backward()" (add # Luz)  not train for discriminator
+# line 762-763: add # Luz (not link loss_g with loss_d)
+# butterfly.train_model() parameters: R2R_pretrain_epoch=0, A2A_pretrain_epoch=0, translation_kl_warmup=0, patience=10
+# line 974-977 (add # Luz) not pca
+
+# /data/home/jiluzhang/miniconda3/envs/scButterfly/lib/python3.9/site-packages/scButterfly/butterfly.py
+# line 338: "R_encoder_dim_list = [256, 128]," -> "R_encoder_dim_list = [64, 16]," 
+# line 339: "A_encoder_dim_list = [32, 128]," -> "A_encoder_dim_list = [32, 16],"
+# line 340: "R_decoder_dim_list = [128, 256]," -> "R_decoder_dim_list = [16, 64]," 
+# line 341: "A_decoder_dim_list = [128, 32]," ->  "A_decoder_dim_list = [16, 32],"
+# line 346: "translator_embed_dim = 128, " -> "translator_embed_dim = 16,"
+# line 347: "translator_input_dim_r = 128," -> "translator_input_dim_r = 16,"
+# line 348: "translator_input_dim_a = 128," -> "translator_input_dim_a = 16,"
+# line 351: "discriminator_dim_list_R = [128]," -> "discriminator_dim_list_R = [16],"
+# line 352: "discriminator_dim_list_A = [128]," -> "discriminator_dim_list_A = [16],"
+
+
+## scbt
 nohup python scbt_b.py > scbt_b_20250122.log &   # 2696403
 mv predict predict_val  # avoid no output
 python scbt_b_predict.py
@@ -441,18 +497,35 @@ mv predict predict_val  # avoid no output
 python scbt_b_predict.py
 cp predict/R2A.h5ad atac_scbt.h5ad
 python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 
-# Cell-wise AUPRC: 
-# Peak-wise AUROC: 
-# Peak-wise AUPRC: 
+# Cell-wise AUROC: 0.6718
+# Cell-wise AUPRC: 0.0306
+# Peak-wise AUROC: 0.6100
+# Peak-wise AUPRC: 0.0375
 python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
 python cal_cluster.py --file atac_scbt_umap.h5ad
-# AMI: 
-# ARI: 
-# HOM: 
-# NMI: 
+# AMI: 0.2157
+# ARI: 0.1049
+# HOM: 0.267
+# NMI: 0.2228
 
-#### plot spatial pattern for scbt prediction
+## scbt_new_2
+nohup python scbt_b.py > scbt_b_20250122.log &   # 3092054
+mv predict predict_val  # avoid no output
+python scbt_b_predict.py
+cp predict/R2A.h5ad atac_scbt.h5ad
+python cal_auroc_auprc.py --pred atac_scbt.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.5741
+# Cell-wise AUPRC: 0.0167
+# Peak-wise AUROC: 0.4197
+# Peak-wise AUPRC: 0.0179
+python plot_save_umap.py --pred atac_scbt.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_scbt_umap.h5ad
+# AMI: 0.1398
+# ARI: 0.0540
+# HOM: 0.1757
+# NMI: 0.1474
+
+#### plot spatial pattern for scbt prediction (scbt_new_2)
 import scanpy as sc
 import pandas as pd
 import numpy as np
@@ -509,16 +582,16 @@ np.save('mat_bcl11b_scbt', mat_bcl11b)
 
 ## spatial
 snap.pp.knn(atac)
-snap.tl.leiden(atac, resolution=0.37)
+snap.tl.leiden(atac, resolution=0.2)
 atac.obs['leiden'].value_counts()
-# 0    534
-# 1    456
-# 2    381
-# 3    354
-# 4    274
-# 5    212
-# 6    158
-# 7    131
+# 0    509
+# 1    455
+# 2    331
+# 3    294
+# 4    260
+# 5    256
+# 6    223
+# 7    172
 
 df_scbt = pd.DataFrame({'cell_idx':atac.obs.index, 'cell_anno':atac.obs.leiden.astype('int')})
 df_pos_scbt = pd.merge(df_scbt, pos)
@@ -529,18 +602,18 @@ for i in range(df_pos_scbt.shape[0]):
         mat_scbt[df_pos_scbt['X'][i], (49-df_pos_scbt['Y'][i])] = df_pos_scbt['cell_anno'][i]  # start from upper right
 
 plt.figure(figsize=(6, 5))
-sns.heatmap(mat_scbt, cmap=sns.color_palette(['blue', 'purple', 'green', 'orange', 'grey', 'red', 'yellow', 'cornflowerblue']), xticklabels=False, yticklabels=False)
+sns.heatmap(mat_scbt, cmap=sns.color_palette(['red', 'blue', 'green', 'orange', 'grey', 'purple', 'yellow', 'cornflowerblue']), xticklabels=False, yticklabels=False)
 plt.savefig('ATAC_spatial_scbt.pdf')
 plt.close()
 
-normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.3000233047724948
+normalized_mutual_info_score(atac.obs['cell_anno'], atac.obs['leiden'])  # 0.15713399956158117
 
 ## correlation
 from scipy import stats
 import numpy as np
 
-stats.pearsonr(np.load('mat_thy1_scbt.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.3748678172271672
-stats.pearsonr(np.load('mat_bcl11b_scbt.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # 0.3101401754841971
+stats.pearsonr(np.load('mat_thy1_scbt.npy').flatten(), np.load('mat_thy1_true.npy').flatten())[0]       # 0.2889981446764217
+stats.pearsonr(np.load('mat_bcl11b_scbt.npy').flatten(), np.load('mat_bcl11b_true.npy').flatten())[0]   # -0.3144434617363616
 
 
 ############################################################################ BABEL ############################################################################
