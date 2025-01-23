@@ -224,3 +224,151 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 #### plot true atac umap
 ## python plot_true_umap.py
+
+
+
+#### calculate umap for true rna & atac
+import scanpy as sc
+import matplotlib.pyplot as plt
+import pandas as pd
+import snapatac2 as snap
+import numpy as np
+
+#sc.settings.set_figure_params(dpi=600)
+plt.rcParams['pdf.fonttype'] = 42
+
+rna = sc.read_h5ad('rna_test.h5ad')  # 2597 × 16706
+rna.obs['cell_anno'].value_counts()
+# Oligodendrocyte    1595
+# Astrocyte           402
+# OPC                 174
+# VIP                 115
+# Microglia           109
+# SST                 104
+# IT                   83
+# PVALB                15
+
+sc.pp.normalize_total(rna, target_sum=1e4)
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna.raw = rna
+rna = rna[:, rna.var.highly_variable]  # 2597 × 2954
+sc.tl.pca(rna)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+
+# sc.tl.rank_genes_groups(rna, 'cell_anno')
+# pd.DataFrame(rna.uns['rank_genes_groups']['names']).head(20)
+#     Astrocyte       IT Microglia     OPC Oligodendrocyte     PVALB       SST      VIP
+# 0     PITPNC1     SYT1     LRMDA  PCDH15            ST18     CNTN5  KIAA1217   SNHG14
+# 1      ADGRV1    CSMD1    CHST11   DSCAM          CTNNA3    RBFOX1    DLGAP1    MYT1L
+# 2       GPM6A   RBFOX1     FOXN3     TNR             MBP     DPP10    RBFOX1   CCSER1
+# 3        GPC5    KALRN     ITPR2   OPCML           ENPP2   ZNF385D      SYT1     KAZN
+# 4      SLC1A2    FGF14    SFMBT2  KCNIP4         SLC44A1      SYT1    SNHG14    FGF14
+# 5        RORA     LDB2    FRMD4A   LUZP2         TMEM144     FGF12     GRIP1     MEG3
+# 6        SOX5    AGBL4      CD83  LHFPL3          RNF220    DLGAP1     RIMS2   ADARB2
+# 7        RYR3   DLGAP2   ST6GAL1   CSMD1              TF      NBEA      NRG3    RIMS2
+# 8      SORBS1     NRG3  ARHGAP24  LRRC4C         PIP4K2A     MEF2C      PCLO     NRG3
+# 9    OBI1-AS1    RIMS2    SRGAP2    SOX6          FRMD4B    DLGAP2    ATRNL1    PLCB1
+# 10     ABLIM1    NRXN1     MEF2C   KCND2          PRUNE2     TENM4    CCSER1   DLGAP1
+# 11       MSI2    CELF2     MEF2A   MDGA2         SLC24A2  TMEM132B     FGF14     DAB1
+# 12       NEBL   DLGAP1     DOCK8   MMP16            DPYD      MEG3      XKR4    NRXN1
+# 13  LINC00299    FGF12     CELF2    VCAN         PLEKHH1   CNTNAP5     NALF1    ROBO2
+# 14     CTNNA2   SNHG14   LDLRAD4   SNTG1           KCNH8     CADPS     NXPH1    DSCAM
+# 15       NRG3  STXBP5L      SRGN  KCNMB2            UGT8    THSD7A      KAZN  STXBP5L
+# 16     NKAIN3  SLC4A10     RUNX1   XYLT1         SLCO1A2      RORA      SOX6   FRMD4A
+# 17     SLC1A3  PHACTR1    INPP5D  SEMA5A     SLC7A14-AS1  TMEM132D     GRIA1  CACNA1B
+# 18       DTNA    NELL2     DISC1   NRXN1           TTLL7     TAFA2     FGF12    FGF12
+# 19      NRXN1   CCSER1     KCNQ3   FGF14         TMEM165     NALF1      OXR1     RGS7
+
+rna.write('rna_test_umap.h5ad')
+
+atac_true = sc.read_h5ad('atac_test.h5ad')  # 2597 × 236295
+snap.pp.select_features(atac_true)
+snap.tl.spectral(atac_true)
+snap.tl.umap(atac_true)
+
+atac_true.write('atac_test_umap.h5ad')
+
+# atac_true.var['chrom'] = atac_true.var.index.map(lambda x: x.split(':')[0])
+# atac_true.var['start'] = atac_true.var.index.map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+# atac_true.var['end'] = atac_true.var.index.map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+# gene_dict = {'ST18':['chr8', 52460959], 
+#              'CTNNA3':['chr10', 67763637], 
+#              'MBP':['chr18', 77133708],
+#              'ENPP2':['chr8', 119673453],
+#              'SLC44A1':['chr9', 105244622],
+#              'TMEM144': ['chr4', 158201604],
+#              'RNF220': ['chr1', 44404783],
+#              'TF':['chr3', 133661998],
+#              'PIP4K2A':['chr10', 22714578],
+#              'FRMD4B':['chr3', 69542586]}
+# for gene in gene_dict.keys():
+#     atac_true.obs[gene] = atac_true.X[:, (atac_true.var['chrom']==gene_dict[gene][0]) & (abs((atac_true.var['start']+atac_true.var['end'])*0.5-gene_dict[gene][1])<10000)].toarray().sum(axis=1)
+# sc.pl.umap(atac_true, color=gene_dict.keys(), legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+#            title='', frameon=True, save='_st18_atac_true.pdf')
+
+
+#### plot umap for marker peak & gene
+import scanpy as sc
+import matplotlib.pyplot as plt
+import pandas as pd
+import snapatac2 as snap
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
+
+plt.rcParams['pdf.fonttype'] = 42
+
+rna_true = sc.read_h5ad('rna_test_umap.h5ad')
+sc.pl.umap(rna_true, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5, 
+           title='', frameon=True, save='_cell_anno_rna.pdf')
+
+atac_true = sc.read_h5ad('atac_test_umap.h5ad')       # 2597 × 236295
+atac_cifm = sc.read_h5ad('atac_cisformer_umap.h5ad')  # 2597 × 236295
+atac_scbt = sc.read_h5ad('atac_scbt_umap.h5ad')       # 2597 × 236295
+atac_babel = sc.read_h5ad('atac_babel_umap.h5ad')     # 2597 × 236295
+
+atac_scbt.var.index = atac_true.var.index.values
+
+true_marker_peaks = snap.tl.marker_regions(atac_true, groupby='cell_anno', pvalue=0.05)
+cifm_marker_peaks = snap.tl.marker_regions(atac_cifm, groupby='cell_anno', pvalue=0.05)
+
+## Oligodendrocyte
+true_cifm_peaks = np.intersect1d(true_marker_peaks['Oligodendrocyte'], cifm_marker_peaks['Oligodendrocyte'])  # 115
+
+sc.pl.umap(atac_true, color=true_cifm_peaks[:10], legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_marker_peaks_atac_true.pdf')
+sc.pl.umap(atac_cifm, color=true_cifm_peaks[:10], legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_marker_peak_atac_cisformer.pdf')
+
+# chr10:70672520-70672823   ADAMTS14
+sc.pl.umap(atac_true, color='chr10:70672520-70672823', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_chr10_70672520_70672823_atac_true.pdf')
+sc.pl.umap(atac_cifm, color='chr10:70672520-70672823', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_chr10_70672520_70672823_atac_cisformer.pdf')
+sc.pl.umap(atac_scbt, color='chr10:70672520-70672823', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_chr10_70672520_70672823_atac_scbt.pdf')
+sc.pl.umap(atac_babel, color='chr10:70672520-70672823', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, save='_chr10_70672520_70672823_atac_babel.pdf')
+sc.pl.umap(rna_true, color='ADAMTS14', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_red', ['lightgray', 'red']),
+           title='', frameon=True, vmax=2.5, save='_adamts14_rna.pdf')
+
+## Astrocyte
+true_cifm_peaks = np.intersect1d(true_marker_peaks['Astrocyte'], cifm_marker_peaks['Astrocyte'])  # 117
+
+sc.pl.umap(atac_true, color=true_cifm_peaks[20:30], legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_marker_peaks_atac_true.pdf')
+sc.pl.umap(atac_cifm, color=true_cifm_peaks[20:30], legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_marker_peak_atac_cisformer.pdf')
+
+# chr17:57356784-57357132    MSI2
+sc.pl.umap(atac_true, color='chr17:57356784-57357132', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_chr17_57356784_57357132_atac_true.pdf')
+sc.pl.umap(atac_cifm, color='chr17:57356784-57357132', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_chr17_57356784_57357132_atac_cisformer.pdf')
+sc.pl.umap(atac_scbt, color='chr17:57356784-57357132', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_chr17_57356784_57357132_atac_scbt.pdf')
+sc.pl.umap(atac_babel, color='chr17:57356784-57357132', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_chr17_57356784_57357132_atac_babel.pdf')
+sc.pl.umap(rna_true, color='MSI2', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
+           title='', frameon=True, save='_msi2_rna.pdf')
