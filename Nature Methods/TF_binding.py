@@ -78,6 +78,13 @@ rna[idx_20].write('rna_cd14_mono_20.h5ad')
 atac = sc.read_h5ad('atac_train.h5ad')
 atac[idx_20].write('atac_cd14_mono_20.h5ad')
 
+## output peaks with bed format
+peaks = atac.var[['gene_ids']]
+peaks['chr'] = peaks['gene_ids'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks[['chr', 'start', 'end']].to_csv('peaks.bed', index=False, header=False, sep='\t')
+
 # python data_preprocess.py -r rna_cd14_mono_20.h5ad -a atac_cd14_mono_20.h5ad -s pt_cd14_mono_20 --dt test -n cd14_mono_20 --config rna2atac_config_test.yaml
 
 cd14_mono_data = torch.load("./pt_cd14_mono_20/cd14_mono_20_0.pt")
@@ -131,12 +138,10 @@ gene_attn_df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', 
 # df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=None, index=None)
 
 
-np.random.seed(0)
-motif_info = gene_attn_df.iloc[:, 3:6].copy()
-motif_info.iloc[:, :3] = 0
-motif_info.iloc[:, 0] = np.random.randint(0, 2, motif_info.shape[0])
-motif_info.iloc[:, 1] = np.random.randint(0, 2, motif_info.shape[0])
-motif_info.iloc[:, 2] = np.random.randint(0, 2, motif_info.shape[0])
+motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
+motif_info = pd.DataFrame({'CCNL2':motif_info_raw.sum(axis=1)})
+motif_info[motif_info['CCNL2']>0] = 1
+motif_info.index = gene_attn_df.index.values
 
 ## one tf
 ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['CCNL2']], axis=1)
@@ -147,6 +152,7 @@ from plotnine import *
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -154,10 +160,25 @@ ccnl2 = pd.read_csv('ccnl2_attn_motif_box.csv', index_col=0)
 ccnl2['attn'] = np.log10(ccnl2['attn']/(ccnl2['attn'].min()))
 ccnl2['attn'] = (ccnl2['attn']-ccnl2['attn'].min())/(ccnl2['attn'].max()-ccnl2['attn'].min())
 ccnl2['motif'] = ccnl2['motif'].apply(str)
+ccnl2.dropna(inplace=True)   
+
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
+################################################## why NaN ##################################################
 
 p = ggplot(ccnl2, aes(x='motif', y='attn', fill='motif')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                                        scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='ccnl2_attn_motif_box.pdf', dpi=600, height=4, width=4)
+
+
+stats.ttest_ind(ccnl2[ccnl2['motif']=='0']['attn'], ccnl2[ccnl2['motif']=='1']['attn'])
 
 
 ## scan motif with motifmatchr
@@ -182,18 +203,23 @@ p.save(filename='ccnl2_attn_motif_box.pdf', dpi=600, height=4, width=4)
 # BiocManager::install("motifmatchr")
 
 # BiocManager::install("JASPAR2018")
+# BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 
-# wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.zip
-
+## mannual: https://bioconductor.org/packages/release/bioc/vignettes/motifmatchr/inst/doc/motifmatchr.html
 library(motifmatchr)
 library(GenomicRanges)
 library(JASPAR2018)
 
-motif <- TFBSTools::getMatrixSet(JASPAR2018, list('species'='Homo sapiens', 'collection'='CORE'))
-if (!isTRUE(all.equal(TFBSTools::name(motif), names(motif))))
-    names(motif) <- paste(names(motif), TFBSTools::name(motif), sep="_")
+motifs <- TFBSTools::getMatrixSet(JASPAR2018, list('species'='Homo sapiens', 'collection'='CORE'))
+if (!isTRUE(all.equal(TFBSTools::name(motifs), names(motifs))))
+    names(motifs) <- paste(names(motifs), TFBSTools::name(motifs), sep="_")
 
+peaks <- rtracklayer::import.bed('peaks.bed')
+motif_ix <- matchMotifs(motif, peaks, genome="hg38", out='scores')
+motif_mat <- motifCounts(motif_ix)
 
+df <- data.frame(as.matrix(motif_mat))
+write.table(df, 'peaks_motifs_count.txt', row.names=FALSE, col.names=TRUE, sep='\t')   # 204Mb
 
 
 
