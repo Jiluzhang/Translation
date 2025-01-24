@@ -1,3 +1,5 @@
+## workdir: /fs/home/jiluzhang/Nature_methods/TF_binding
+
 ## Attention based chromatin accessibility regulator screening & ranking
 import pandas as pd
 import numpy as np
