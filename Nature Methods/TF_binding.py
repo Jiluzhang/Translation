@@ -129,3 +129,77 @@ gene_attn_df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', 
 # gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 # df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
 # df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=None, index=None)
+
+
+np.random.seed(0)
+motif_info = gene_attn_df.iloc[:, 3:6].copy()
+motif_info.iloc[:, :3] = 0
+motif_info.iloc[:, 0] = np.random.randint(0, 2, motif_info.shape[0])
+motif_info.iloc[:, 1] = np.random.randint(0, 2, motif_info.shape[0])
+motif_info.iloc[:, 2] = np.random.randint(0, 2, motif_info.shape[0])
+
+## one tf
+ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['CCNL2']], axis=1)
+ccnl2.columns = ['attn', 'motif']
+ccnl2.to_csv('ccnl2_attn_motif_box.csv')
+
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+plt.rcParams['pdf.fonttype'] = 42
+
+ccnl2 = pd.read_csv('ccnl2_attn_motif_box.csv', index_col=0)
+ccnl2['attn'] = np.log10(ccnl2['attn']/(ccnl2['attn'].min()))
+ccnl2['attn'] = (ccnl2['attn']-ccnl2['attn'].min())/(ccnl2['attn'].max()-ccnl2['attn'].min())
+ccnl2['motif'] = ccnl2['motif'].apply(str)
+
+p = ggplot(ccnl2, aes(x='motif', y='attn', fill='motif')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                       scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='ccnl2_attn_motif_box.pdf', dpi=600, height=4, width=4)
+
+
+## scan motif with motifmatchr
+# conda remove -n motifmatchr --all
+# conda create -n motifmatchr
+# conda activate motifmatchr
+# conda install bioconda::bioconductor-dirichletmultinomial
+# install.packages("BiocManager")
+# BiocManager::install("motifmatchr")
+# install.packages('https://cran.r-project.org/src/contrib/Archive/lattice/lattice_0.20-40.tar.gz')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.4-1.tar.gz')
+# BiocManager::install("SummarizedExperiment")
+# install.packages('https://cran.r-project.org/src/contrib/Archive/cpp11/cpp11_0.4.0.tar.gz')
+# install.packages('RSQLite')
+# conda install conda-forge::r-xml
+# BiocManager::install('rtracklayer')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/tzdb/tzdb_0.1.0.tar.gz')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/vroom/vroom_1.0.2.tar.gz')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/readr/readr_1.3.1.tar.gz')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/gtable/gtable_0.3.0.tar.gz')
+# install.packages('https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-51.5.tar.gz')
+# BiocManager::install("motifmatchr")
+
+# BiocManager::install("JASPAR2018")
+
+# wget -c https://jaspar.elixir.no/download/data/2024/CORE/JASPAR2024_CORE_vertebrates_non-redundant_pfms_jaspar.zip
+
+library(motifmatchr)
+library(GenomicRanges)
+library(JASPAR2018)
+
+motif <- TFBSTools::getMatrixSet(JASPAR2018, list('species'='Homo sapiens', 'collection'='CORE'))
+if (!isTRUE(all.equal(TFBSTools::name(motif), names(motif))))
+    names(motif) <- paste(names(motif), TFBSTools::name(motif), sep="_")
+
+
+
+
+
+
+
+
+
+
+
