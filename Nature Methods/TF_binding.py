@@ -76,8 +76,9 @@ random.seed(0)
 idx = list(np.argwhere(rna.obs['cell_anno']=='CD14 Mono').flatten())
 idx_20 = random.sample(list(idx), 20)
 rna[idx_20].write('rna_cd14_mono_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2726
 
-atac = sc.read_h5ad('atac_train.h5ad')
+atac = sc.read_h5ad('atac_train.h5ad')   # 6974 × 236295
 atac[idx_20].write('atac_cd14_mono_20.h5ad')
 
 ## output peaks with bed format
@@ -87,7 +88,8 @@ peaks['start'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0])
 peaks['end'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1])
 peaks[['chr', 'start', 'end']].to_csv('peaks.bed', index=False, header=False, sep='\t')
 
-# python data_preprocess.py -r rna_cd14_mono_20.h5ad -a atac_cd14_mono_20.h5ad -s pt_cd14_mono_20 --dt test -n cd14_mono_20 --config rna2atac_config_test.yaml
+# python data_preprocess.py -r rna_cd14_mono_20.h5ad -a atac_cd14_mono_20.h5ad -s pt_cd14_mono_20 --dt test -n cd14_mono_20 --config rna2atac_config_test_cd14_mono_20.yaml
+# enc_max_len: 2726
 
 cd14_mono_data = torch.load("./pt_cd14_mono_20/cd14_mono_20_0.pt")
 dataset = PreDataset(cd14_mono_data)
@@ -128,17 +130,37 @@ for i in range(20):
 with open('./attn/attn_20_cd14_mono_3cell.pkl', 'wb') as file:
     pickle.dump(gene_attn, file)
 
-for gene in gene_attn:
-    gene_attn[gene] = gene_attn[gene].flatten()
+# for gene in gene_attn:
+#     gene_attn[gene] = gene_attn[gene].flatten()
 
-gene_attn_df = pd.DataFrame(gene_attn)
-gene_attn_df.index = atac_cd14_mono_20.var.index.values
-gene_attn_df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=True, index=True)
+# gene_attn_df = pd.DataFrame(gene_attn)
+# gene_attn_df.index = atac_cd14_mono_20.var.index.values
+# gene_attn_df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=True, index=True)
 
 # gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 # df = pd.DataFrame({'gene':gene_lst, 'cnt':gene_attn_sum})
 # df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=None, index=None)
 
+
+import pickle
+
+with open('./attn/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4722
+gene_attn_df.index = atac_cd14_mono_20.var.index.values
+
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
 
 motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
 motif_info = pd.DataFrame({'CCNL2':motif_info_raw.sum(axis=1)})
@@ -164,23 +186,12 @@ ccnl2['attn'] = (ccnl2['attn']-ccnl2['attn'].min())/(ccnl2['attn'].max()-ccnl2['
 ccnl2['motif'] = ccnl2['motif'].apply(str)
 ccnl2.dropna(inplace=True)   
 
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-################################################## why NaN ##################################################
-
 p = ggplot(ccnl2, aes(x='motif', y='attn', fill='motif')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
                                                                        scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='ccnl2_attn_motif_box.pdf', dpi=600, height=4, width=4)
 
-
 stats.ttest_ind(ccnl2[ccnl2['motif']=='0']['attn'], ccnl2[ccnl2['motif']=='1']['attn'])
+
 
 
 ## scan motif with motifmatchr
