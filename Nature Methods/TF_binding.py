@@ -142,8 +142,6 @@ with open('./attn/attn_20_cd14_mono_3cell.pkl', 'wb') as file:
 # df.to_csv('./attn/attn_no_norm_cnt_20_cd14_mono_3cell.txt', sep='\t', header=None, index=None)
 
 
-import pickle
-
 with open('./attn/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
     gene_attn = pickle.load(file)
 
@@ -153,24 +151,57 @@ for gene in gene_attn:
 gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4722
 gene_attn_df.index = atac_cd14_mono_20.var.index.values
 
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-################################################## HERE ##################################################
-
 motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
-motif_info = pd.DataFrame({'CCNL2':motif_info_raw.sum(axis=1)})
-motif_info[motif_info['CCNL2']>0] = 1
-motif_info.index = gene_attn_df.index.values
 
-## one tf
-ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['CCNL2']], axis=1)
-ccnl2.columns = ['attn', 'motif']
-ccnl2.to_csv('ccnl2_attn_motif_box.csv')
+motif_tf_lst = []
+motif_tf_idx = []
+p = 0
+for i in motif_info_raw.columns:
+    tf = i.split('_')[1]
+    if '.' not in tf:
+        motif_tf_lst.append(tf)
+        motif_tf_idx.append(p)
+    p += 1
+
+motif_tf = []
+motif_0_attn = []
+motif_1_attn = []
+for i in tqdm(range(len(motif_tf_lst)), ncols=80):
+    tf = motif_tf_lst[i]
+    if tf in gene_attn_df.columns:
+        gene_attn_df_tf = gene_attn_df[tf]
+        #gene_attn_df_tf = np.log10(gene_attn_df_tf/gene_attn_df_tf.min())
+        #gene_attn_df_tf = (gene_attn_df_tf-gene_attn_df_tf.min())/(gene_attn_df_tf.max()-gene_attn_df_tf.min())
+        
+        motif_info = pd.DataFrame({'motif_or_not':motif_info_raw.iloc[:, motif_tf_idx[i]]})
+        motif_info[motif_info['motif_or_not']>0] = 1
+        motif_info.index = gene_attn_df.index.values
+
+        motif_attn = pd.concat([gene_attn_df_tf, motif_info], axis=1)
+        motif_attn.columns = ['attn', 'motif']
+
+        motif_tf.append(tf)
+        motif_0_attn.append(motif_attn[motif_attn['motif']==0]['attn'].mean())
+        motif_1_attn.append(motif_attn[motif_attn['motif']==1]['attn'].mean())
+
+
+motif_info.loc[gene_attn_df_tf.sort_values(ascending=False)[:10000].index].value_counts(normalize=True)
+
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+################################################## HERE ##################################################
+
+df_0 = pd.DataFrame({'attn':motif_0_attn, 'motif':0})
+df_1 = pd.DataFrame({'attn':motif_1_attn, 'motif':1})
+df = pd.concat([df_0, df_1], axis=0)
+df.to_csv('motif_attn.csv')
+
+# ## one tf
+# ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['motif_or_not']], axis=1)
+# ccnl2.columns = ['attn', 'motif']
+# ccnl2.to_csv('ccnl2_attn_motif_box.csv')
 
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -180,17 +211,17 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
-ccnl2 = pd.read_csv('ccnl2_attn_motif_box.csv', index_col=0)
-ccnl2['attn'] = np.log10(ccnl2['attn']/(ccnl2['attn'].min()))
-ccnl2['attn'] = (ccnl2['attn']-ccnl2['attn'].min())/(ccnl2['attn'].max()-ccnl2['attn'].min())
-ccnl2['motif'] = ccnl2['motif'].apply(str)
-ccnl2.dropna(inplace=True)   
+df = pd.read_csv('motif_attn.csv', index_col=0)
+df['motif'] = df['motif'].apply(str)  
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
 
-p = ggplot(ccnl2, aes(x='motif', y='attn', fill='motif')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                       scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
-p.save(filename='ccnl2_attn_motif_box.pdf', dpi=600, height=4, width=4)
+p = ggplot(df, aes(x='motif', y='attn', fill='motif')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                         scale_y_continuous(limits=[0.8, 1.0], breaks=np.arange(0.8, 1.0+0.1, 0.04)) + theme_bw()
+p.save(filename='motif_attn.pdf', dpi=600, height=4, width=4)
 
-stats.ttest_ind(ccnl2[ccnl2['motif']=='0']['attn'], ccnl2[ccnl2['motif']=='1']['attn'])
+stats.ttest_ind(df[df['motif']=='0']['attn'], df[df['motif']=='1']['attn'])  # pvalue=0.0020325117440889865
+stats.ttest_rel(df[df['motif']=='0']['attn'], df[df['motif']=='1']['attn'])  # pvalue=0.0020325117440889865
 
 
 
