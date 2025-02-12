@@ -160,57 +160,54 @@ motif_info = motif_info.sum(axis=1)
 motif_info.index = gene_attn_df.index.values
 
 df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
-df['motif_bin'] = 'No'
-df.loc[((df['motif']>0) & (df['motif']<=10)), 'motif_bin'] = 'Low'
-df.loc[((df['motif']>10) & (df['motif']<=20)), 'motif_bin'] = 'Mid'
-df.loc[(df['motif']>20), 'motif_bin'] = 'High'
-#df['attn'] = np.log10(df['attn']/df['attn'].min())
-#df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
-df[['attn', 'motif_bin']].to_csv('motif_attn.csv')
+df['motif_bin'] = '0'
+df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
+df.loc[(df['motif']>50), 'motif_bin'] = '2'
+# df['attn'] = np.log10(df['attn']/df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd14_mono.csv')
 
+# motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
 
+# motif_tf_lst = []
+# motif_tf_idx = []
+# p = 0
+# for i in motif_info_raw.columns:
+#     tf = i.split('_')[1]
+#     if '.' not in tf:
+#         motif_tf_lst.append(tf)
+#         motif_tf_idx.append(p)
+#     p += 1
 
-motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
-
-motif_tf_lst = []
-motif_tf_idx = []
-p = 0
-for i in motif_info_raw.columns:
-    tf = i.split('_')[1]
-    if '.' not in tf:
-        motif_tf_lst.append(tf)
-        motif_tf_idx.append(p)
-    p += 1
-
-motif_tf = []
-motif_0_attn = []
-motif_1_attn = []
-for i in tqdm(range(len(motif_tf_lst)), ncols=80):
-    tf = motif_tf_lst[i]
-    if tf in gene_attn_df.columns:
-        gene_attn_df_tf = gene_attn_df[tf]
-        gene_attn_df_tf = np.log10(gene_attn_df_tf/gene_attn_df_tf.min())
-        gene_attn_df_tf = (gene_attn_df_tf-gene_attn_df_tf.min())/(gene_attn_df_tf.max()-gene_attn_df_tf.min())
+# motif_tf = []
+# motif_0_attn = []
+# motif_1_attn = []
+# for i in tqdm(range(len(motif_tf_lst)), ncols=80):
+#     tf = motif_tf_lst[i]
+#     if tf in gene_attn_df.columns:
+#         gene_attn_df_tf = gene_attn_df[tf]
+#         gene_attn_df_tf = np.log10(gene_attn_df_tf/gene_attn_df_tf.min())
+#         gene_attn_df_tf = (gene_attn_df_tf-gene_attn_df_tf.min())/(gene_attn_df_tf.max()-gene_attn_df_tf.min())
         
-        motif_info = pd.DataFrame({'motif_or_not':motif_info_raw.iloc[:, motif_tf_idx[i]]})
-        motif_info[motif_info['motif_or_not']>0] = 1
-        motif_info.index = gene_attn_df.index.values
+#         motif_info = pd.DataFrame({'motif_or_not':motif_info_raw.iloc[:, motif_tf_idx[i]]})
+#         motif_info[motif_info['motif_or_not']>0] = 1
+#         motif_info.index = gene_attn_df.index.values
 
-        motif_attn = pd.concat([gene_attn_df_tf, motif_info], axis=1)
-        motif_attn.columns = ['attn', 'motif']
+#         motif_attn = pd.concat([gene_attn_df_tf, motif_info], axis=1)
+#         motif_attn.columns = ['attn', 'motif']
 
-        motif_tf.append(tf)
-        motif_0_attn.append(motif_attn[motif_attn['motif']==0]['attn'].mean())
-        motif_1_attn.append(motif_attn[motif_attn['motif']==1]['attn'].mean())
+#         motif_tf.append(tf)
+#         motif_0_attn.append(motif_attn[motif_attn['motif']==0]['attn'].mean())
+#         motif_1_attn.append(motif_attn[motif_attn['motif']==1]['attn'].mean())
 
 
 # motif_info.loc[gene_attn_df_tf.sort_values(ascending=False)[:10000].index].value_counts(normalize=True)
 
-
-df_0 = pd.DataFrame({'attn':motif_0_attn, 'motif':0})
-df_1 = pd.DataFrame({'attn':motif_1_attn, 'motif':1})
-df = pd.concat([df_0, df_1], axis=0)
-df.to_csv('motif_attn.csv')
+# df_0 = pd.DataFrame({'attn':motif_0_attn, 'motif':0})
+# df_1 = pd.DataFrame({'attn':motif_1_attn, 'motif':1})
+# df = pd.concat([df_0, df_1], axis=0)
+# df.to_csv('motif_attn.csv')
 
 # ## one tf
 # ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['motif_or_not']], axis=1)
@@ -225,24 +222,25 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
-df = pd.read_csv('motif_attn.csv', index_col=0)
+df = pd.read_csv('motif_attn_cd14_mono.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
 df = df[df['attn']!=0]
+df['attn'] = df['attn']*100
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
 
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
 p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                 scale_y_continuous(limits=[0.0037, 0.0039], breaks=np.arange(0.0037, 0.0039+0.0001, 0.0002)) + theme_bw()
-p.save(filename='motif_attn.pdf', dpi=600, height=4, width=4)
+                                                                 coord_cartesian(ylim=(0.34, 0.42)) + theme_bw()
+p.save(filename='motif_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
 
-df[df['motif_bin']=='No']['attn'].median()    # 0.0038186708
-df[df['motif_bin']=='Low']['attn'].median()   # 0.0038219039
-df[df['motif_bin']=='Mid']['attn'].median()   # 0.00382157345
-df[df['motif_bin']=='High']['attn'].median()  # 0.0038236144
+df[df['motif_bin']=='0']['attn'].median()   # 0.38186708
+df[df['motif_bin']=='2']['attn'].median()   # 0.382847655
 
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=7.804527617913404e-05
 
-
-
-stats.ttest_ind(df[df['motif']=='0']['attn'], df[df['motif']=='1']['attn'])  # pvalue=0.0020325117440889865
-stats.ttest_rel(df[df['motif']=='0']['attn'], df[df['motif']=='1']['attn'])  # pvalue=0.0020325117440889865
+# stats.ttest_rel(df[df['motif']=='0']['attn'], df[df['motif']=='1']['attn'])  
 
 
 
