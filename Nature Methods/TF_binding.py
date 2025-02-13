@@ -798,3 +798,73 @@ stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn
 # ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['motif_or_not']], axis=1)
 # ccnl2.columns = ['attn', 'motif']
 # ccnl2.to_csv('ccnl2_attn_motif_box.csv')
+
+
+
+
+
+wget -c https://www.encodeproject.org/files/ENCFF190KNC/@@download/ENCFF190KNC.bed.gz
+gunzip ENCFF190KNC.bed.gz
+mv ENCFF190KNC.bed cd14_mono_ctcf_peaks_raw.bed
+awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_ctcf_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_ctcf_peaks.bed  # 37191
+bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
+rm ccre_peaks_raw.bed
+
+
+import pickle
+import pandas as pd
+import scanpy as sc
+
+with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_ctcf = pd.DataFrame(gene_attn['CTCF'])
+atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+gene_attn_ctcf.index = atac_cd14_mono_20.var.index.values
+gene_attn_ctcf.columns = ['attn']
+gene_attn_ctcf['attn'] = gene_attn_ctcf['attn']/20
+
+ctcf_peaks = pd.read_table('tf_chipseq/cd14_mono_ctcf/ccre_peaks.bed', header=None)
+ctcf_peaks.index = ctcf_peaks[0]+':'+ctcf_peaks[1].apply(str)+'-'+ctcf_peaks[2].apply(str)
+ctcf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+df = gene_attn_ctcf.copy()
+df['peak_or_not'] = ctcf_peaks.loc[gene_attn_ctcf.index, 'peak_or_not']
+df.to_csv('./tf_chipseq/cd14_mono_ctcf/ctcf_attn_cd14_mono.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('./tf_chipseq/cd14_mono_ctcf/ctcf_attn_cd14_mono.csv', index_col=0)
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0, 1)) + theme_bw()
+p.save(filename='ctcf_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6310981248008007
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6500011675859599
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=1.0818979614331524e-177
+
+
+
+
+
+
+
+
