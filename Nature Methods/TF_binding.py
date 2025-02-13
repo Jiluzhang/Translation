@@ -802,16 +802,15 @@ stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn
 
 
 
-
-wget -c https://www.encodeproject.org/files/ENCFF190KNC/@@download/ENCFF190KNC.bed.gz
-gunzip ENCFF190KNC.bed.gz
-mv ENCFF190KNC.bed cd14_mono_ctcf_peaks_raw.bed
-awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_ctcf_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_ctcf_peaks.bed  # 37191
-bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
-bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
-sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
-rm ccre_peaks_raw.bed
-
+############ Peak vs. Attn ############
+# wget -c https://www.encodeproject.org/files/ENCFF190KNC/@@download/ENCFF190KNC.bed.gz
+# gunzip ENCFF190KNC.bed.gz
+# mv ENCFF190KNC.bed cd14_mono_ctcf_peaks_raw.bed
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_ctcf_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_ctcf_peaks.bed  # 37191
+# bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a ../peaks.bed -b cd14_mono_ctcf_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
+# rm ccre_peaks_raw.bed
 
 import pickle
 import pandas as pd
@@ -843,6 +842,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from scipy import stats
+from sklearn.metrics import roc_curve, auc
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -853,7 +853,8 @@ df['attn'] = np.log10(df['attn']/df['attn'].min())
 df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
 
 p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                     coord_cartesian(ylim=(0, 1)) + theme_bw()
+                                                                     coord_cartesian(ylim=(0.3, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.3, 1.0+0.1, 0.1)) + theme_bw()
 p.save(filename='ctcf_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
 
 df[df['peak_or_not']=='0']['attn'].median()   # 0.6310981248008007
@@ -861,10 +862,69 @@ df[df['peak_or_not']=='1']['attn'].median()   # 0.6500011675859599
 
 stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=1.0818979614331524e-177
 
+# fpr, tpr, _ = roc_curve(df['peak_or_not'].apply(int), df['attn'])
+# auc(fpr, tpr)  # 0.5536149022035999
+
+## calculate relative binding ratio (obs/exp)
+df_random = df.copy()
+df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+true_ratio = []
+rand_ratio = []
+for cnt in [5000, 10000, 15000, 20000, 25000, 30000]:
+    true_ratio.append(round(df[df['attn']>=df['attn'].quantile(1-cnt/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+    rand_ratio.append(round(df_random[df_random['attn']>=df_random['attn'].quantile(1-cnt/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+
+# true_ratio  [0.1230, 0.1174, 0.1185, 0.1171, 0.1181, 0.1183]
+# rand_ratio  [0.0994, 0.1004, 0.1009, 0.1028, 0.1032, 0.1030]
+true_vs_rand = np.round(np.array(true_ratio)/np.array(rand_ratio), 4)
+cnt_ratio = pd.DataFrame({'cnt':[5000, 10000, 15000, 20000, 25000, 30000],
+                          'ratio':true_vs_rand})
+
+p = ggplot(cnt_ratio, aes(x='cnt', y='ratio')) + geom_line(size=1) + geom_point(size=1) + xlab('') +\
+                                                 scale_x_continuous(limits=[5000, 30000], breaks=np.arange(5000, 30000+1, 5000)) +\
+                                                 scale_y_continuous(limits=[0.5, 1.5], breaks=np.arange(0.5, 1.5+0.1, 0.25)) + theme_bw()
+p.save(filename='ctcf_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
+##############################################
 
 
+########## Signal vs. Attn #############
+# install deeptools
+# conda create -n deeptools python=3.8
+# conda activate deeptools
+# conda install -c conda-forge -c bioconda deeptools  # not work
+# pip install deeptools  # works
 
+# wget -c https://www.encodeproject.org/files/ENCFF496PSJ/@@download/ENCFF496PSJ.bigWig
+# mv ENCFF496PSJ.bigWig cd14_mono_ctcf_signal.bigwig
 
+# awk '{if($4==1) print($1 "\t" $2 "\t" $3)}' ccre_peaks.bed > ccre_ctcf.bed
+# awk '{if($4==0) print($1 "\t" $2 "\t" $3)}' ccre_peaks.bed > ccre_not_ctcf.bed
+
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv('./tf_chipseq/cd14_mono_ctcf/ctcf_attn_cd14_mono.csv', index_col=0)
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+df_top = pd.DataFrame(df[df['attn']>=df['attn'].quantile(1-1000/df['attn'].shape[0])].index.values)
+df_top['chrom'] = df_top[0].apply(lambda x: x.split(':')[0])
+df_top['start'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_top['end'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_top.iloc[:, 1:].to_csv('./tf_chipseq/cd14_mono_ctcf/attn_top.bed', index=False, header=False, sep='\t')
+
+df_btm = pd.DataFrame(df[df['attn']<=df['attn'].quantile(1000/df['attn'].shape[0])].index.values)
+df_btm['chrom'] = df_btm[0].apply(lambda x: x.split(':')[0])
+df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_btm.iloc[:, 1:].to_csv('./tf_chipseq/cd14_mono_ctcf/attn_btm.bed', index=False, header=False, sep='\t')
+
+computeMatrix reference-point --referencePoint center -p 20 -S cd14_mono_ctcf_signal.bigwig \
+                              -R attn_top.bed attn_btm.bed -o cd14_mono_attn_top_btm_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m cd14_mono_attn_top_btm_signal.gz --yMin 0 --yMax 10 -out cd14_mono_attn_top_btm_signal.pdf
 
 
 
