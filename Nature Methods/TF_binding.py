@@ -137,6 +137,7 @@ dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
 # time: 1 min
+os.makedirs('./attn/mix')
 i=0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
@@ -242,6 +243,7 @@ dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
 # time: 1 min
+os.makedirs('./attn/cd14_mono')
 i=0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
@@ -329,12 +331,428 @@ df[df['motif_bin']=='2']['attn'].median()   # 0.19142382000000002
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=7.804527617913404e-05
 
 
+################ CD8 Naive ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD8 Naive').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd8_naive_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2008
+
+atac[idx_20].write('atac_cd8_naive_20.h5ad')
+
+# python data_preprocess.py -r rna_cd8_naive_20.h5ad -a atac_cd8_naive_20.h5ad -s pt_cd8_naive_20 --dt test -n cd8_naive_20 --config rna2atac_config_test_cd8_naive_20.yaml
+# enc_max_len: 2008
+
+cd8_naive_data = torch.load("./pt_cd8_naive_20/cd8_naive_20_0.pt")
+dataset = PreDataset(cd8_naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd8_naive')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd8_naive/attn_cd8_naive_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd8_naive_20 = sc.read_h5ad('rna_cd8_naive_20.h5ad')
+nonzero = np.count_nonzero(rna_cd8_naive_20.X.toarray(), axis=0)
+gene_lst = rna_cd8_naive_20.var.index[nonzero>=3]  # 4086
+
+atac_cd8_naive_20 = sc.read_h5ad('atac_cd8_naive_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd8_naive_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd8_naive_data[0][i].flatten()
+    with h5py.File('attn/cd8_naive/attn_cd8_naive_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd8_naive_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd8_naive/attn_20_cd8_naive_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+with open('./attn/cd8_naive/attn_20_cd8_naive_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4086
+gene_attn_df.index = atac_cd8_naive_20.var.index.values
+
+gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
+
+motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
+motif_info = motif_info_raw.copy()
+motif_info[motif_info!=0] = 1
+motif_info = motif_info.sum(axis=1)
+motif_info.index = gene_attn_df.index.values
+
+df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
+df['motif_bin'] = '0'
+df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
+df.loc[(df['motif']>50), 'motif_bin'] = '2'
+# df['attn'] = np.log10(df['attn']/df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd8_naive.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('motif_attn_cd8_naive.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = df['attn']*1000
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.16, 0.24)) + theme_bw()
+p.save(filename='motif_attn_cd8_naive.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.1947358
+df[df['motif_bin']=='2']['attn'].median()   # 0.19708356999999999
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=1.621873722532627e-06
 
 
+################ CD4 TCM ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 TCM').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd4_tcm_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2363
+
+atac[idx_20].write('atac_cd4_tcm_20.h5ad')
+
+# python data_preprocess.py -r rna_cd4_tcm_20.h5ad -a atac_cd4_tcm_20.h5ad -s pt_cd4_tcm_20 --dt test -n cd4_tcm_20 --config rna2atac_config_test_cd4_tcm_20.yaml
+# enc_max_len: 2363
+
+cd4_tcm_data = torch.load("./pt_cd4_tcm_20/cd4_tcm_20_0.pt")
+dataset = PreDataset(cd4_tcm_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd4_tcm')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd4_tcm/attn_cd4_tcm_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd4_tcm_20 = sc.read_h5ad('rna_cd4_tcm_20.h5ad')
+nonzero = np.count_nonzero(rna_cd4_tcm_20.X.toarray(), axis=0)
+gene_lst = rna_cd4_tcm_20.var.index[nonzero>=3]  # 4287
+
+atac_cd4_tcm_20 = sc.read_h5ad('atac_cd4_tcm_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd4_tcm_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd4_tcm_data[0][i].flatten()
+    with h5py.File('attn/cd4_tcm/attn_cd4_tcm_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd4_tcm_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd4_tcm/attn_20_cd4_tcm_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+with open('./attn/cd4_tcm/attn_20_cd4_tcm_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4287
+gene_attn_df.index = atac_cd4_tcm_20.var.index.values
+
+gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
+
+motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
+motif_info = motif_info_raw.copy()
+motif_info[motif_info!=0] = 1
+motif_info = motif_info.sum(axis=1)
+motif_info.index = gene_attn_df.index.values
+
+df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
+df['motif_bin'] = '0'
+df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
+df.loc[(df['motif']>50), 'motif_bin'] = '2'
+# df['attn'] = np.log10(df['attn']/df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_tcm.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('motif_attn_cd4_tcm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = df['attn']*1000
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.17, 0.23)) + theme_bw()
+p.save(filename='motif_attn_cd4_tcm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.19977421
+df[df['motif_bin']=='2']['attn'].median()   # 0.20124071
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=8.089084209426905e-06
 
 
+################ CD4 Naive ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 Naive').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd4_naive_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2170
+
+atac[idx_20].write('atac_cd4_naive_20.h5ad')
+
+# python data_preprocess.py -r rna_cd4_naive_20.h5ad -a atac_cd4_naive_20.h5ad -s pt_cd4_naive_20 --dt test -n cd4_naive_20 --config rna2atac_config_test_cd4_naive_20.yaml
+# enc_max_len: 2170
+
+cd4_naive_data = torch.load("./pt_cd4_naive_20/cd4_naive_20_0.pt")
+dataset = PreDataset(cd4_naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd4_naive')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd4_naive/attn_cd4_naive_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd4_naive_20 = sc.read_h5ad('rna_cd4_naive_20.h5ad')
+nonzero = np.count_nonzero(rna_cd4_naive_20.X.toarray(), axis=0)
+gene_lst = rna_cd4_naive_20.var.index[nonzero>=3]  # 3516
+
+atac_cd4_naive_20 = sc.read_h5ad('atac_cd4_naive_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd4_naive_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd4_naive_data[0][i].flatten()
+    with h5py.File('attn/cd4_naive/attn_cd4_naive_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd4_naive_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd4_naive/attn_20_cd4_naive_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+with open('./attn/cd4_naive/attn_20_cd4_naive_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 3516
+gene_attn_df.index = atac_cd4_naive_20.var.index.values
+
+gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
+
+motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
+motif_info = motif_info_raw.copy()
+motif_info[motif_info!=0] = 1
+motif_info = motif_info.sum(axis=1)
+motif_info.index = gene_attn_df.index.values
+
+df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
+df['motif_bin'] = '0'
+df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
+df.loc[(df['motif']>50), 'motif_bin'] = '2'
+# df['attn'] = np.log10(df['attn']/df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_naive.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('motif_attn_cd4_naive.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = df['attn']*1000
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.19, 0.26)) + theme_bw()
+p.save(filename='motif_attn_cd4_naive.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.22770822
+df[df['motif_bin']=='2']['attn'].median()   # 0.22968281
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=1.2792511946603712e-06
 
 
+################ CD4 intermediate ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 intermediate').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd4_inter_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2082
+
+atac[idx_20].write('atac_cd4_inter_20.h5ad')
+
+# python data_preprocess.py -r rna_cd4_inter_20.h5ad -a atac_cd4_inter_20.h5ad -s pt_cd4_inter_20 --dt test -n cd4_inter_20 --config rna2atac_config_test_cd4_inter_20.yaml
+# enc_max_len: 2082
+
+cd4_inter_data = torch.load("./pt_cd4_inter_20/cd4_inter_20_0.pt")
+dataset = PreDataset(cd4_inter_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd4_inter')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd4_inter/attn_cd4_inter_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd4_inter_20 = sc.read_h5ad('rna_cd4_inter_20.h5ad')
+nonzero = np.count_nonzero(rna_cd4_inter_20.X.toarray(), axis=0)
+gene_lst = rna_cd4_inter_20.var.index[nonzero>=3]  # 3893
+
+atac_cd4_inter_20 = sc.read_h5ad('atac_cd4_inter_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd4_inter_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd4_inter_data[0][i].flatten()
+    with h5py.File('attn/cd4_inter/attn_cd4_inter_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd4_inter_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd4_inter/attn_20_cd4_inter_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+with open('./attn/cd4_inter/attn_20_cd4_inter_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 3893
+gene_attn_df.index = atac_cd4_inter_20.var.index.values
+
+gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
+
+motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
+motif_info = motif_info_raw.copy()
+motif_info[motif_info!=0] = 1
+motif_info = motif_info.sum(axis=1)
+motif_info.index = gene_attn_df.index.values
+
+df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
+df['motif_bin'] = '0'
+df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
+df.loc[(df['motif']>50), 'motif_bin'] = '2'
+# df['attn'] = np.log10(df['attn']/df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+# df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_inter.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('motif_attn_cd4_inter.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = df['attn']*1000
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.18, 0.25)) + theme_bw()
+p.save(filename='motif_attn_cd4_inter.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.2109143
+df[df['motif_bin']=='2']['attn'].median()   # 0.21416911
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=4.5403433443482146e-10
 
 
 # motif_tf_lst = []
