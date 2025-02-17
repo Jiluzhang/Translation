@@ -197,6 +197,10 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_mix.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_mix_norm.csv')
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -206,6 +210,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_mix.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -223,6 +228,23 @@ df[df['motif_bin']=='0']['attn'].median()   # 0.18183049
 df[df['motif_bin']=='2']['attn'].median()   # 0.18325863
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=9.346625487654643e-07
+
+## with norm
+df = pd.read_csv('motif_attn_mix_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.962, 0.968)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.962, 0.968+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_mix_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.9648917
+df[df['motif_bin']=='2']['attn'].median()   # 0.96500546
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.003919180269244814
 
 
 ################ CD14 Mono ################
@@ -303,6 +325,11 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_cd14_mono.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd14_mono_norm.csv')
+
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -312,6 +339,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_cd14_mono.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -329,6 +357,24 @@ df[df['motif_bin']=='0']['attn'].median()   # 0.19093353999999998
 df[df['motif_bin']=='2']['attn'].median()   # 0.19142382000000002
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=7.804527617913404e-05
+
+## with norm
+df = pd.read_csv('motif_attn_cd14_mono_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.948, 0.952)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.948, 0.952+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_cd14_mono_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.9502866
+df[df['motif_bin']=='2']['attn'].median()   # 0.950325875
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.0019024368003007642
+
 
 
 ################ CD8 Naive ################
@@ -409,6 +455,10 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_cd8_naive.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd8_naive_norm.csv')
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -418,6 +468,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_cd8_naive.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -436,6 +487,24 @@ df[df['motif_bin']=='2']['attn'].median()   # 0.19708356999999999
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=1.621873722532627e-06
 
+## with norm
+df = pd.read_csv('motif_attn_cd8_naive_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.951, 0.957)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.951, 0.957+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_cd8_naive_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.9537589
+df[df['motif_bin']=='2']['attn'].median()   # 0.95392907
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.0018312685962712527
 
 ################ CD4 TCM ################
 random.seed(0)
@@ -515,6 +584,10 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_tcm.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_tcm_norm.csv')
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -524,6 +597,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_cd4_tcm.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -542,6 +616,24 @@ df[df['motif_bin']=='2']['attn'].median()   # 0.20124071
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=8.089084209426905e-06
 
+## with norm
+df = pd.read_csv('motif_attn_cd4_tcm_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.947, 0.952)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.947, 0.952+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_cd4_tcm_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.94974244
+df[df['motif_bin']=='2']['attn'].median()   # 0.94985387
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.0012267649893935536
 
 ################ CD4 Naive ################
 random.seed(0)
@@ -621,6 +713,10 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_naive.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_naive_norm.csv')
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -630,6 +726,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_cd4_naive.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -647,6 +744,25 @@ df[df['motif_bin']=='0']['attn'].median()   # 0.22770822
 df[df['motif_bin']=='2']['attn'].median()   # 0.22968281
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=1.2792511946603712e-06
+
+## with norm
+df = pd.read_csv('motif_attn_cd4_naive_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+# p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                  scale_y_continuous(limits=[0.00, 0.10], breaks=np.arange(0.00, 0.10+0.01, 0.02)) + theme_bw()
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.954, 0.959)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.954, 0.959+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_cd4_naive_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.956380225
+df[df['motif_bin']=='2']['attn'].median()   # 0.956487975
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.018569671054108276
 
 
 ################ CD4 intermediate ################
@@ -727,6 +843,10 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
 df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_inter.csv')
 
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+df[['attn', 'motif_bin']].to_csv('motif_attn_cd4_inter_norm.csv')
+
 ## plot box
 from plotnine import *
 import matplotlib.pyplot as plt
@@ -736,6 +856,7 @@ from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## no norm
 df = pd.read_csv('motif_attn_cd4_inter.csv', index_col=0)
 df['motif_bin'] = df['motif_bin'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
@@ -753,6 +874,23 @@ df[df['motif_bin']=='0']['attn'].median()   # 0.2109143
 df[df['motif_bin']=='2']['attn'].median()   # 0.21416911
 
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=4.5403433443482146e-10
+
+## with norm
+df = pd.read_csv('motif_attn_cd4_inter_norm.csv', index_col=0)
+df['motif_bin'] = df['motif_bin'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df = df[df['motif_bin']!='1']  # 'mid' is not obvious
+
+p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                 coord_cartesian(ylim=(0.930, 0.935)) +\
+                                                                 scale_y_continuous(breaks=np.arange(0.930, 0.935+0.001, 0.001)) + theme_bw()
+p.save(filename='motif_attn_cd4_inter_norm.pdf', dpi=600, height=4, width=2)
+
+df[df['motif_bin']=='0']['attn'].median()   # 0.9323842
+df[df['motif_bin']=='2']['attn'].median()   # 0.93260145
+
+stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.0003650971880714685
 
 
 # motif_tf_lst = []
