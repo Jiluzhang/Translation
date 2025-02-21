@@ -1240,23 +1240,14 @@ p.save(filename='stat1_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
 ################################################################################################################################################
 
 
-
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~ HERE #~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~#~~~~~~~~~~
-
-
 ################################################################ CD14 Mono CEBPB ############################################################################
 ############ Peak vs. Attn ############
 # wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE98367.CEBPB.monocyte.bed.gz
 # gunzip GSE98367.CEBPB.monocyte.bed.gz
-# mv GSE43036.STAT1.CD14.bed cd14_mono_stat1_peaks_raw.bed
-# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_stat1_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_stat1_peaks.bed  # 10636
-# bedtools intersect -a ../../peaks.bed -b cd14_mono_stat1_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
-# bedtools intersect -a ../../peaks.bed -b cd14_mono_stat1_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# mv GSE98367.CEBPB.monocyte.bed cd14_mono_cebpb_peaks_raw.bed
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_cebpb_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_cebpb_peaks.bed  # 26244
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_cebpb_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_cebpb_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
 # sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
 # rm ccre_peaks_raw.bed
 
@@ -1270,19 +1261,19 @@ with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
 for gene in gene_attn:
     gene_attn[gene] = gene_attn[gene].flatten()
 
-gene_attn_stat1 = pd.DataFrame(gene_attn['STAT1'])
+gene_attn_cebpb = pd.DataFrame(gene_attn['CEBPB'])
 atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
-gene_attn_stat1.index = atac_cd14_mono_20.var.index.values
-gene_attn_stat1.columns = ['attn']
-gene_attn_stat1['attn'] = gene_attn_stat1['attn']/20
+gene_attn_cebpb.index = atac_cd14_mono_20.var.index.values
+gene_attn_cebpb.columns = ['attn']
+gene_attn_cebpb['attn'] = gene_attn_cebpb['attn']/20
 
-stat1_peaks = pd.read_table('tf_chipseq/cd14_mono_stat1/ccre_peaks.bed', header=None)
-stat1_peaks.index = stat1_peaks[0]+':'+stat1_peaks[1].apply(str)+'-'+stat1_peaks[2].apply(str)
-stat1_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+cebpb_peaks = pd.read_table('tf_chipseq/cd14_mono_cebpb/ccre_peaks.bed', header=None)
+cebpb_peaks.index = cebpb_peaks[0]+':'+cebpb_peaks[1].apply(str)+'-'+cebpb_peaks[2].apply(str)
+cebpb_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
 
-df = gene_attn_stat1.copy()
-df['peak_or_not'] = stat1_peaks.loc[gene_attn_stat1.index, 'peak_or_not']
-df.to_csv('./tf_chipseq/cd14_mono_stat1/stat1_attn_cd14_mono.csv')
+df = gene_attn_cebpb.copy()
+df['peak_or_not'] = cebpb_peaks.loc[gene_attn_cebpb.index, 'peak_or_not']
+df.to_csv('./tf_chipseq/cd14_mono_cebpb/cebpb_attn_cd14_mono.csv')
 
 ## plot box
 from plotnine import *
@@ -1294,24 +1285,24 @@ from sklearn.metrics import roc_curve, auc
 
 plt.rcParams['pdf.fonttype'] = 42
 
-df = pd.read_csv('./tf_chipseq/cd14_mono_stat1/stat1_attn_cd14_mono.csv', index_col=0)
+df = pd.read_csv('./tf_chipseq/cd14_mono_cebpb/cebpb_attn_cd14_mono.csv', index_col=0)
 df['peak_or_not'] = df['peak_or_not'].apply(str)
 df = df.replace([np.inf, -np.inf], np.nan).dropna()
 df['attn'] = np.log10(df['attn']/df['attn'].min())
 df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
 
 p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                     coord_cartesian(ylim=(0.25, 0.95)) +\
-                                                                     scale_y_continuous(breaks=np.arange(0.25, 0.95+0.1, 0.1)) + theme_bw()
-p.save(filename='stat1_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.2, 0.2)) + theme_bw()
+p.save(filename='cebpb_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
 
-df[df['peak_or_not']=='0']['attn'].median()   # 0.5901030305514414
-df[df['peak_or_not']=='1']['attn'].median()   # 0.5985104680202513
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6782954577592024
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6744988676522976
 
-stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=1.3305348309480372e-09
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=8.176733384818817e-06
 
 # fpr, tpr, _ = roc_curve(df['peak_or_not'].apply(int), df['attn'])
-# auc(fpr, tpr)  # 0.5223489090716011
+# auc(fpr, tpr)  # 0.4902619670262879
 
 ## calculate relative binding ratio (obs/exp)
 df_random = df.copy()
@@ -1323,23 +1314,248 @@ for cnt in [5000, 10000, 15000, 20000, 25000, 30000]:
     true_ratio.append(round(df[df['attn']>=df['attn'].quantile(1-cnt/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
     rand_ratio.append(round(df_random[df_random['attn']>=df_random['attn'].quantile(1-cnt/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
 
-# true_ratio  [0.0508, 0.0474, 0.0432, 0.0415, 0.0404, 0.0389]
-# rand_ratio  [0.0246, 0.0244, 0.0254, 0.0265, 0.0269, 0.0267]
+# true_ratio  [0.0694, 0.0807, 0.0811, 0.08, 0.0778, 0.076]
+# rand_ratio  [0.0638, 0.0624, 0.0615, 0.061, 0.0606, 0.0608]
 true_vs_rand = np.round(np.array(true_ratio)/np.array(rand_ratio), 4)
 cnt_ratio = pd.DataFrame({'cnt':[5000, 10000, 15000, 20000, 25000, 30000],
                           'ratio':true_vs_rand})
 
 p = ggplot(cnt_ratio, aes(x='cnt', y='ratio')) + geom_line(size=1) + geom_point(size=1) + xlab('') +\
                                                  scale_x_continuous(limits=[5000, 30000], breaks=np.arange(5000, 30000+1, 5000)) +\
-                                                 scale_y_continuous(limits=[0.5, 2.5], breaks=np.arange(0.5, 2.5+0.1, 0.5)) + theme_bw()
-p.save(filename='stat1_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
+                                                 scale_y_continuous(limits=[0.5, 1.5], breaks=np.arange(0.5, 1.5+0.1, 0.25)) + theme_bw()
+p.save(filename='cebpb_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
 ################################################################################################################################################
 
 
-https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE31621.SPI1.monocyte.bed.gz
-https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE120943.STAT3.monocyte_resting.bed.gz
-https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE129202.SREBP2.monocyte.bed.gz
+################################################################ CD14 Mono SPI1 ############################################################################
+############ Peak vs. Attn ############
+# wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE31621.SPI1.monocyte.bed.gz
+# gunzip GSE31621.SPI1.monocyte.bed.gz
+# mv GSE31621.SPI1.monocyte.bed cd14_mono_spi1_peaks_raw.bed
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_spi1_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_spi1_peaks.bed  # 53628
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_spi1_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_spi1_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
+# rm ccre_peaks_raw.bed
+
+import pickle
+import pandas as pd
+import scanpy as sc
+
+with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_spi1 = pd.DataFrame(gene_attn['SPI1'])
+atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+gene_attn_spi1.index = atac_cd14_mono_20.var.index.values
+gene_attn_spi1.columns = ['attn']
+gene_attn_spi1['attn'] = gene_attn_spi1['attn']/20
+
+spi1_peaks = pd.read_table('tf_chipseq/cd14_mono_spi1/ccre_peaks.bed', header=None)
+spi1_peaks.index = spi1_peaks[0]+':'+spi1_peaks[1].apply(str)+'-'+spi1_peaks[2].apply(str)
+spi1_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+df = gene_attn_spi1.copy()
+df['peak_or_not'] = spi1_peaks.loc[gene_attn_spi1.index, 'peak_or_not']
+df.to_csv('./tf_chipseq/cd14_mono_spi1/spi1_attn_cd14_mono.csv')
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+from sklearn.metrics import roc_curve, auc
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('./tf_chipseq/cd14_mono_spi1/spi1_attn_cd14_mono.csv', index_col=0)
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.30, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.30, 1.00+0.1, 0.1)) + theme_bw()
+p.save(filename='spi1_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6913961599352173
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6687961538524598
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+# fpr, tpr, _ = roc_curve(df['peak_or_not'].apply(int), df['attn'])
+# auc(fpr, tpr)  # 0.4344259561190602
+
+## calculate relative binding ratio (obs/exp)
+df_random = df.copy()
+df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+true_ratio = []
+rand_ratio = []
+for cnt in [5000, 10000, 15000, 20000, 25000, 30000]:
+    true_ratio.append(round(df[df['attn']>=df['attn'].quantile(1-cnt/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+    rand_ratio.append(round(df_random[df_random['attn']>=df_random['attn'].quantile(1-cnt/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+
+# true_ratio  [0.0908, 0.0926, 0.0936, 0.0953, 0.0954, 0.0974]
+# rand_ratio  [0.1284, 0.1321, 0.132, 0.1334, 0.1338, 0.1352]
+true_vs_rand = np.round(np.array(true_ratio)/np.array(rand_ratio), 4)
+cnt_ratio = pd.DataFrame({'cnt':[5000, 10000, 15000, 20000, 25000, 30000],
+                          'ratio':true_vs_rand})
+
+p = ggplot(cnt_ratio, aes(x='cnt', y='ratio')) + geom_line(size=1) + geom_point(size=1) + xlab('') +\
+                                                 scale_x_continuous(limits=[5000, 30000], breaks=np.arange(5000, 30000+1, 5000)) +\
+                                                 scale_y_continuous(limits=[0.5, 1.5], breaks=np.arange(0.5, 1.5+0.1, 0.25)) + theme_bw()
+p.save(filename='spi1_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
+################################################################################################################################################
 
 
+################################################################ CD14 Mono STAT3 ############################################################################
+############ Peak vs. Attn ############
+# wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE120943.STAT3.monocyte_resting.bed.gz
+# gunzip GSE120943.STAT3.monocyte_resting.bed.gz
+# mv GSE120943.STAT3.monocyte_resting.bed cd14_mono_stat3_peaks_raw.bed
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_stat3_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_stat3_peaks.bed  # 20232
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_stat3_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_stat3_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
+# rm ccre_peaks_raw.bed
+
+import pickle
+import pandas as pd
+import scanpy as sc
+
+with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_stat3 = pd.DataFrame(gene_attn['STAT3'])
+atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+gene_attn_stat3.index = atac_cd14_mono_20.var.index.values
+gene_attn_stat3.columns = ['attn']
+gene_attn_stat3['attn'] = gene_attn_stat3['attn']/20
+
+stat3_peaks = pd.read_table('tf_chipseq/cd14_mono_stat3/ccre_peaks.bed', header=None)
+stat3_peaks.index = stat3_peaks[0]+':'+stat3_peaks[1].apply(str)+'-'+stat3_peaks[2].apply(str)
+stat3_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+df = gene_attn_stat3.copy()
+df['peak_or_not'] = stat3_peaks.loc[gene_attn_stat3.index, 'peak_or_not']
+df.to_csv('./tf_chipseq/cd14_mono_stat3/stat3_attn_cd14_mono.csv')
+
+
+## plot box
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+from sklearn.metrics import roc_curve, auc
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_csv('./tf_chipseq/cd14_mono_stat3/stat3_attn_cd14_mono.csv', index_col=0)
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='stat3_attn_cd14_mono.pdf', dpi=600, height=4, width=2)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.738167578603145
+df[df['peak_or_not']=='1']['attn'].median()   # 0.66908304196512
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+# fpr, tpr, _ = roc_curve(df['peak_or_not'].apply(int), df['attn'])
+# auc(fpr, tpr)  # 0.38628834180140725
+
+## calculate relative binding ratio (obs/exp)
+df_random = df.copy()
+df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+true_ratio = []
+rand_ratio = []
+for cnt in [5000, 10000, 15000, 20000, 25000, 30000]:
+    true_ratio.append(round(df[df['attn']>=df['attn'].quantile(1-cnt/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+    rand_ratio.append(round(df_random[df_random['attn']>=df_random['attn'].quantile(1-cnt/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True)[1], 4))
+
+# true_ratio  [0.0238, 0.0261, 0.0275, 0.0277, 0.0284, 0.0289]
+# rand_ratio  [0.0588, 0.0562, 0.0565, 0.055, 0.0558, 0.0561]
+true_vs_rand = np.round(np.array(true_ratio)/np.array(rand_ratio), 4)
+cnt_ratio = pd.DataFrame({'cnt':[5000, 10000, 15000, 20000, 25000, 30000],
+                          'ratio':true_vs_rand})
+
+p = ggplot(cnt_ratio, aes(x='cnt', y='ratio')) + geom_line(size=1) + geom_point(size=1) + xlab('') +\
+                                                 scale_x_continuous(limits=[5000, 30000], breaks=np.arange(5000, 30000+1, 5000)) +\
+                                                 scale_y_continuous(limits=[0.25, 1.25], breaks=np.arange(0.25, 1.25+0.1, 0.25)) + theme_bw()
+p.save(filename='stat3_cd14_mono_cnt_ratio.pdf', dpi=600, height=4, width=4)
+################################################################################################################################################
+
+
+################################################################ CD14 Mono SREBP2 ############################################################################
+############ Peak vs. Attn ############
+# wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE129202.SREBP2.monocyte.bed.gz
+# gunzip GSE129202.SREBP2.monocyte.bed.gz
+# mv GSE129202.SREBP2.monocyte.bed cd14_mono_srebp2_peaks_raw.bed
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' cd14_mono_srebp2_peaks_raw.bed | sort -k1,1 -k2,2n | uniq > cd14_mono_srebp2_peaks.bed  # 44464
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_srebp2_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a ../../peaks.bed -b cd14_mono_srebp2_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# sort -k1,1 -k2,2n ccre_peaks_raw.bed > ccre_peaks.bed
+# rm ccre_peaks_raw.bed
+
+import pickle
+import pandas as pd
+import scanpy as sc
+
+with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+gene_attn_srebp2 = pd.DataFrame(gene_attn['SREBP2'])   # error: no 'SREBP2'
+# atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+# gene_attn_srebp2.index = atac_cd14_mono_20.var.index.values
+# gene_attn_srebp2.columns = ['attn']
+# gene_attn_srebp2['attn'] = gene_attn_srebp2['attn']/20
+
+# srebp2_peaks = pd.read_table('tf_chipseq/cd14_mono_srebp2/ccre_peaks.bed', header=None)
+# srebp2_peaks.index = srebp2_peaks[0]+':'+srebp2_peaks[1].apply(str)+'-'+srebp2_peaks[2].apply(str)
+# srebp2_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+# df = gene_attn_srebp2.copy()
+# df['peak_or_not'] = srebp2_peaks.loc[gene_attn_srebp2.index, 'peak_or_not']
+# df.to_csv('./tf_chipseq/cd14_mono_srebp2/srebp2_attn_cd14_mono.csv')
+################################################################################################################################################
+
+
+# CD14 Mono           1988
+# CD8 Naive            964
+# CD4 TCM              793
+# CD4 Naive            734
+# CD4 intermediate     363
+# CD8 TEM              357
+# CD4 TEM              335
+# B memory             317
+# NK                   306
+# CD16 Mono            266
+# B naive              229
+# cDC2                  88
+# MAIT                  86
+# Treg                  83
+# pDC                   65
+
+K562    ~ NK
+GM12878 ~ B cell
 
 
