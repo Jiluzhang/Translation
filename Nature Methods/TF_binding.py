@@ -1558,4 +1558,86 @@ gene_attn_srebp2 = pd.DataFrame(gene_attn['SREBP2'])   # error: no 'SREBP2'
 K562    ~ NK
 GM12878 ~ B cell
 
+## K562 & GM12878 TF ChIP-seq datasets (overlap)  【110 TFs】
+############ Peak vs. Attn ############
+# gunzip *.bed.gz
+# awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' K562_CTCF.bed | sort -k1,1 -k2,2n | uniq > K562_CTCF_peaks.bed  # 37191
+# bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b K562_CTCF_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+# bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b K562_CTCF_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+# sort -k1,1 -k2,2n ccre_peaks_raw.bed > K562_CTCF_ccre_peaks.bed
+# rm ccre_peaks_raw.bed
+
+
+for file in `ls *.bed`;do
+    cl_tf=${file//.bed/}
+    awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' $cl_tf.bed | sort -k1,1 -k2,2n | uniq > $cl_tf\_peaks.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\_peaks.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\_peaks.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+    sort -k1,1 -k2,2n ccre_peaks_raw.bed > $cl_tf\_ccre_peaks.bed
+    rm $cl_tf\_peaks.bed ccre_peaks_raw.bed
+    echo $cl_tf done
+done
+
+
+import pickle
+import pandas as pd
+import scanpy as sc
+import numpy as np
+
+with open('/fs/home/jiluzhang/Nature_methods/TF_binding/attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
+    gene_attn = pickle.load(file)
+
+for gene in gene_attn:
+    gene_attn[gene] = gene_attn[gene].flatten()
+
+atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+
+TFs = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/TFs.txt', header=None)
+
+tf_ratio = pd.DataFrame({'K562_peak_cnt': [0]*110,
+                         'K562_ratio': [0.0]*120,
+                         'GM12878_peak_cnt':
+                         'GM12878':[0.0]*110})
+tf_ratio.index = TFs[0].values
+for cl in ['K562', 'GM12878']:
+    for tf in TFs[0]:
+        if tf in gene_attn.keys():
+            gene_attn_tf = pd.DataFrame(gene_attn[tf])
+            gene_attn_tf.index = atac_cd14_mono_20.var.index.values
+            gene_attn_tf.columns = ['attn']
+            gene_attn_tf['attn'] = gene_attn_tf['attn']/20
+            
+            tf_peaks = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/'+cl+'_'+tf+'_ccre_peaks.bed', header=None)
+            tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
+            tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+            
+            df = gene_attn_tf.copy()
+            df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
+            df['peak_or_not'] = df['peak_or_not'].apply(str)
+            df = df.replace([np.inf, -np.inf], np.nan).dropna()
+            # df['attn'] = np.log10(df['attn']/df['attn'].min())
+            # df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+            
+            df_random = df.copy()
+            df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+            
+            true_ratio = round(df[df['attn']>=df['attn'].quantile(1-20000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 20,000
+            rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-20000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
+            
+            tf_ratio.loc[tf, cl] = np.round(true_ratio/rand_ratio, 4)
+    
+        print(cl+' '+tf+' done')
+
+
+
+##############################################
+
+
+
+
+
+
+
+
+
 
