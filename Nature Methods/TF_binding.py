@@ -90,7 +90,7 @@ model = M2M_rna2atac(
         )
 model = model.half()
 model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
-device = torch.device('cuda:2')
+device = torch.device('cuda:3')
 model.to(device)
 model.eval()
 
@@ -893,15 +893,118 @@ df[df['motif_bin']=='2']['attn'].median()   # 0.93260145
 stats.ttest_ind(df[df['motif_bin']=='0']['attn'], df[df['motif_bin']=='2']['attn'])  # pvalue=0.0003650971880714685
 
 
+################ CD8 TEM ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD8 TEM').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd8_tem_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2183
+
+atac[idx_20].write('atac_cd8_tem_20.h5ad')
+
+# python data_preprocess.py -r rna_cd8_tem_20.h5ad -a atac_cd8_tem_20.h5ad -s pt_cd8_tem_20 --dt test -n cd8_tem_20 --config rna2atac_config_test_cd8_tem_20.yaml
+# enc_max_len: 2183
+
+cd8_tem_data = torch.load("./pt_cd8_tem_20/cd8_tem_20_0.pt")
+dataset = PreDataset(cd8_tem_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd8_tem')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd8_tem/attn_cd8_tem_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd8_tem_20 = sc.read_h5ad('rna_cd8_tem_20.h5ad')
+nonzero = np.count_nonzero(rna_cd8_tem_20.X.toarray(), axis=0)
+gene_lst = rna_cd8_tem_20.var.index[nonzero>=3]  # 4287
+
+atac_cd8_tem_20 = sc.read_h5ad('atac_cd8_tem_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd8_tem_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd8_tem_data[0][i].flatten()
+    with h5py.File('attn/cd8_tem/attn_cd8_tem_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd8_tem_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd8_tem/attn_20_cd8_tem_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
+
+################ CD4 TEM ################
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 TEM').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd4_tem_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 1933
+
+atac[idx_20].write('atac_cd4_tem_20.h5ad')
+
+# python data_preprocess.py -r rna_cd4_tem_20.h5ad -a atac_cd4_tem_20.h5ad -s pt_cd4_tem_20 --dt test -n cd4_tem_20 --config rna2atac_config_test_cd4_tem_20.yaml
+# enc_max_len: 1933
+
+cd4_tem_data = torch.load("./pt_cd4_tem_20/cd4_tem_20_0.pt")
+dataset = PreDataset(cd4_tem_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd4_tem')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd4_tem/attn_cd4_tem_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd4_tem_20 = sc.read_h5ad('rna_cd4_tem_20.h5ad')
+nonzero = np.count_nonzero(rna_cd4_tem_20.X.toarray(), axis=0)
+gene_lst = rna_cd4_tem_20.var.index[nonzero>=3]  # 4287
+
+atac_cd4_tem_20 = sc.read_h5ad('atac_cd4_tem_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd4_tem_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd4_tem_data[0][i].flatten()
+    with h5py.File('attn/cd4_tem/attn_cd4_tem_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd4_tem_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd4_tem/attn_20_cd4_tem_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
+
 ################ B memory ################
-rna = sc.read_h5ad('rna_train.h5ad')
 random.seed(0)
 idx = list(np.argwhere(rna.obs['cell_anno']=='B memory').flatten())
 idx_20 = random.sample(list(idx), 20)
 rna[idx_20].write('rna_b_mem_20.h5ad')
 np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 3007
 
-atac = sc.read_h5ad('atac_train.h5ad') 
 atac[idx_20].write('atac_b_mem_20.h5ad')
 
 # python data_preprocess.py -r rna_b_mem_20.h5ad -a atac_b_mem_20.h5ad -s pt_b_mem_20 --dt test -n b_mem_20 --config rna2atac_config_test_b_mem_20.yaml
@@ -947,51 +1050,164 @@ for i in range(20):
 with open('./attn/b_mem/attn_20_b_mem_3cell.pkl', 'wb') as file:
     pickle.dump(gene_attn, file)
 
-# motif_tf_lst = []
-# motif_tf_idx = []
-# p = 0
-# for i in motif_info_raw.columns:
-#     tf = i.split('_')[1]
-#     if '.' not in tf:
-#         motif_tf_lst.append(tf)
-#         motif_tf_idx.append(p)
-#     p += 1
 
-# motif_tf = []
-# motif_0_attn = []
-# motif_1_attn = []
-# for i in tqdm(range(len(motif_tf_lst)), ncols=80):
-#     tf = motif_tf_lst[i]
-#     if tf in gene_attn_df.columns:
-#         gene_attn_df_tf = gene_attn_df[tf]
-#         gene_attn_df_tf = np.log10(gene_attn_df_tf/gene_attn_df_tf.min())
-#         gene_attn_df_tf = (gene_attn_df_tf-gene_attn_df_tf.min())/(gene_attn_df_tf.max()-gene_attn_df_tf.min())
-        
-#         motif_info = pd.DataFrame({'motif_or_not':motif_info_raw.iloc[:, motif_tf_idx[i]]})
-#         motif_info[motif_info['motif_or_not']>0] = 1
-#         motif_info.index = gene_attn_df.index.values
+################ NK ###############
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='NK').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_nk_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2250
 
-#         motif_attn = pd.concat([gene_attn_df_tf, motif_info], axis=1)
-#         motif_attn.columns = ['attn', 'motif']
+atac[idx_20].write('atac_nk_20.h5ad')
 
-#         motif_tf.append(tf)
-#         motif_0_attn.append(motif_attn[motif_attn['motif']==0]['attn'].mean())
-#         motif_1_attn.append(motif_attn[motif_attn['motif']==1]['attn'].mean())
+# python data_preprocess.py -r rna_nk_20.h5ad -a atac_nk_20.h5ad -s pt_nk_20 --dt test -n nk_20 --config rna2atac_config_test_nk_20.yaml
+# enc_max_len: 2250
+
+nk_data = torch.load("./pt_nk_20/nk_20_0.pt")
+dataset = PreDataset(nk_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/nk')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/nk/attn_nk_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_nk_20 = sc.read_h5ad('rna_nk_20.h5ad')
+nonzero = np.count_nonzero(rna_nk_20.X.toarray(), axis=0)
+gene_lst = rna_nk_20.var.index[nonzero>=3]  # 4078
+
+atac_nk_20 = sc.read_h5ad('atac_nk_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_nk_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = nk_data[0][i].flatten()
+    with h5py.File('attn/nk/attn_nk_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_nk_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/nk/attn_20_nk_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
 
 
-# motif_info.loc[gene_attn_df_tf.sort_values(ascending=False)[:10000].index].value_counts(normalize=True)
+################ CD16 Mono ###############
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='CD16 Mono').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_cd16_mono_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 3035
 
-# df_0 = pd.DataFrame({'attn':motif_0_attn, 'motif':0})
-# df_1 = pd.DataFrame({'attn':motif_1_attn, 'motif':1})
-# df = pd.concat([df_0, df_1], axis=0)
-# df.to_csv('motif_attn.csv')
+atac[idx_20].write('atac_cd16_mono_20.h5ad')
 
-# ## one tf
-# ccnl2 = pd.concat([gene_attn_df['CCNL2'], motif_info['motif_or_not']], axis=1)
-# ccnl2.columns = ['attn', 'motif']
-# ccnl2.to_csv('ccnl2_attn_motif_box.csv')
+# python data_preprocess.py -r rna_cd16_mono_20.h5ad -a atac_cd16_mono_20.h5ad -s pt_cd16_mono_20 --dt test -n cd16_mono_20 --config rna2atac_config_test_cd16_mono_20.yaml
+# enc_max_len: 3035
+
+cd16_mono_data = torch.load("./pt_cd16_mono_20/cd16_mono_20_0.pt")
+dataset = PreDataset(cd16_mono_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/cd16_mono')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/cd16_mono/attn_cd16_mono_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_cd16_mono_20 = sc.read_h5ad('rna_cd16_mono_20.h5ad')
+nonzero = np.count_nonzero(rna_cd16_mono_20.X.toarray(), axis=0)
+gene_lst = rna_cd16_mono_20.var.index[nonzero>=3]  # 4078
+
+atac_cd16_mono_20 = sc.read_h5ad('atac_cd16_mono_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_cd16_mono_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = cd16_mono_data[0][i].flatten()
+    with h5py.File('attn/cd16_mono/attn_cd16_mono_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd16_mono_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/cd16_mono/attn_20_cd16_mono_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
 
 
+################ B naive ###############
+random.seed(0)
+idx = list(np.argwhere(rna.obs['cell_anno']=='B naive').flatten())
+idx_20 = random.sample(list(idx), 20)
+rna[idx_20].write('rna_b_naive_20.h5ad')
+np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 1661
+
+atac[idx_20].write('atac_b_naive_20.h5ad')
+
+# python data_preprocess.py -r rna_b_naive_20.h5ad -a atac_b_naive_20.h5ad -s pt_b_naive_20 --dt test -n b_naive_20 --config rna2atac_config_test_b_naive_20.yaml
+# enc_max_len: 1661
+
+b_naive_data = torch.load("./pt_b_naive_20/b_naive_20_0.pt")
+dataset = PreDataset(b_naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+# time: 1 min
+os.makedirs('./attn/b_naive')
+i=0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
+    attn = attn[0]  # attn = attn[0].to(torch.float16)
+    with h5py.File('attn/b_naive/attn_b_naive_'+str(i)+'.h5', 'w') as f:
+        f.create_dataset('attn', data=attn)
+    torch.cuda.empty_cache()
+    i += 1
+
+rna_b_naive_20 = sc.read_h5ad('rna_b_naive_20.h5ad')
+nonzero = np.count_nonzero(rna_b_naive_20.X.toarray(), axis=0)
+gene_lst = rna_b_naive_20.var.index[nonzero>=3]  # 4078
+
+atac_b_naive_20 = sc.read_h5ad('atac_b_naive_20.h5ad')
+
+gene_attn = {}
+for gene in gene_lst:
+    gene_attn[gene] = np.zeros([atac_b_naive_20.shape[1], 1], dtype='float32')  # not float16
+
+# 10s/cell
+for i in range(20):
+    rna_sequence = b_naive_data[0][i].flatten()
+    with h5py.File('attn/b_naive/attn_b_naive_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
+            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_b_naive_20.var.index==gene))[0][0]+1).flatten())
+            if len(idx)!=0:
+                gene_attn[gene] += attn[:, [idx.item()]]
+
+with open('./attn/b_naive/attn_20_b_naive_3cell.pkl', 'wb') as file:
+    pickle.dump(gene_attn, file)
 
 ################################################################ CD14 Mono CTCF ############################################################################
 ############ Peak vs. Attn ############
@@ -1638,35 +1854,35 @@ import pandas as pd
 import scanpy as sc
 import numpy as np
 
-with open('/fs/home/jiluzhang/Nature_methods/TF_binding/attn/b_mem/attn_20_b_mem_3cell.pkl', 'rb') as file:
-    gene_attn = pickle.load(file)
-
-for gene in gene_attn:
-    gene_attn[gene] = gene_attn[gene].flatten()
-
-atac_b_mem_20 = sc.read_h5ad('atac_b_mem_20.h5ad')
-
-TFs = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/TFs.txt', header=None)
-
-tf_ratio = pd.DataFrame({'K562_peak_cnt': [0]*110,
-                         'K562_ratio': [0.0]*110,
-                         'GM12878_peak_cnt': [0]*110,
-                         'GM12878_ratio': [0.0]*110})
-tf_ratio.index = TFs[0].values
-for cl in ['K562', 'GM12878']:
-    for tf in TFs[0]:
-        if tf in gene_attn.keys():
-            gene_attn_tf = pd.DataFrame(gene_attn[tf])
-            gene_attn_tf.index = atac_b_mem_20.var.index.values
-            gene_attn_tf.columns = ['attn']
-            gene_attn_tf['attn'] = gene_attn_tf['attn']/20
-            
-            tf_peaks = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/'+cl+'_'+tf+'_ccre_peaks.bed', header=None)
-            tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
-            tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
-            tf_ratio.loc[tf, cl+'_peak_cnt'] = sum(tf_peaks['peak_or_not']==1)
-
-            if tf_ratio.loc[tf, cl+'_peak_cnt'] > 1000:
+def cal_mat(cl='K562'):
+    for ct in ['cd14_mono', 'cd8_naive', 'cd4_tcm', 'cd4_naive', 'cd4_inter',
+               'cd8_tem', 'cd4_tem', 'b_mem', 'nk', 'cd16_mono', 'b_naive']:
+        
+        with open('/fs/home/jiluzhang/Nature_methods/TF_binding/attn/'+ct+'/attn_20_'+ct+'_3cell.pkl', 'rb') as file:
+            gene_attn = pickle.load(file)
+        
+        for gene in gene_attn:
+            gene_attn[gene] = gene_attn[gene].flatten()
+        
+        atac_ct_20 = sc.read_h5ad('atac_'+ct+'_20.h5ad')
+        
+        TFs = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/TFs.txt', header=None)
+        
+        tf_ratio = pd.DataFrame({cl+'_ratio': [0.0]*(TFs.shape[0])})
+        tf_ratio.index = TFs[0].values
+        
+        for tf in TFs[0]:
+            if tf in gene_attn.keys():
+                gene_attn_tf = pd.DataFrame(gene_attn[tf])
+                gene_attn_tf.index = atac_ct_20.var.index.values
+                gene_attn_tf.columns = ['attn']
+                gene_attn_tf['attn'] = gene_attn_tf['attn']/20
+                
+                tf_peaks = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/'+cl+'_'+tf+'_ccre_peaks.bed', header=None)
+                tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
+                tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+                tf_ratio.loc[tf, cl+'_peak_cnt'] = sum(tf_peaks['peak_or_not']==1)
+    
                 df = gene_attn_tf.copy()
                 df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
                 df['peak_or_not'] = df['peak_or_not'].apply(str)
@@ -1681,9 +1897,11 @@ for cl in ['K562', 'GM12878']:
                 rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-20000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
                 
                 tf_ratio.loc[tf, cl+'_ratio'] = np.round(true_ratio/rand_ratio, 4)
-        
-        print(cl+' '+tf+' done')
+            
+            print(cl+' '+tf+' done')
 
+
+for file in `ls | grep bed | grep -v ccre`;do wc -l $file >> stat.txt; done
 
 
 ##############################################
