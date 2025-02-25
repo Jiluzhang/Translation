@@ -1849,29 +1849,34 @@ GM12878 ~ B cell
 # done
 
 
+# for file in `ls | grep bed | grep -v ccre`;do wc -l $file >> stat.txt; done
+# awk '{if($1>10000) print$2}' stat.txt | sed 's/GM12878_//g' | sed 's/K562_//g' | sed 's/.bed//g' | sort | uniq -c | sed 's/   //g' | sed 's/ /\t/g' | awk '{if($1==2) print $2}' > TFs_10000.txt  # 44
+# awk '{if($1>5000) print$2}' stat.txt | sed 's/GM12878_//g' | sed 's/K562_//g' | sed 's/.bed//g' | sort | uniq -c | sed 's/   //g' | sed 's/ /\t/g' | awk '{if($1==2) print $2}' > TFs_5000.txt    # 72
+
 import pickle
 import pandas as pd
 import scanpy as sc
 import numpy as np
+from tqdm import tqdm
+
+TFs = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/TFs_10000.txt', header=None)
+ct_lst = ['cd14_mono', 'cd8_naive', 'cd4_tcm', 'cd4_naive', 'cd4_inter',
+          'cd8_tem', 'cd4_tem', 'b_mem', 'nk', 'cd16_mono', 'b_naive']
+atac_ct_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
 
 def cal_mat(cl='K562'):
-    for ct in ['cd14_mono', 'cd8_naive', 'cd4_tcm', 'cd4_naive', 'cd4_inter',
-               'cd8_tem', 'cd4_tem', 'b_mem', 'nk', 'cd16_mono', 'b_naive']:
-        
+    mat = pd.DataFrame(np.zeros([TFs.shape[0], len(ct_lst)]))
+    mat.index = TFs[0].values
+    mat.columns = ct_lst
+    
+    for ct in ct_lst:
         with open('/fs/home/jiluzhang/Nature_methods/TF_binding/attn/'+ct+'/attn_20_'+ct+'_3cell.pkl', 'rb') as file:
             gene_attn = pickle.load(file)
         
         for gene in gene_attn:
             gene_attn[gene] = gene_attn[gene].flatten()
         
-        atac_ct_20 = sc.read_h5ad('atac_'+ct+'_20.h5ad')
-        
-        TFs = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/TFs.txt', header=None)
-        
-        tf_ratio = pd.DataFrame({cl+'_ratio': [0.0]*(TFs.shape[0])})
-        tf_ratio.index = TFs[0].values
-        
-        for tf in TFs[0]:
+        for tf in tqdm(TFs[0], desc=cl+' '+ct+' cal ratio', ncols=80):
             if tf in gene_attn.keys():
                 gene_attn_tf = pd.DataFrame(gene_attn[tf])
                 gene_attn_tf.index = atac_ct_20.var.index.values
@@ -1881,7 +1886,6 @@ def cal_mat(cl='K562'):
                 tf_peaks = pd.read_table('/fs/home/jiluzhang/Nature_methods/TF_binding/tf_chipseq/k562_gm12878/'+cl+'_'+tf+'_ccre_peaks.bed', header=None)
                 tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
                 tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
-                tf_ratio.loc[tf, cl+'_peak_cnt'] = sum(tf_peaks['peak_or_not']==1)
     
                 df = gene_attn_tf.copy()
                 df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
@@ -1893,22 +1897,55 @@ def cal_mat(cl='K562'):
                 df_random = df.copy()
                 df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
                 
-                true_ratio = round(df[df['attn']>=df['attn'].quantile(1-20000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 20,000
-                rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-20000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
+                true_ratio = round(df[df['attn']>=df['attn'].quantile(1-10000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 10,000
+                rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-10000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
                 
-                tf_ratio.loc[tf, cl+'_ratio'] = np.round(true_ratio/rand_ratio, 4)
-            
-            print(cl+' '+tf+' done')
+                mat.loc[tf, ct] = np.round(true_ratio/rand_ratio, 4)
+    return mat
 
+k562_mat = cal_mat(cl='K562')
+k562_mat.to_csv('k562_tf_10000_ratio.txt', sep='\t')
 
-for file in `ls | grep bed | grep -v ccre`;do wc -l $file >> stat.txt; done
-
+gm12878_mat = cal_mat(cl='GM12878')
+gm12878_mat.to_csv('gm12878_tf_10000_ratio.txt', sep='\t')
 
 ##############################################
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from plotnine import *
+
+k562_df = pd.read_table('k562_tf_10000_ratio.txt', index_col=0)
+
+## heatmap
+# plt.figure(figsize=(6, 6))
+# #sns.heatmap(k562_df, cmap='bwr', vmin=0, vmax=2, xticklabels=False, yticklabels=False)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+# sns.clustermap(k562_df, cmap='bwr', vmin=0, vmax=2, xticklabels=True, yticklabels=True)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+# plt.savefig('k562_tf_10000_ratio.pdf')
+# plt.close()
+
+## boxplot
+k562_df = pd.melt(k562_df)
+k562_df.columns = ['ct', 'val']
+k562_df = k562_df[k562_df['val']!=0]
+
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(k562_df, aes(x='ct', y='val', fill='ct')) + geom_boxplot(width=0.5, outlier_shape='', show_legend=False) +\
+                                                       scale_y_continuous(limits=[0, 2], breaks=np.arange(0, 2+0.1, 0.5)) + theme_bw()
+p.save(filename='k562_tf_10000_ratio.pdf', dpi=600, height=4, width=10)
 
 
+gm12878_df = pd.read_table('gm12878_tf_10000_ratio.txt', index_col=0)
 
+## boxplot
+gm12878_df = pd.melt(gm12878_df)
+gm12878_df.columns = ['ct', 'val']
+gm12878_df = gm12878_df[gm12878_df['val']!=0]
 
+plt.rcParams['pdf.fonttype'] = 42
+p = ggplot(gm12878_df, aes(x='ct', y='val', fill='ct')) + geom_boxplot(width=0.5, outlier_shape='', show_legend=False) +\
+                                                          scale_y_continuous(limits=[0, 2], breaks=np.arange(0, 2+0.1, 0.5)) + theme_bw()
+p.save(filename='gm12878_tf_10000_ratio.pdf', dpi=600, height=4, width=10)
 
 
 
