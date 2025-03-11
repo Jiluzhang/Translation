@@ -101,7 +101,7 @@ np.count_nonzero(rna_new.X.toarray(), axis=1).max()  # 7577
 
 # kidney proximal convoluted tubule epithelial cell            4460
 # B cell                                                       3124
-# epithelial cell of proximal tubule                           3053
+# epithelial cell of proximal tubule                           3053       
 # kidney loop of Henle thick ascending limb epithelial cell    1554
 # lymphocyte                                                   1536
 # macrophage                                                   1407
@@ -154,12 +154,52 @@ atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)  # 21647 × 65352
 
 snap.pp.select_features(atac)
-snap.tl.spectral(atac, n_comps=100)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
+snap.tl.spectral(atac)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
 snap.tl.umap(atac)
+
+kidney_cell_anno_dict = {
+  'kidney proximal convoluted tubule epithelial cell':'tubule epithelial cell',
+  'B cell':'B cell',
+  'epithelial cell of proximal tubule':'tubule epithelial cell',
+  'kidney loop of Henle thick ascending limb epithelial cell':'limb epithelial cell',
+  'lymphocyte':'others',
+  'macrophage':'macrophage',
+  'T cell':'T cell',
+  'fenestrated cell':'endothelial cell',
+  'kidney collecting duct principal cell':'epithelial cell',
+  'kidney distal convoluted tubule epithelial cell':'tubule epithelial cell',
+  'plasmatocyte':'others',
+  'brush cell':'epithelial cell',
+  'kidney cortex artery cell':'others',
+  'plasma cell':'B cell',
+  'mesangial cell':'others',
+  'kidney loop of Henle ascending limb epithelial cell':'limb epithelial cell',
+  'kidney capillary endothelial cell':'endothelial cell',
+  'fibroblast':'fibroblast',
+  'kidney proximal straight tubule epithelial cell':'tubule epithelial cell',
+  'natural killer cell':'NK',
+  'kidney collecting duct epithelial cell': 'epithelial cell',
+  'leukocyte':'others',
+  'kidney cell':'others'
+}
+
+atac.obs['cell_anno'] = atac.obs['cell_type'].replace(kidney_cell_anno_dict)
+atac.obs['cell_anno'].value_counts()
+# epithelial cell     11335
+# B cell               3449
+# others               2682
+# macrophage           1407
+# T cell               1359
+# endothelial cell     1188
+# fibroblast            161
+# NK                     66
 
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_predict_atac.pdf')
+sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_predict_atac_big_cluster.pdf')
 
+atac.write('atac_predict.h5ad')
 
 # sc.pl.umap(atac[atac.obs['cell_type'].isin(atac.obs.cell_type.value_counts()[:5].index), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
 #            title='', frameon=True, save='_unpaired_tmp.pdf')
@@ -175,6 +215,3 @@ sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margi
 
 sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
            title='', frameon=True, save='_unpaired_n_comps_200.pdf')
-
-
-
