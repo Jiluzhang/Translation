@@ -131,16 +131,50 @@ atac_new.X = csr_matrix(atac_new.X)
 atac_new.write('atac_unpaired.h5ad')
 
 
-python data_preprocess_unpaired.py -r rna_unpaired.h5ad -a atac_unpaired.h5ad -s preprocessed_data_unpaired --dt test --config rna2atac_config_unpaired.yaml
-accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_test.py \
-                  -d ./preprocessed_data_unpaired \
-                  -l save/2024-08-21_rna2atac_train_55/pytorch_model.bin --config_file rna2atac_config_unpaired.yaml   # ~ 0.5h
+python data_preprocess_unpaired.py -r rna_unpaired.h5ad -a atac_unpaired.h5ad -s preprocessed_data_unpaired --dt test --config rna2atac_config_unpaired.yaml  # 45 min
+accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
+                  -d ./preprocessed_data_unpaired -l save/2025-03-11_rna2atac_aging_15/pytorch_model.bin --config_file rna2atac_config_test.yaml  # 15 min
+# python npy2h5ad.py
+# python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
+# python cal_cluster.py --file atac_cisformer_umap.h5ad
+
+## plot umap for atac
+import scanpy as sc
+import numpy as np
+from scipy.sparse import csr_matrix
+import snapatac2 as snap
+import pandas as pd
+from tqdm import tqdm
+
+dat = np.load('predict.npy')
+dat[dat>0.5] = 1
+dat[dat<=0.5] = 0
+atac = sc.read_h5ad('atac_unpaired.h5ad')
+atac.X = csr_matrix(dat)  # 21647 × 65352
+
+snap.pp.select_features(atac)
+snap.tl.spectral(atac, n_comps=100)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
+snap.tl.umap(atac)
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_predict_atac.pdf')
 
 
-#### 1_1_epoch_30 (not better than epoch_15)
-accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29822 rna2atac_predict.py \
-                  -d ./test_pt -l save/2024-12-12_rna2atac_aging_30/pytorch_model.bin --config_file rna2atac_config_test_1_1.yaml
-python npy2h5ad.py
-python plot_save_umap.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_auroc_auprc.py --pred atac_cisformer.h5ad --true atac_test.h5ad
-python cal_cluster.py --file atac_cisformer_umap.h5ad
+# sc.pl.umap(atac[atac.obs['cell_type'].isin(atac.obs.cell_type.value_counts()[:5].index), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+#            title='', frameon=True, save='_unpaired_tmp.pdf')
+
+sc.pl.umap(atac[atac.obs['cell_type'].isin(['fenestrated cell', 'B cell']), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+            title='', frameon=True, save='_unpaired_luz.pdf')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired_tmp.pdf')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired.pdf')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
+           title='', frameon=True, save='_unpaired_n_comps_200.pdf')
+
+
+
