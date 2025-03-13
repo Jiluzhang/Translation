@@ -39,11 +39,15 @@ atac[idx, :].copy().write('atac.h5ad')   # 11662 × 65352
 
 python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
 
-#### 4096_2048_40
+#### 4096_2048_40_3_3
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml  # 22 min
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
                         --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac_aging > 20250311.log &   # 2888722
+
+#### 4096_2048_40_6_6
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train_6_6.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save_6_6 -n rna2atac_aging > 20250313.log &   # 2812281
 
 
 # import scanpy as sc
@@ -146,6 +150,9 @@ from scipy.sparse import csr_matrix
 import snapatac2 as snap
 import pandas as pd
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
 
 dat = np.load('predict.npy')
 dat[dat>0.5] = 1
@@ -153,65 +160,153 @@ dat[dat<=0.5] = 0
 atac = sc.read_h5ad('atac_unpaired.h5ad')
 atac.X = csr_matrix(dat)  # 21647 × 65352
 
+atac = atac[atac.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                        'B cell',
+                                        'epithelial cell of proximal tubule',
+                                        'kidney loop of Henle thick ascending limb epithelial cell',
+                                        'macrophage', 
+                                        'T cell',
+                                        'fenestrated cell',
+                                        'kidney collecting duct principal cell',
+                                        'kidney distal convoluted tubule epithelial cell'])].copy()  
+# 17517 × 65352 (delete too common cell annotation & too small cell number)
+
+# atac_ref = sc.read_h5ad('atac.h5ad')
+# snap.pp.select_features(atac_ref)
+# snap.tl.spectral(atac_ref)
+# snap.tl.umap(atac_ref)
+# snap.pp.knn(atac_ref)
+# snap.tl.leiden(atac_ref)
+# sc.pl.umap(atac_ref, color='leiden', legend_fontsize='7', legend_loc='right margin', size=5,
+#            title='', frameon=True, save='_ref_atac.pdf')
+
 snap.pp.select_features(atac)
 snap.tl.spectral(atac)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
 snap.tl.umap(atac)
 
-kidney_cell_anno_dict = {
-  'kidney proximal convoluted tubule epithelial cell':'tubule epithelial cell',
-  'B cell':'B cell',
-  'epithelial cell of proximal tubule':'tubule epithelial cell',
-  'kidney loop of Henle thick ascending limb epithelial cell':'limb epithelial cell',
-  'lymphocyte':'others',
-  'macrophage':'macrophage',
-  'T cell':'T cell',
-  'fenestrated cell':'endothelial cell',
-  'kidney collecting duct principal cell':'epithelial cell',
-  'kidney distal convoluted tubule epithelial cell':'tubule epithelial cell',
-  'plasmatocyte':'others',
-  'brush cell':'epithelial cell',
-  'kidney cortex artery cell':'others',
-  'plasma cell':'B cell',
-  'mesangial cell':'others',
-  'kidney loop of Henle ascending limb epithelial cell':'limb epithelial cell',
-  'kidney capillary endothelial cell':'endothelial cell',
-  'fibroblast':'fibroblast',
-  'kidney proximal straight tubule epithelial cell':'tubule epithelial cell',
-  'natural killer cell':'NK',
-  'kidney collecting duct epithelial cell': 'epithelial cell',
-  'leukocyte':'others',
-  'kidney cell':'others'
-}
-
-atac.obs['cell_anno'] = atac.obs['cell_type'].replace(kidney_cell_anno_dict)
-atac.obs['cell_anno'].value_counts()
-# epithelial cell     11335
-# B cell               3449
-# others               2682
-# macrophage           1407
-# T cell               1359
-# endothelial cell     1188
-# fibroblast            161
-# NK                     66
-
-sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_predict_atac.pdf')
-sc.pl.umap(atac, color='cell_anno', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_predict_atac_big_cluster.pdf')
-
 atac.write('atac_predict.h5ad')
 
-# sc.pl.umap(atac[atac.obs['cell_type'].isin(atac.obs.cell_type.value_counts()[:5].index), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-#            title='', frameon=True, save='_unpaired_tmp.pdf')
+# atac = sc.read_h5ad('atac_predict.h5ad')
 
-sc.pl.umap(atac[atac.obs['cell_type'].isin(['fenestrated cell', 'B cell']), :], color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-            title='', frameon=True, save='_unpaired_luz.pdf')
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_predict_atac.pdf')
 
-sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_unpaired_tmp.pdf')
+# sc.pl.umap(atac, color='cell_type', groups=['kidney loop of Henle ascending limb epithelial cell',
+#                                             'kidney distal convoluted tubule epithelial cell',
+#                                             'kidney collecting duct principal cell',
+#                                             'kidney loop of Henle thick ascending limb epithelial cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_predict_atac_1.pdf')
 
-sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_unpaired.pdf')
+# sc.pl.umap(atac, color='cell_type', groups=['epithelial cell of proximal tubule',
+#                                             'kidney proximal convoluted tubule epithelial cell',
+#                                             'brush cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_predict_atac_2.pdf')
 
-sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=10,
-           title='', frameon=True, save='_unpaired_n_comps_200.pdf')
+# sc.pl.umap(atac, color='cell_type', groups=['T cell', 'B cell', 'macrophage', 'mesangial cell',
+#                                             'plasma cell', 'fibroblast'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_predict_atac_3.pdf')
+
+# sc.pl.umap(atac, color='cell_type', groups=['fenestrated cell', 'kidney cortex artery cell', 'kidney capillary endothelial cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_predict_atac_4.pdf')
+
+
+## cell annotation umap for rna
+rna = sc.read_h5ad('rna_unpaired.h5ad')   # 21647 × 20856
+rna = rna[rna.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                     'B cell',
+                                     'epithelial cell of proximal tubule',
+                                     'kidney loop of Henle thick ascending limb epithelial cell',
+                                     'macrophage', 
+                                     'T cell',
+                                     'fenestrated cell',
+                                     'kidney collecting duct principal cell',
+                                     'kidney distal convoluted tubule epithelial cell'])].copy()
+# 17517 × 20856
+
+sc.pp.normalize_total(rna, target_sum=1e4)
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna.raw = rna
+rna = rna[:, rna.var.highly_variable]  # 17517 × 1922
+
+sc.tl.pca(rna)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+rna.uns['cell_type_colors'] = atac.uns['cell_type_colors']  # keep consistent color bw rna & atac
+rna.write('rna_unpaired_cell_anno.h5ad')
+sc.pl.umap(rna, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna.pdf')
+
+## reduce resolution
+sc.tl.pca(rna, n_comps=6)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+rna.uns['cell_type_colors'] = atac.uns['cell_type_colors']  # keep consistent color bw rna & atac
+sc.pl.umap(rna, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_ncomps_6.pdf')
+rna.write('rna_unpaired_cell_anno.h5ad')
+
+# sc.pl.umap(rna, color='cell_type', groups=['kidney loop of Henle ascending limb epithelial cell',
+#                                             'kidney distal convoluted tubule epithelial cell',
+#                                             'kidney collecting duct principal cell',
+#                                             'kidney loop of Henle thick ascending limb epithelial cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_1.pdf')
+
+# sc.pl.umap(rna, color='cell_type', groups=['epithelial cell of proximal tubule',
+#                                             'kidney proximal convoluted tubule epithelial cell',
+#                                             'brush cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_2.pdf')
+
+# sc.pl.umap(atac, color='cell_type', groups=['T cell', 'B cell', 'macrophage', 'mesangial cell',
+#                                             'plasma cell', 'fibroblast'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_3.pdf')
+
+# sc.pl.umap(rna, color='cell_type', groups=['fenestrated cell', 'kidney cortex artery cell', 'kidney capillary endothelial cell'],
+#            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_4.pdf')
+
+
+## plot box for cdkn2a expression 
+import scanpy as sc
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+rna = sc.read_h5ad('rna_unpaired_cell_anno.h5ad')
+rna.obs['cell_type'].value_counts()
+# kidney proximal convoluted tubule epithelial cell            4460
+# B cell                                                       3124
+# epithelial cell of proximal tubule                           3053
+# kidney loop of Henle thick ascending limb epithelial cell    1554
+# macrophage                                                   1407
+# T cell                                                       1359
+# fenestrated cell                                             1027
+# kidney collecting duct principal cell                         789
+# kidney distal convoluted tubule epithelial cell               744
+
+rna_kp = rna[rna.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell'].copy()
+df = pd.DataFrame({'age':rna_kp.obs['age'],
+                   'exp':rna_kp.X[:, np.argwhere(rna_kp.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_kp.pdf', dpi=600, height=4, width=4)
+
+# rna_kp.obs['cdkn1a_exp'] = rna_kp.X[:, np.argwhere(rna_kp.var.index=='Cdkn1a').flatten().item()].toarray().flatten()
+# sc.pl.violin(rna_kp, keys='cdkn1a_exp', groupby='age', rotation=90, stripplot=False, save='_cdkn1a_exp_kp.pdf')
+
+# p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') +\
+#                                                     xlab('Age') + ylab('Cdkn1a expression') +\
+#                                                     scale_y_continuous(limits=[0, 1.5], breaks=np.arange(0, 1.5+0.1, 0.3)) + theme_bw()
+# p.save(filename='Cdkn1a_exp_boxplot.pdf', dpi=600, height=4, width=4)
+
+
+
+
+
+
+
+
+
