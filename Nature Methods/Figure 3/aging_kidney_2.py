@@ -287,6 +287,67 @@ rna.obs['cell_type'].value_counts()
 # kidney collecting duct principal cell                         789
 # kidney distal convoluted tubule epithelial cell               744
 
+# 近端PCT上皮细胞主要参与大规模的物质重吸收，具有微绒毛和丰富的线粒体。
+# 远端DCT上皮细胞则主要调节钠、钙和酸碱平衡，细胞表面较为光滑，且受激素调节。
+
+## epithelial cells
+rna_epi = rna[rna.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                         'epithelial cell of proximal tubule',
+                                         'kidney loop of Henle thick ascending limb epithelial cell',
+                                         'kidney collecting duct principal cell',
+                                         'kidney distal convoluted tubule epithelial cell'])].copy()
+df = pd.DataFrame({'age':rna_epi.obs['age'],
+                   'exp':rna_epi.X[:, np.argwhere(rna_epi.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_epi.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    3929
+# 18m    2092
+# 1m     1750
+# 3m     1424
+# 21m    1405
+# 24m       0
+
+## fenestrated cell
+rna_fc = rna[rna.obs['cell_type'].isin(['fenestrated cell'])].copy()
+df = pd.DataFrame({'age':rna_fc.obs['age'],
+                   'exp':rna_fc.X[:, np.argwhere(rna_fc.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_fc.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    281
+# 1m     206
+# 18m    190
+# 3m     181
+# 21m    169
+# 24m      0
+
+## immune cells
+rna_ic = rna[rna.obs['cell_type'].isin(['macrophage', 'T cell', 'B cell'])].copy()
+df = pd.DataFrame({'age':rna_ic.obs['age'],
+                   'exp':rna_ic.X[:, np.argwhere(rna_ic.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_ic.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 24m    4193
+# 30m     861
+# 18m     380
+# 21m     205
+# 3m      166
+# 1m       85
+
 ## kidney proximal convoluted tubule epithelial cell
 rna_kp = rna[rna.obs['cell_type']=='kidney proximal convoluted tubule epithelial cell'].copy()
 df = pd.DataFrame({'age':rna_kp.obs['age'],
@@ -297,6 +358,12 @@ p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
 p.save(filename='Cdkn1a_exp_dotplot_kp.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 18m    1117
+# 1m      938
+# 30m     864
+# 21m     860
+# 3m      681
 
 # rna_kp.obs['cdkn1a_exp'] = rna_kp.X[:, np.argwhere(rna_kp.var.index=='Cdkn1a').flatten().item()].toarray().flatten()
 # sc.pl.violin(rna_kp, keys='cdkn1a_exp', groupby='age', rotation=90, stripplot=False, save='_cdkn1a_exp_kp.pdf')
@@ -333,13 +400,19 @@ p.save(filename='Cdkn1a_exp_dotplot_ec.pdf', dpi=600, height=4, width=4)
 rna_ec = rna[rna.obs['cell_type']=='kidney loop of Henle thick ascending limb epithelial cell'].copy()
 df = pd.DataFrame({'age':rna_ec.obs['age'],
                    'exp':rna_ec.raw.X[:, np.argwhere(rna_ec.raw.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
-df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '30m'])
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
 p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
                                                     scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
                                                     stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
 p.save(filename='Cdkn1a_exp_dotplot_kl.pdf', dpi=600, height=4, width=4)
-
+df['age'].value_counts()
+# 1m     460
+# 3m     310
+# 30m    309
+# 18m    247
+# 21m    228
+# 24m      0
 
 # rna_ec = rna[rna.obs['cell_type']=='epithelial cell of proximal tubule'].copy()
 # df = pd.DataFrame({'age':rna_ec.obs['age'],
@@ -445,12 +518,12 @@ dat$Peaks <- factor(dat$Peaks, levels=dat$Peaks)
 p <- ggplot(dat, aes(x=Peaks, y=Scaled_correlation)) + geom_bar(stat='identity', fill='darkred', position=position_dodge()) + coord_flip() +
                                                        scale_y_continuous(limits=c(-2.5, 2.5), breaks=seq(-2.5, 2.5, 0.5)) + theme_bw() + 
                                                        ggtitle('Kidney proximal convoluted tubule epithelial cells') + theme(plot.title=element_text(hjust=0.5))
-ggsave(p, filename='peaks_epitrace_corr_kidney_proximal_convoluted_tubule_epithelial_cell.pdf', dpi=300, height=10, width=6)
+ggsave(p, filename='peaks_epitrace_corr_kp.pdf', dpi=600, height=10, width=6)
 
 ## annotate peaks
 peaks <- as.data.frame(do.call(rbind, strsplit(as.vector(rev(dat$Peaks)), split='-'))) # use rev() to match ranking
 colnames(peaks) <- c('chrom', 'start', 'end')
-write.table(peaks, 'peaks_epitrace_top20_bot20_kidney_proximal_convoluted_tubule_epithelial_cell.bed',
+write.table(peaks, 'peaks_epitrace_top20_bot20_kp.bed',
             sep='\t', quote=FALSE, row.names=FALSE, col.names=FALSE)
 
 library(TxDb.Mmusculus.UCSC.mm10.knownGene)
@@ -467,6 +540,16 @@ enriched.motifs <- FindMotifs(object=epitrace_obj_age_conv_estimated_by_mouse_cl
 # Selecting background regions to match input sequence characteristics
 # Error in match.arg(arg = layer) : 
 #   'arg' should be one of “data”, “scale.data”, “counts”
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+true_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                       regions=true_marker_peaks,
+                                       genome_fasta=snap.genome.hg38,
+                                       background=None,
+                                       method='hypergeometric')
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 
 
@@ -622,6 +705,61 @@ plt.rcParams['pdf.fonttype'] = 42
 meta = pd.read_table('epitrace_meta.txt', sep='\t')
 cell_info = pd.read_table('scATAC_meta.tsv', sep='\t', names=['cell', 'age', 'cell_type'])
 meta_cell_info = pd.merge(meta, cell_info) 
+
+## epithelial cell
+df = meta_cell_info[meta_cell_info['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                                      'epithelial cell of proximal tubule',
+                                                      'kidney loop of Henle thick ascending limb epithelial cell',
+                                                      'kidney collecting duct principal cell',
+                                                      'kidney distal convoluted tubule epithelial cell'])][['EpiTraceAge_iterative', 'age']]
+df.rename(columns={'EpiTraceAge_iterative': 'epitrace_age'}, inplace=True)
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='epitrace_age', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('epitrace_age') +\
+                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='epitrace_age_dotplot_epi.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    3929
+# 18m    2092
+# 1m     1750
+# 3m     1424
+# 21m    1405
+# 24m       0
+
+## fenestrated cell
+df = meta_cell_info[meta_cell_info['cell_type'].isin(['fenestrated cell'])][['EpiTraceAge_iterative', 'age']]
+df.rename(columns={'EpiTraceAge_iterative': 'epitrace_age'}, inplace=True)
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='epitrace_age', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('epitrace_age') +\
+                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='epitrace_age_dotplot_fc.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    3929
+# 18m    2092
+# 1m     1750
+# 3m     1424
+# 21m    1405
+# 24m       0
+
+## immune cell
+df = meta_cell_info[meta_cell_info['cell_type'].isin(['macrophage', 'T cell', 'B cell'])][['EpiTraceAge_iterative', 'age']]
+df.rename(columns={'EpiTraceAge_iterative': 'epitrace_age'}, inplace=True)
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='epitrace_age', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('epitrace_age') +\
+                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                             stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='epitrace_age_dotplot_ic.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    3929
+# 18m    2092
+# 1m     1750
+# 3m     1424
+# 21m    1405
+# 24m       0
 
 ## kidney proximal convoluted tubule epithelial cell
 df = meta_cell_info[meta_cell_info['cell_type']=='kidney proximal convoluted tubule epithelial cell'][['EpiTraceAge_iterative', 'age']]
