@@ -504,6 +504,18 @@ epitrace_obj_age_conv_estimated_by_mouse_clock <- readRDS(file='epitrace_obj_age
 # asso_res_mouse_clock[order(asso_res_mouse_clock$correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, 1:2]
 # asso_res_mouse_clock[order(asso_res_mouse_clock$scaled_correlation_of_EpiTraceAge, decreasing=TRUE), ][1:10, c(1,3)]
 
+
+asso_res_mouse_clock_kp <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney proximal convoluted tubule epithelial cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+asso_res_mouse_clock_kl <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney loop of Henle thick ascending limb epithelial cell')),
+                                                   epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
+kp_kl <- na.omit(cbind(asso_res_mouse_clock_kp['correlation_of_EpiTraceAge'], asso_res_mouse_clock_kl['correlation_of_EpiTraceAge']))
+kp_kl['peak_id'] <- rownames(kp_kl)
+colnames(kp_kl) <- c('cor_kp', 'cor_kl', 'peak_id')
+write.table(kp_kl[, c('peak_id', 'cor_kp', 'cor_kl')], 'correlation_of_EpiTraceAge_kp_kl.txt', sep='\t', quote=FALSE, col.names=FALSE, row.names=FALSE)
+
+
+
 ## plot top 20 up & down peaks
 ## kidney proximal convoluted tubule epithelial cell
 asso_res_mouse_clock_01 <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney proximal convoluted tubule epithelial cell')),
