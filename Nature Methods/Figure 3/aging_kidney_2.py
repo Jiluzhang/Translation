@@ -509,11 +509,148 @@ asso_res_mouse_clock_kp <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
 asso_res_mouse_clock_kl <- AssociationOfPeaksToAge(subset(epitrace_obj_age_conv_estimated_by_mouse_clock, cell_type %in% c('kidney loop of Henle thick ascending limb epithelial cell')),
                                                    epitrace_age_name="EpiTraceAge_iterative", parallel=T, peakSetName='all')
-kp_kl <- na.omit(cbind(asso_res_mouse_clock_kp['correlation_of_EpiTraceAge'], asso_res_mouse_clock_kl['correlation_of_EpiTraceAge']))
+kp_kl <- cbind(asso_res_mouse_clock_kp['correlation_of_EpiTraceAge'], asso_res_mouse_clock_kl['correlation_of_EpiTraceAge'])
+kp_kl = na.omit(kp_kl)
+# kp_kl[is.na(kp_kl)] = 0
+# kp_kl = kp_kl[(kp_kl[, 1]!=0) | (kp_kl[, 2]!=0), ]
+# kp_kl <- na.omit(cbind(asso_res_mouse_clock_kp['scaled_correlation_of_EpiTraceAge'], asso_res_mouse_clock_kl['scaled_correlation_of_EpiTraceAge']))
 kp_kl['peak_id'] <- rownames(kp_kl)
 colnames(kp_kl) <- c('cor_kp', 'cor_kl', 'peak_id')
 write.table(kp_kl[, c('peak_id', 'cor_kp', 'cor_kl')], 'correlation_of_EpiTraceAge_kp_kl.txt', sep='\t', quote=FALSE, col.names=FALSE, row.names=FALSE)
 
+## correlation comparison (kp vs. kl) not good to show
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
+df['idx'] = 'others'
+df.loc[(df['cor_kp']>0.30)  &  (df['cor_kl']<0.05),  'idx'] = 'kp_pos'
+df.loc[(df['cor_kp']<-0.05) &  (df['cor_kl']>0.05),  'idx'] = 'kp_neg'
+df.loc[(df['cor_kl']>0.30)  &  (df['cor_kp']>0.30),  'idx'] = 'co_pos'
+df.loc[(df['cor_kl']<-0.05) &  (df['cor_kp']<-0.05), 'idx'] = 'co_neg'
+df['idx'].value_counts()
+# others    9048
+# kp_pos    2431
+# kl_pos     903
+# kp_neg     596
+# kl_neg      17
+df['idx'] = pd.Categorical(df['idx'], categories=['kp_pos', 'kp_neg', 'co_pos', 'co_neg', 'others'])
+
+p = ggplot(df, aes(x='cor_kp', y='cor_kl', color='idx')) + geom_point(size=0.1) +\
+                                                           scale_x_continuous(limits=[-0.4, 0.7], breaks=np.arange(-0.4, 0.7+0.1, 0.1)) +\
+                                                           scale_y_continuous(limits=[-0.1, 0.6], breaks=np.arange(-0.1, 0.6+0.1, 0.1)) + theme_bw()
+p.save(filename='correlation_of_EpiTraceAge_kp_kl.pdf', dpi=600, height=4, width=6)
+
+
+from sklearn.cluster import KMeans
+import seaborn as sns
+
+plt.rcParams['pdf.fonttype'] = 42
+
+dat = df[['cor_kp', 'cor_kl']]
+kmeans = KMeans(n_clusters=4, random_state=0)
+kmeans.fit(dat)
+
+dat['cluster'] = kmeans.labels_   # 0:high_high  1:low_high  2:low_low  3:high_low
+dat['cluster'].value_counts()
+# 3    4975   high_low
+# 0    3263   high_high
+# 2    2485   low_low
+# 1    2272   low_high
+dat.sort_values('cluster', inplace=True)
+
+sns.heatmap(dat[['cor_kp', 'cor_kl']], cmap='viridis', vmin=-0.6, vmax=0.6) 
+plt.savefig('correlation_of_EpiTraceAge_kp_kl_heatmap.pdf')
+plt.close()
+
+sns.heatmap(dat.loc[dat['cluster']==0, ['cor_kp', 'cor_kl']], cmap='viridis', vmin=-0.6, vmax=0.6) 
+plt.savefig('correlation_of_EpiTraceAge_kp_kl_heatmap_high_high.pdf')
+plt.close()
+
+sns.heatmap(dat.loc[dat['cluster']==1, ['cor_kp', 'cor_kl']], cmap='viridis', vmin=-0.6, vmax=0.6) 
+plt.savefig('correlation_of_EpiTraceAge_kp_kl_heatmap_low_high.pdf')
+plt.close()
+
+sns.heatmap(dat.loc[dat['cluster']==2, ['cor_kp', 'cor_kl']], cmap='viridis', vmin=-0.6, vmax=0.6) 
+plt.savefig('correlation_of_EpiTraceAge_kp_kl_heatmap_low_low.pdf')
+plt.close()
+
+sns.heatmap(dat.loc[dat['cluster']==3, ['cor_kp', 'cor_kl']], cmap='viridis', vmin=-0.6, vmax=0.6) 
+plt.savefig('correlation_of_EpiTraceAge_kp_kl_heatmap_high_low.pdf')
+plt.close()
+
+dat['peak_id'] = df.loc[dat.index]['peak_id']
+dat.to_csv('correlation_of_EpiTraceAge_kp_kl_heatmap_cluster.txt', sep='\t', index=False)
+
+
+## calculate motif enrichment
+import pandas as pd
+import snapatac2 as snap
+
+dat = pd.read_table('correlation_of_EpiTraceAge_kp_kl_heatmap_cluster.txt')
+dat['peak_id'] = dat['peak_id'].str.replace('-', ':', n=1)
+peaks_dict = {}
+peaks_dict['high_low'] = list(dat[dat['cluster']==3]['peak_id'].values)
+peaks_dict['low_high'] = list(dat[dat['cluster']==1]['peak_id'].values)
+peaks_dict['high_high'] = list(dat[dat['cluster']==0]['peak_id'].values)
+peaks_dict['low_low'] = list(dat[dat['cluster']==2]['peak_id'].values)
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                  regions=peaks_dict,
+                                  genome_fasta=snap.genome.mm10,
+                                  background=None,
+                                  method='hypergeometric')
+
+motifs['high_low'].to_pandas().to_csv('motif_enrichment_high_low.txt', sep='\t', index=False)
+motifs['low_high'].to_pandas().to_csv('motif_enrichment_low_high.txt', sep='\t', index=False)
+motifs['high_high'].to_pandas().to_csv('motif_enrichment_high_high.txt', sep='\t', index=False)
+motifs['low_low'].to_pandas().to_csv('motif_enrichment_low_low.txt', sep='\t', index=False)
+
+## plot motif enrichment
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+df_high_low = pd.read_table('motif_enrichment_high_low.txt')
+df_high_low['-log10(FDR)'] = -np.log10(df_high_low['adjusted p-value'])
+
+p = ggplot(df_high_low, aes(x='log2(fold change)', y='-log10(FDR)')) + geom_point(size=0.5) +\
+                                                                       scale_x_continuous(limits=[-2, 2], breaks=np.arange(-2, 2+0.1, 0.5)) +\
+                                                                       scale_y_continuous(limits=[0, 20], breaks=np.arange(0, 20+0.1, 5)) + theme_bw()
+p.save(filename='motif_enrichment_high_low_vocano.pdf', dpi=600, height=4, width=4)
+
+
+
+
+
+
+
+
+
+
+
+## pos & neg seperately
+# df['cor_kp_kl'] = df['cor_kp'] - df['cor_kl']
+
+# df_pos = df[df['cor_kp']>0.1]  # 8833
+# df_pos.sort_values('cor_kp_kl', ascending=False, inplace=True)
+# df_pos['idx'] = range(df_pos.shape[0])
+# p = ggplot(df_pos, aes(x='idx', y='cor_kp_kl')) + geom_point(size=0.25) +\
+#                                                   scale_x_continuous(limits=[0, 9000], breaks=np.arange(0, 9000+1, 3000)) +\
+#                                                   scale_y_continuous(limits=[-0.5, 0.7], breaks=np.arange(-0.5, 0.7+0.1, 0.2)) + theme_bw()
+# p.save(filename='correlation_of_EpiTraceAge_kp_kl_pos.pdf', dpi=600, height=4, width=4)
+
+# df_neg = df[df['cor_kp']<-0.1]  # 1769
+# df_neg.sort_values('cor_kp_kl', ascending=True, inplace=True)
+# df_neg['idx'] = range(df_neg.shape[0])
+# p = ggplot(df_neg, aes(x='idx', y='cor_kp_kl')) + geom_point(size=0.25) +\
+#                                                   scale_x_continuous(limits=[0, 1800], breaks=np.arange(0, 1800+1, 300)) +\
+#                                                   scale_y_continuous(limits=[-0.8, -0.2], breaks=np.arange(-0.8, -0.2+0.1, 0.2)) + theme_bw()
+# p.save(filename='correlation_of_EpiTraceAge_kp_kl_neg.pdf', dpi=600, height=4, width=4)
 
 
 ## plot top 20 up & down peaks
@@ -552,15 +689,6 @@ enriched.motifs <- FindMotifs(object=epitrace_obj_age_conv_estimated_by_mouse_cl
 # Selecting background regions to match input sequence characteristics
 # Error in match.arg(arg = layer) : 
 #   'arg' should be one of “data”, “scale.data”, “counts”
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-true_motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
-                                       regions=true_marker_peaks,
-                                       genome_fasta=snap.genome.hg38,
-                                       background=None,
-                                       method='hypergeometric')
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 
