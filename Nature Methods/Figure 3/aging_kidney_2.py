@@ -610,23 +610,120 @@ motifs['low_high'].to_pandas().to_csv('motif_enrichment_low_high.txt', sep='\t',
 motifs['high_high'].to_pandas().to_csv('motif_enrichment_high_high.txt', sep='\t', index=False)
 motifs['low_low'].to_pandas().to_csv('motif_enrichment_low_low.txt', sep='\t', index=False)
 
+
+######################################## QH ########################################
+import pandas as pd
+import snapatac2 as snap
+
+# /data/home/zouqihang/desktop/project/M2M/version1.0.0/output/devel_fibro/bulk_subtype_enhancers
+peaks_dict = {}
+for ct in ['apFibro_CCL5', 'CAF_EndMT', 'CAF_PN', 'eFibro_COL11A1', 'eFibro_CTHRC1', 'Fibro_common', 'iFibro_FBLN1', 'MyoFibro_MYH11', 'qFibro_SAA1']:
+    peaks_dict[ct] = list(pd.read_table(ct+'.txt', header=None)[0].values)
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                  regions=peaks_dict,
+                                  genome_fasta=snap.genome.hg38,
+                                  background=None,
+                                  method='hypergeometric')
+
+for ct in ['apFibro_CCL5', 'CAF_EndMT', 'CAF_PN', 'eFibro_COL11A1', 'eFibro_CTHRC1', 'Fibro_common', 'iFibro_FBLN1', 'MyoFibro_MYH11', 'qFibro_SAA1']:
+    motifs[ct].to_pandas().to_csv('/fs/home/jiluzhang/To_QH/motif_enrichment/'+ct+'_motif.txt', sep='\t', index=False)
+
+# /data/home/zouqihang/desktop/project/M2M/version1.0.0/output/devel_macro/bulk_subtype_enhancers
+peaks_dict = {}
+for ct in ['Macro_APOC1', 'Macro_C1QC', 'Macro_CDC20', 'Macro_COL1A1', 'Macro_common', 'Macro_CXCL10', 'Macro_FABP4', 'Macro_IL32', 'Macro_SLPI', 'Macro_SPP1', 'Macro_THBS1']:
+    peaks_dict[ct] = list(pd.read_table(ct+'.txt', header=None)[0].values)
+
+motifs = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                  regions=peaks_dict,
+                                  genome_fasta=snap.genome.hg38,
+                                  background=None,
+                                  method='hypergeometric')
+
+for ct in ['Macro_APOC1', 'Macro_C1QC', 'Macro_CDC20', 'Macro_COL1A1', 'Macro_common', 'Macro_CXCL10', 'Macro_FABP4', 'Macro_IL32', 'Macro_SLPI', 'Macro_SPP1', 'Macro_THBS1']:
+    motifs[ct].to_pandas().to_csv('/fs/home/jiluzhang/To_QH/motif_enrichment/'+ct+'_motif.txt', sep='\t', index=False)
+######################################## QH ########################################
+
+
+
+
 ## plot motif enrichment
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from plotnine import *
 
+plt.rcParams['pdf.fonttype'] = 42
+
+## high_low
 df_high_low = pd.read_table('motif_enrichment_high_low.txt')
 df_high_low['-log10(FDR)'] = -np.log10(df_high_low['adjusted p-value'])
 
-p = ggplot(df_high_low, aes(x='log2(fold change)', y='-log10(FDR)')) + geom_point(size=0.5) +\
-                                                                       scale_x_continuous(limits=[-2, 2], breaks=np.arange(-2, 2+0.1, 0.5)) +\
-                                                                       scale_y_continuous(limits=[0, 20], breaks=np.arange(0, 20+0.1, 5)) + theme_bw()
+val_max = df_high_low[df_high_low['-log10(FDR)']!=np.inf]['-log10(FDR)'].max()
+np.random.seed(0)
+df_high_low.loc[df_high_low['-log10(FDR)']==np.inf, '-log10(FDR)'] = val_max + np.random.uniform(0, 1, size=6)
+
+df_high_low['idx'] = '0'
+df_high_low.loc[(df_high_low['-log10(FDR)']>(-np.log10(0.05))) & (df_high_low['log2(fold change)']>(np.log2(1.25))), 'idx'] = '1'
+
+p = ggplot(df_high_low, aes(x='log2(fold change)', y='-log10(FDR)', color='idx')) + geom_point(size=0.25) + scale_color_manual(values=['grey', 'red']) +\
+                                                                                    scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.5)) +\
+                                                                                    scale_y_continuous(limits=[0, 20], breaks=np.arange(0, 20+0.1, 5)) +\
+                                                                                    geom_text(aes(label='name'), data=df_high_low[df_high_low['idx']=='1'], size=3, nudge_y=0.2) + theme_bw()
+                                                                                    # geom_hline(yintercept=(-np.log10(0.05)), color="black", linetype="dashed") +\
+                                                                                    # geom_vline(xintercept=(np.log2(1.25)), color='black', linetype='dashed')
 p.save(filename='motif_enrichment_high_low_vocano.pdf', dpi=600, height=4, width=4)
 
+## low_high
+df_low_high = pd.read_table('motif_enrichment_low_high.txt')
+df_low_high['-log10(FDR)'] = -np.log10(df_low_high['adjusted p-value'])
 
+#val_max = df_low_high[df_low_high['-log10(FDR)']!=np.inf]['-log10(FDR)'].max()
+#np.random.seed(0)
+#df_low_high.loc[df_low_high['-log10(FDR)']==np.inf, '-log10(FDR)'] = val_max + np.random.uniform(0, 1, size=6)
 
+df_low_high['idx'] = '0'
+df_low_high.loc[(df_low_high['-log10(FDR)']>(-np.log10(0.05))) & (df_low_high['log2(fold change)']>(np.log2(1.25))), 'idx'] = '1'
 
+p = ggplot(df_low_high, aes(x='log2(fold change)', y='-log10(FDR)', color='idx')) + geom_point(size=0.25) + scale_color_manual(values=['grey', 'red']) +\
+                                                                                    scale_x_continuous(limits=[-2, 2], breaks=np.arange(-2, 2+0.1, 0.5)) +\
+                                                                                    scale_y_continuous(limits=[0, 5], breaks=np.arange(0, 5+0.1, 1)) +\
+                                                                                    geom_text(aes(label='name'), data=df_low_high[df_low_high['idx']=='1'], size=3, nudge_y=0.2) + theme_bw()
+p.save(filename='motif_enrichment_low_high_vocano.pdf', dpi=600, height=4, width=4)
 
+## high_high
+df_high_high = pd.read_table('motif_enrichment_high_high.txt')
+df_high_high['-log10(FDR)'] = -np.log10(df_high_high['adjusted p-value'])
+
+# val_max = df_high_high[df_high_high['-log10(FDR)']!=np.inf]['-log10(FDR)'].max()
+# np.random.seed(0)
+# df_high_high.loc[df_high_high['-log10(FDR)']==np.inf, '-log10(FDR)'] = val_max + np.random.uniform(0, 1, size=6)
+
+df_high_high['idx'] = '0'
+df_high_high.loc[(df_high_high['-log10(FDR)']>(-np.log10(0.05))) & (df_high_high['log2(fold change)']>(np.log2(1.25))), 'idx'] = '1'
+
+p = ggplot(df_high_high, aes(x='log2(fold change)', y='-log10(FDR)', color='idx')) + geom_point(size=0.25) + scale_color_manual(values=['grey', 'red']) +\
+                                                                                     scale_x_continuous(limits=[-1, 1.5], breaks=np.arange(-1, 1.5+0.1, 0.5)) +\
+                                                                                     scale_y_continuous(limits=[0, 8], breaks=np.arange(0, 8+0.1, 2)) +\
+                                                                                     geom_text(aes(label='name'), data=df_high_high[df_high_high['idx']=='1'], size=3, nudge_y=0.2) + theme_bw()
+p.save(filename='motif_enrichment_high_high_vocano.pdf', dpi=600, height=4, width=4)
+
+## low_low
+df_low_low = pd.read_table('motif_enrichment_low_low.txt')
+df_low_low['-log10(FDR)'] = -np.log10(df_low_low['adjusted p-value'])
+
+#val_max = df_low_low[df_low_low['-log10(FDR)']!=np.inf]['-log10(FDR)'].max()
+#np.random.seed(0)
+#df_low_low.loc[df_low_low['-log10(FDR)']==np.inf, '-log10(FDR)'] = val_max + np.random.uniform(0, 1, size=6)
+
+df_low_low['idx'] = '0'
+df_low_low.loc[(df_low_low['-log10(FDR)']>(-np.log10(0.05))) & (df_low_low['log2(fold change)']>(np.log2(1.25))), 'idx'] = '1'
+
+p = ggplot(df_low_low, aes(x='log2(fold change)', y='-log10(FDR)', color='idx')) + geom_point(size=0.25) + scale_color_manual(values=['grey', 'red']) +\
+                                                                                   scale_x_continuous(limits=[-1.5, 1], breaks=np.arange(-1.5, 1+0.1, 0.5)) +\
+                                                                                   scale_y_continuous(limits=[0, 8], breaks=np.arange(0, 8+0.1, 2)) +\
+                                                                                   geom_text(aes(label='name'), data=df_low_low[df_low_low['idx']=='1'], size=3, nudge_y=0.2) + theme_bw()
+p.save(filename='motif_enrichment_low_low_vocano.pdf', dpi=600, height=4, width=4)
 
 
 
