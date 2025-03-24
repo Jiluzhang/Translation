@@ -75,7 +75,7 @@ sc.pl.umap(cd8_t, color='leiden', legend_fontsize='5', legend_loc='right margin'
 #                          'CD69', 'CD7', 'CRTAM', 'CD3G', 'IL7R', 'SELL'], groupby='leiden', cmap='coolwarm', standard_scale='var', save='cd8_t_leiden_heatmap.pdf')
 
 cd8_t.obs['cell_anno'] = cd8_t.obs['leiden']
-cd8_t.obs['cell_anno'].replace({'0':'naive', '1':'ex', '2':'memory', '3':'effect', '4':'effect', '5':'effect', '6':'naive'}, inplace=True)
+cd8_t.obs['cell_anno'].replace({'0':'naive', '1':'ex', '2':'memory', '3':'ex', '4':'effect', '5':'effect', '6':'naive'}, inplace=True)  # 3 (effect -> ex)
 
 sc.pl.umap(cd8_t, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
            title='', frameon=True, save='_cell_anno_cd8_t.pdf')
@@ -84,6 +84,24 @@ cd8_t.write('res_cd8_t.h5ad')
 
 ## cd8_t_naive_effect_ex
 cd8_t_naive_effect_ex = cd8_t[cd8_t.obs['cell_anno'].isin(['naive', 'effect', 'ex'])].copy()  # 9015 × 1868
+
+cd8_t_naive_effect_ex.uns['cell_anno_colors'] = ['#ff7f0e', '#1f77b4', '#d62728']
+sc.pl.umap(cd8_t_naive_effect_ex, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_cell_anno_cd8_t_naive_effect_ex.pdf')
+
+# sc.pl.dotplot(cd8_t_naive_effect_ex, ['CCR7', 'LEF1', 'SELL', 'CD3E', 'CD3D',
+#                                       'EOMES', 'IFNG', 'GNLY', 'GZMB', 'NKG7', 'CD3D', 'PRF1',
+#                                       'PDCD1', 'CTLA4', 'HAVCR2', 'CD101'], 
+#               groupby='cell_anno', standard_scale='var',
+#               save='cell_anno_cd8_t_naive_effect_ex.pdf')
+
+cd8_t_naive_effect_ex.obs['cell_anno'] = pd.Categorical(cd8_t_naive_effect_ex.obs['cell_anno'], categories=['naive', 'effect', 'ex'])
+
+sc.pl.matrixplot(cd8_t_naive_effect_ex, ['CCR7', 'LEF1', 'SELL',
+                                         'NKG7', 'PRF1',
+                                         'PDCD1', 'CTLA4', 'HAVCR2'],
+                 groupby='cell_anno', cmap='coolwarm', standard_scale='var',
+                 save='cell_anno_heatmap_cd8_t_naive_effect_ex.pdf')
 
 sc.tl.paga(cd8_t_naive_effect_ex, groups='cell_anno')
 sc.pl.paga(cd8_t_naive_effect_ex, layout='fa', color=['cell_anno'], save='_cd8_t_naive_effect_ex.pdf')
@@ -95,11 +113,10 @@ cd8_t_naive_effect_ex.uns["iroot"] = np.flatnonzero(cd8_t_naive_effect_ex.obs["c
 sc.tl.dpt(cd8_t_naive_effect_ex)
 sc.pl.draw_graph(cd8_t_naive_effect_ex, color=['cell_anno', 'dpt_pseudotime'], vmax=0.5, legend_loc='on data', save='_cd8_t_naive_effect_ex_pseudo.pdf')
 
-sc.pl.umap(cd8_t_naive_effect_ex, color='dpt_pseudotime', legend_fontsize='5', legend_loc='right margin', size=5, vmax=0.25,
+sc.pl.umap(cd8_t_naive_effect_ex, color='dpt_pseudotime', legend_fontsize='5', legend_loc='right margin', size=5, vmax=0.15, cmap='coolwarm',
            title='', frameon=True, save='_cell_anno_cd8_t_naive_effect_ex_pseudo.pdf')
 
 cd8_t_naive_effect_ex.write('res_cd8_t_naive_effect_ex.h5ad')
-
 
 
 
@@ -221,14 +238,14 @@ random.seed(0)
 effect_idx = list(np.argwhere(rna_naive_effect_ex.obs['cell_anno']=='effect').flatten())
 effect_idx_20 = random.sample(list(effect_idx), 20)
 out = sc.AnnData(rna_naive_effect_ex[effect_idx_20].raw.X, obs=rna_naive_effect_ex[effect_idx_20].obs, var=rna_naive_effect_ex[effect_idx_20].raw.var)
-np.count_nonzero(out.X.toarray(), axis=1).max()  # 1316
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 1345
 out.write('rna_effect_20.h5ad')
 
 atac = sc.read_h5ad('../atac.h5ad')
 atac_effect = atac[rna_naive_effect_ex.obs.index[effect_idx_20]].copy()
-atac_naive.write('atac_effect_20.h5ad')
+atac_effect.write('atac_effect_20.h5ad')
 
-# python data_preprocess.py -r rna_effect_20.h5ad -a atac_effect_20.h5ad -s effect_pt_20 --dt test -n effect --config rna2atac_config_test_effect.yaml   # enc_max_len: 1316 
+# python data_preprocess.py -r rna_effect_20.h5ad -a atac_effect_20.h5ad -s effect_pt_20 --dt test -n effect --config rna2atac_config_test_effect.yaml   # enc_max_len: 1345 
 
 with open("rna2atac_config_test_effect.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -278,7 +295,7 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
 
 rna_effect_20 = sc.read_h5ad('rna_effect_20.h5ad')
 nonzero = np.count_nonzero(rna_effect_20.X.toarray(), axis=0)
-gene_lst = rna_effect_20.var.index[nonzero>=3]  # 2375
+gene_lst = rna_effect_20.var.index[nonzero>=3]  # 2368
 
 atac_effect_20 = sc.read_h5ad('atac_effect_20.h5ad')
 
@@ -302,7 +319,7 @@ gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 df = pd.DataFrame({'gene':gene_lst, 'attn':gene_attn_sum})
 df.to_csv('./attn/attn_no_norm_cnt_20_effect_3cell.txt', sep='\t', header=None, index=None)
 
-df['attn'].sum()   # 5092225.0
+df['attn'].sum()   # 5207205.0
 
 
 #################################### ex T ####################################
@@ -311,14 +328,14 @@ random.seed(0)
 ex_idx = list(np.argwhere(rna_naive_effect_ex.obs['cell_anno']=='ex').flatten())
 ex_idx_20 = random.sample(list(ex_idx), 20)
 out = sc.AnnData(rna_naive_effect_ex[ex_idx_20].raw.X, obs=rna_naive_effect_ex[ex_idx_20].obs, var=rna_naive_effect_ex[ex_idx_20].raw.var)
-np.count_nonzero(out.X.toarray(), axis=1).max()  # 2343
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 2152
 out.write('rna_ex_20.h5ad')
 
 atac = sc.read_h5ad('../atac.h5ad')
 atac_ex = atac[rna_naive_effect_ex.obs.index[ex_idx_20]].copy()
-atac_naive.write('atac_ex_20.h5ad')
+atac_ex.write('atac_ex_20.h5ad')
 
-# python data_preprocess.py -r rna_ex_20.h5ad -a atac_ex_20.h5ad -s ex_pt_20 --dt test -n ex --config rna2atac_config_test_ex.yaml   # enc_max_len: 2343 
+# python data_preprocess.py -r rna_ex_20.h5ad -a atac_ex_20.h5ad -s ex_pt_20 --dt test -n ex --config rna2atac_config_test_ex.yaml   # enc_max_len: 2152 
 
 with open("rna2atac_config_test_ex.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -368,7 +385,7 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
 
 rna_ex_20 = sc.read_h5ad('rna_ex_20.h5ad')
 nonzero = np.count_nonzero(rna_ex_20.X.toarray(), axis=0)
-gene_lst = rna_ex_20.var.index[nonzero>=3]  # 3054
+gene_lst = rna_ex_20.var.index[nonzero>=3]  # 2772
 
 atac_ex_20 = sc.read_h5ad('atac_ex_20.h5ad')
 
@@ -392,7 +409,7 @@ gene_attn_sum = [gene_attn[gene].sum() for gene in gene_lst]
 df = pd.DataFrame({'gene':gene_lst, 'attn':gene_attn_sum})
 df.to_csv('./attn/attn_no_norm_cnt_20_ex_3cell.txt', sep='\t', header=None, index=None)
 
-df['attn'].sum()   # 5261940.0
+df['attn'].sum()   # 5167448.0
 
 
 
@@ -401,6 +418,7 @@ import pandas as pd
 import numpy as np
 from plotnine import *
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -417,63 +435,60 @@ cr_tf = cr + tf   # 763
 
 df_naive = pd.read_csv('attn_no_norm_cnt_20_naive_3cell.txt', header=None, sep='\t')
 df_naive.columns = ['gene', 'attn']
+df_naive['attn_norm'] = df_naive['attn']/df_naive['attn'].max()
 
 df_effect = pd.read_csv('attn_no_norm_cnt_20_effect_3cell.txt', header=None, sep='\t')
 df_effect.columns = ['gene', 'attn']
+df_effect['attn_norm'] = df_effect['attn']/df_effect['attn'].max()
 
 df_ex = pd.read_csv('attn_no_norm_cnt_20_ex_3cell.txt', header=None, sep='\t')
 df_ex.columns = ['gene', 'attn']
+df_ex['attn_norm'] = df_ex['attn']/df_ex['attn'].max()
 
 sum(df_naive['attn']/df_naive['attn'].max())
 # 13.304571276765705
 
 sum(df_effect['attn']/df_effect['attn'].max())
-# 18.25149896943262
+# 14.894872854946211
 
 sum(df_ex['attn']/df_ex['attn'].max())
-# 14.349604793350887
+# 9.518939784170293
 
+df_naive[df_naive['gene'].isin(cr_tf)]['attn_norm'].sum()
+# 0.6764622481005079
 
-def ext_cr_tf(ct='bcell'):
-    df = pd.read_csv('attn_no_norm_cnt_20_'+ct+'_3cell.txt', header=None, sep='\t')
-    df.columns = ['gene', 'attn']
-    df = df.sort_values('attn', ascending=False)
-    df.index = range(df.shape[0])
-    df['Avg_attn'] =  df['attn']/20
-    #df['Avg_attn_norm'] = np.log10(df['Avg_attn']/min(df['Avg_attn']))
-    #df['Avg_attn_norm'] = np.log10(df['Avg_attn']+1)
-    #df['Avg_attn_norm'] = df['Avg_attn_norm']/(df['Avg_attn_norm'].max())
-    df = df[df['gene'].isin(cr_tf)]
-    df.index = range(df.shape[0])
-    del df['attn']
-    del df['Avg_attn']
-    #del df['Avg_attn_norm']
-    df[ct+'_rank'] = range(1, df.shape[0]+1)
-    return df
+df_effect[df_effect['gene'].isin(cr_tf)]['attn_norm'].sum()
+# 1.3884113822466762
 
-cthrc1_pos = ext_cr_tf(ct='cthrc1_pos')
-cthrc1_neg = ext_cr_tf(ct='cthrc1_neg')
+df_ex[df_ex['gene'].isin(cr_tf)]['attn_norm'].sum()
+# 0.935870134228533
 
-cthrc1_pos_neg = pd.merge(cthrc1_pos, cthrc1_neg, how='outer')
-cthrc1_pos_neg.fillna(cthrc1_pos_neg.shape[0], inplace=True)
-cthrc1_pos_neg['cthrc1_pos_rank'] = cthrc1_pos_neg.shape[0]+1-cthrc1_pos_neg['cthrc1_pos_rank']
-cthrc1_pos_neg['cthrc1_pos_rank'] = (cthrc1_pos_neg['cthrc1_pos_rank']-cthrc1_pos_neg['cthrc1_pos_rank'].min())/(cthrc1_pos_neg['cthrc1_pos_rank'].max())
-cthrc1_pos_neg['cthrc1_neg_rank'] = cthrc1_pos_neg.shape[0]+1-cthrc1_pos_neg['cthrc1_neg_rank']
-cthrc1_pos_neg['cthrc1_neg_rank'] = (cthrc1_pos_neg['cthrc1_neg_rank']-cthrc1_pos_neg['cthrc1_neg_rank'].min())/(cthrc1_pos_neg['cthrc1_neg_rank'].max())
+dat = pd.DataFrame({'idx':['naive', 'effect', 'ex'],
+                    'val':[0.676, 1.388, 0.936]})
+dat['idx'] = pd.Categorical(dat['idx'], categories=['naive', 'effect', 'ex'])
 
-p = ggplot(cthrc1_pos_neg, aes(x='cthrc1_neg_rank', y='cthrc1_pos_rank')) + geom_point(size=0.2) +\
-                                                                            scale_x_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
-                                                                            scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
-p.save(filename='cthrc1_pos_vs_neg_tf.pdf', dpi=600, height=4, width=4)
+p = ggplot(dat, aes(x='idx', y='val', fill='idx')) + geom_col(position='dodge') +\
+                                                     scale_y_continuous(limits=[0, 1.5], breaks=np.arange(0, 1.5+0.5, 0.5)) + theme_bw()  # limits min must set to 0
+p.save(filename='cd8_t_naive_effect_ex_reg_score.pdf', dpi=600, height=4, width=4)
 
+## heatmap of factors (may be retrain the model)
+df_naive_effect = pd.merge(df_naive[['gene', 'attn_norm']], df_effect[['gene', 'attn_norm']], how='outer', on='gene')
+df_naive_effect_ex = pd.merge(df_naive_effect, df_ex[['gene', 'attn_norm']], how='outer')
+df_naive_effect_ex.fillna(0, inplace=True)
+df_naive_effect_ex.rename(columns={'attn_norm_x':'attn_norm_naive', 'attn_norm_y':'attn_norm_effect', 'attn_norm':'attn_norm_ex'}, inplace=True)
 
+df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
 
+naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
+                                 (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
+effect_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                                  (df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_ex'])]
+ex_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                              (df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_effect'])]
+sp = pd.concat([naive_sp, effect_sp, ex_sp])
+sp.index = sp['gene'].values
 
-
-
-
-
-
-
-
-
+sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
+               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 40)) 
+plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
+plt.close()
