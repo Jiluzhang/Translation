@@ -24,6 +24,8 @@ macro.obsm['X_pca_harmony'] = ho.Z_corr.T
 sc.pp.neighbors(macro, use_rep='X_pca_harmony')
 sc.tl.umap(macro)
 
+macro.write('res_macro.h5ad')
+
 sc.tl.leiden(tcell, resolution=0.75)
 tcell.obs['leiden'].value_counts()
 # 0    10811
