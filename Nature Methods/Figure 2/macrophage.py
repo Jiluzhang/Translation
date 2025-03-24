@@ -26,97 +26,71 @@ sc.tl.umap(macro)
 
 macro.write('res_macro.h5ad')
 
-sc.tl.leiden(tcell, resolution=0.75)
-tcell.obs['leiden'].value_counts()
-# 0    10811
-# 1     6304
-# 2     5198
-# 3     4721
-# 4     2767
-# 5     2570
-# 6     1588
-# 7     1587
-# 8     1352
+sc.tl.leiden(macro, resolution=0.75)
+macro.obs['leiden'].value_counts()
+# 0     7599
+# 1     6902
+# 2     6569
+# 3     5310
+# 4     4431
+# 5     4326
+# 6     4234
+# 7     4089
+# 8     2508
+# 9     2316
+# 10    1796
+# 11     651
+# 12     577
+# 13     472
+# 14     250
 
-sc.pl.matrixplot(tcell, ['CD4', 'CD8A', 'CD8B'], groupby='leiden', cmap='coolwarm', standard_scale='var', save='leiden_heatmap_tcell.pdf')
-# cluster 1 & 3 highly express CD8A & CD8B
+# Mono_FCN1 -> Macro_IL32  -> Macro_C1QC
+sc.pl.matrixplot(macro, ['FCN1', 'VCAN',
+                         'IL32',
+                         'APOE', 'C1QC', 'SPP1', 'CDC20', 'FCGR3A'], groupby='leiden', cmap='coolwarm', standard_scale='var', save='leiden_heatmap_macro.pdf')
+# 7: Mono_FCN1
+# 5: Macro_IL32
+# 4: Macro_C1QC
 
-sc.pl.umap(tcell, color='leiden', legend_fontsize='5', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_leiden_tcell.pdf')
+sc.pl.umap(macro, color='leiden', legend_fontsize='5', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_leiden_macro.pdf')
 
-tcell.write('res_tcell.h5ad')
+macro.write('res_macro.h5ad')
 
-## cd8 t
-cd8_t = tcell[tcell.obs['leiden'].isin(['1', '3'])].copy()  # 11025 × 1868
+## macro_fcn1_il32_c1qc
+macro_fcn1_il32_c1qc = macro[macro.obs['leiden'].isin(['4', '5', '7'])].copy()  # 12846 × 2108
 
-sc.tl.leiden(cd8_t, resolution=0.90)
-cd8_t.obs['leiden'].value_counts()
-# 0    2937
-# 1    2697
-# 2    2010
-# 3    1393
-# 4     960
-# 5     529
-# 6     499
+macro_fcn1_il32_c1qc.obs['cell_anno'] = macro_fcn1_il32_c1qc.obs['leiden']
+macro_fcn1_il32_c1qc.obs['cell_anno'].replace({'4':'Macro_C1QC', '5':'Macro_IL32', '7':'Mono_FCN1'}, inplace=True)
 
-# naive T  &  effector T  &  memory T  &  exhausted T
-sc.pl.matrixplot(cd8_t, ['CCR7', 'LEF1', 'SELL', 'CD3E', 'CD3D',
-                         'GNLY', 'GZMB', 'NKG7', 'CD3D', 'PRF1',
-                         'CCR7', 'CD3G', 'IL7R', 'SELL', 'CD3D',
-                         'PDCD1', 'CTLA4', 'HAVCR2', 'CD101', 'CD38'], groupby='leiden', cmap='coolwarm', standard_scale='var', dendrogram=True, save='leiden_heatmap_cd8_t.pdf')
+sc.pl.umap(macro_fcn1_il32_c1qc, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_cell_anno_macro_fcn1_il32_c1qc.pdf')
 
-sc.pl.umap(cd8_t, color='leiden', legend_fontsize='5', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_leiden_cd8_t.pdf')
+macro_fcn1_il32_c1qc.obs['cell_anno'] = pd.Categorical(macro_fcn1_il32_c1qc.obs['cell_anno'], categories=['Mono_FCN1', 'Macro_IL32', 'Macro_C1QC'])
 
-# marker genes from NBT
-# sc.pl.matrixplot(cd8_t, ['CCR7', 'TCF7',
-#                          'EOMES', 'IFNG',
-#                          'PDCD1', 'CTLA4', 'HAVCR2', 'CD101', 'CD38',
-#                          'CD69', 'CD7', 'CRTAM', 'CD3G', 'IL7R', 'SELL'], groupby='leiden', cmap='coolwarm', standard_scale='var', save='cd8_t_leiden_heatmap.pdf')
-
-cd8_t.obs['cell_anno'] = cd8_t.obs['leiden']
-cd8_t.obs['cell_anno'].replace({'0':'naive', '1':'ex', '2':'memory', '3':'ex', '4':'effect', '5':'effect', '6':'naive'}, inplace=True)  # 3 (effect -> ex)
-
-sc.pl.umap(cd8_t, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_cell_anno_cd8_t.pdf')
-
-cd8_t.write('res_cd8_t.h5ad')
-
-## cd8_t_naive_effect_ex
-cd8_t_naive_effect_ex = cd8_t[cd8_t.obs['cell_anno'].isin(['naive', 'effect', 'ex'])].copy()  # 9015 × 1868
-
-cd8_t_naive_effect_ex.uns['cell_anno_colors'] = ['#ff7f0e', '#1f77b4', '#d62728']
-sc.pl.umap(cd8_t_naive_effect_ex, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
-           title='', frameon=True, save='_cell_anno_cd8_t_naive_effect_ex.pdf')
-
-# sc.pl.dotplot(cd8_t_naive_effect_ex, ['CCR7', 'LEF1', 'SELL', 'CD3E', 'CD3D',
-#                                       'EOMES', 'IFNG', 'GNLY', 'GZMB', 'NKG7', 'CD3D', 'PRF1',
-#                                       'PDCD1', 'CTLA4', 'HAVCR2', 'CD101'], 
-#               groupby='cell_anno', standard_scale='var',
-#               save='cell_anno_cd8_t_naive_effect_ex.pdf')
-
-cd8_t_naive_effect_ex.obs['cell_anno'] = pd.Categorical(cd8_t_naive_effect_ex.obs['cell_anno'], categories=['naive', 'effect', 'ex'])
-
-sc.pl.matrixplot(cd8_t_naive_effect_ex, ['CCR7', 'LEF1', 'SELL',
-                                         'NKG7', 'PRF1',
-                                         'PDCD1', 'CTLA4', 'HAVCR2'],
+sc.pl.matrixplot(macro_fcn1_il32_c1qc, ['FCN1', 'IL32', 'C1QC'],
                  groupby='cell_anno', cmap='coolwarm', standard_scale='var',
-                 save='cell_anno_heatmap_cd8_t_naive_effect_ex.pdf')
+                 save='cell_anno_heatmap_macro_fcn1_il32_c1qc.pdf')
 
-sc.tl.paga(cd8_t_naive_effect_ex, groups='cell_anno')
-sc.pl.paga(cd8_t_naive_effect_ex, layout='fa', color=['cell_anno'], save='_cd8_t_naive_effect_ex.pdf')
+sc.tl.paga(macro_fcn1_il32_c1qc, groups='cell_anno')
+sc.pl.paga(macro_fcn1_il32_c1qc, layout='fa', color=['cell_anno'], save='_macro_fcn1_il32_c1qc.pdf')
 
-sc.tl.draw_graph(cd8_t_naive_effect_ex, init_pos='paga')
-sc.pl.draw_graph(cd8_t_naive_effect_ex, color=['cell_anno'], legend_loc='on data', save='_cd8_t_naive_effect_ex_cell_anno.pdf')
+sc.tl.draw_graph(macro_fcn1_il32_c1qc, init_pos='paga')
+sc.pl.draw_graph(macro_fcn1_il32_c1qc, color=['cell_anno'], legend_loc='on data', save='_macro_fcn1_il32_c1qc_cell_anno.pdf')
 
-cd8_t_naive_effect_ex.uns["iroot"] = np.flatnonzero(cd8_t_naive_effect_ex.obs["cell_anno"]=='naive')[0]
-sc.tl.dpt(cd8_t_naive_effect_ex)
-sc.pl.draw_graph(cd8_t_naive_effect_ex, color=['cell_anno', 'dpt_pseudotime'], vmax=0.5, legend_loc='on data', save='_cd8_t_naive_effect_ex_pseudo.pdf')
+macro_fcn1_il32_c1qc.uns["iroot"] = np.flatnonzero(macro_fcn1_il32_c1qc.obs["cell_anno"]=='Mono_FCN1')[0]
+sc.tl.dpt(macro_fcn1_il32_c1qc)
+sc.pl.draw_graph(macro_fcn1_il32_c1qc, color=['cell_anno', 'dpt_pseudotime'], vmax=0.5, legend_loc='on data', save='_macro_fcn1_il32_c1qc_pseudo.pdf')
 
-sc.pl.umap(cd8_t_naive_effect_ex, color='dpt_pseudotime', legend_fontsize='5', legend_loc='right margin', size=5, vmax=0.15, cmap='coolwarm',
-           title='', frameon=True, save='_cell_anno_cd8_t_naive_effect_ex_pseudo.pdf')
+sc.pl.umap(macro_fcn1_il32_c1qc, color='dpt_pseudotime', legend_fontsize='5', legend_loc='right margin', size=5, vmax=0.5, cmap='coolwarm',
+           title='', frameon=True, save='_cell_anno_macro_fcn1_il32_c1qc_pseudo.pdf')
 
-cd8_t_naive_effect_ex.write('res_cd8_t_naive_effect_ex.h5ad')
+macro_fcn1_il32_c1qc.write('res_macro_fcn1_il32_c1qc.h5ad')
+
+
+
+
+
 
 
 
