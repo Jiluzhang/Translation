@@ -323,6 +323,8 @@ cthrc1_pos_neg['cthrc1_pos_rank'] = (cthrc1_pos_neg['cthrc1_pos_rank']-cthrc1_po
 cthrc1_pos_neg['cthrc1_neg_rank'] = cthrc1_pos_neg.shape[0]+1-cthrc1_pos_neg['cthrc1_neg_rank']
 cthrc1_pos_neg['cthrc1_neg_rank'] = (cthrc1_pos_neg['cthrc1_neg_rank']-cthrc1_pos_neg['cthrc1_neg_rank'].min())/(cthrc1_pos_neg['cthrc1_neg_rank'].max())
 
+cthrc1_pos_neg.to_csv('cthrc1_pos_vs_neg_tf.txt', sep='\t', index=False)
+
 p = ggplot(cthrc1_pos_neg, aes(x='cthrc1_neg_rank', y='cthrc1_pos_rank')) + geom_point(size=0.2) +\
                                                                             scale_x_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) +\
                                                                             scale_y_continuous(limits=[0, 1], breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
