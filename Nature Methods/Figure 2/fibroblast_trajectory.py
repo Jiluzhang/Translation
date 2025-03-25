@@ -405,7 +405,22 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
 
 out.write('attn_qFibro_100.h5ad')
 
+attn = sc.read_h5ad('attn_qFibro_100.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.255087049780761   (seed=1  6.164570695891723)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 17.889998986005185  (seed=1  15.962734157227999)
 
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.5951161888828844  (seed=1  0.6013686011716683)
 ########################################################################################################################################################################################################################
 
 
@@ -471,7 +486,23 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     i += 1
 
 out.write('attn_apFibro_100.h5ad')
-# out.X = out.X / out.X.max(axis=1)[:, np.newaxis]
+
+attn = sc.read_h5ad('attn_apFibro_100.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.426582606976216  (seed=1  6.239077361769187)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 17.01195932997782  (seed=1  16.070358739278365)
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.6601534981235282  (seed=1  0.6560938370026412)
 ########################################################################################################################################################################################################################
 
 
@@ -538,8 +569,23 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
 
 out.write('attn_MyoFibro_100.h5ad')
 
-(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.019685058037266
-sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))   # 18.41228501488108
+attn = sc.read_h5ad('attn_MyoFibro_100.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.019685058037266 (seed=1  6.062857704446831)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 18.41228501488108 (seed=1  20.270413808054894)
+
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.7327993408691938  (seed=1  0.9140492756775177)
 ########################################################################################################################################################################################################################
 
 
