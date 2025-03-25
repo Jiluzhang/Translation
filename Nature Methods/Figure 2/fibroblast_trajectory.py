@@ -373,6 +373,60 @@ gene_lst = rna_MyoFibro_20.var.index[nonzero>=3]  # 3404
 
 atac_MyoFibro_20 = sc.read_h5ad('atac_MyoFibro_20.h5ad')
 
+
+
+###################################################################################################################################################################################
+MyoFibro_data = torch.load("./MyoFibro_pt_20/MyoFibro_0.pt")
+rna_MyoFibro_20 = sc.read_h5ad('rna_MyoFibro_20.h5ad')
+atac_MyoFibro_20 = sc.read_h5ad('atac_MyoFibro_20.h5ad')
+rna_sequence_0 = MyoFibro_data[0][0].flatten()
+rna_sequence_1 = MyoFibro_data[0][1].flatten()
+
+with h5py.File('attn/attn_MyoFibro_0.h5', 'r') as f:
+    attn_0 = f['attn'][:]
+    
+with h5py.File('attn/attn_MyoFibro_1.h5', 'r') as f:
+    attn_1 = f['attn'][:]
+
+dat_0 = np.zeros([rna_MyoFibro_20.shape[1], atac_MyoFibro_20.shape[1]])
+dat_0[rna_sequence_0[rna_sequence_0!=0]] = attn_0.T
+res_0 = dat_0.sum(axis=1)
+
+dat_1 = np.zeros([rna_MyoFibro_20.shape[1], atac_MyoFibro_20.shape[1]])
+dat_1[rna_sequence_1[rna_sequence_1!=0]] = attn_1.T
+res_1 = dat_1.sum(axis=1)
+
+qFibro_lst = []
+for i in tqdm(range(20), ncols=80):
+    with h5py.File('attn/attn_qFibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        attn_sum = attn.sum(axis=0)
+        qFibro_lst.append(sum(attn_sum/attn_sum.max()))
+
+np.mean(qFibro_lst)   # 6.1577463126681655
+
+apFibro_lst = []
+for i in tqdm(range(20), ncols=80):
+    with h5py.File('attn/attn_apFibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        attn_sum = attn.sum(axis=0)
+        apFibro_lst.append(sum(attn_sum/attn_sum.max()))
+
+np.mean(apFibro_lst)  # 6.55418491271251
+
+MyoFibro_lst = []
+for i in tqdm(range(20), ncols=80):
+    with h5py.File('attn/attn_MyoFibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        attn_sum = attn.sum(axis=0)
+        MyoFibro_lst.append(sum(attn_sum/attn_sum.max()))
+
+np.mean(MyoFibro_lst)  # 6.166067630791403
+###################################################################################################################################################################################
+
+
+
+
 gene_attn = {}
 for gene in gene_lst:
     gene_attn[gene] = np.zeros([atac_MyoFibro_20.shape[1], 1], dtype='float32')  # not float16
@@ -445,6 +499,8 @@ df_apFibro[df_apFibro['gene'].isin(cr_tf)]['attn_norm'].sum()
 
 df_MyoFibro[df_MyoFibro['gene'].isin(cr_tf)]['attn_norm'].sum()
 # 0.3812379842675654
+
+
 
 
 
