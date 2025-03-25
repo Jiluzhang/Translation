@@ -129,10 +129,10 @@ import pickle
 #################################### qFibro ####################################
 rna_qFibro_apFibro_MyoFibro = sc.read_h5ad('res_qFibro_apFibro_MyoFibro.h5ad')
 random.seed(0)
-qFibro_idx = list(np.argwhere(rna_qFibro_apFibro_MyoFibro.obs['cell_anno']=='qFibro').flatten())
-qFibro_idx_20 = random.sample(list(qFibro_idx), 20)
+qFibro_idx = list(np.argwhere(rna_qFibro_apFibro_MyoFibro.obs['cell_anno']=='qFibro').flatten())  # 407
+qFibro_idx_20 = random.sample(list(qFibro_idx), 40)
 out = sc.AnnData(rna_qFibro_apFibro_MyoFibro[qFibro_idx_20].raw.X, obs=rna_qFibro_apFibro_MyoFibro[qFibro_idx_20].obs, var=rna_qFibro_apFibro_MyoFibro[qFibro_idx_20].raw.var)
-np.count_nonzero(out.X.toarray(), axis=1).max()  # 1939
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 4051
 out.write('rna_qFibro_20.h5ad')
 
 atac = sc.read_h5ad('../atac.h5ad')
@@ -186,6 +186,39 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
         f.create_dataset('attn', data=attn)
     torch.cuda.empty_cache()
     i += 1
+
+
+
+qFibro_data = torch.load("./qFibro_pt_20/qFibro_0.pt")
+rna_qFibro_20 = sc.read_h5ad('rna_qFibro_20.h5ad')
+atac_qFibro_20 = sc.read_h5ad('atac_qFibro_20.h5ad')
+rna_sequence_0 = qFibro_data[0][0].flatten()
+rna_sequence_1 = qFibro_data[0][1].flatten()
+
+with h5py.File('attn/attn_qFibro_0.h5', 'r') as f:
+    attn_0 = f['attn'][:]
+    
+with h5py.File('attn/attn_qFibro_1.h5', 'r') as f:
+    attn_1 = f['attn'][:]
+
+dat_0 = np.zeros([rna_qFibro_20.shape[1], atac_qFibro_20.shape[1]])
+dat_0[rna_sequence_0[rna_sequence_0!=0]] = attn_0.T
+res_0 = dat_0.sum(axis=1)
+
+dat_1 = np.zeros([rna_qFibro_20.shape[1], atac_qFibro_20.shape[1]])
+dat_1[rna_sequence_1[rna_sequence_1!=0]] = attn_1.T
+res_1 = dat_1.sum(axis=1)
+
+qFibro_lst = []
+for i in tqdm(range(20), ncols=80):
+    with h5py.File('attn/attn_qFibro_'+str(i)+'.h5', 'r') as f:
+        attn = f['attn'][:]
+        attn_sum = attn.sum(axis=0)
+        qFibro_lst.append(sum(attn_sum/attn_sum.max()))
+
+np.mean(qFibro_lst)   # 6.1577463126681655
+
+
 
 rna_qFibro_20 = sc.read_h5ad('rna_qFibro_20.h5ad')
 nonzero = np.count_nonzero(rna_qFibro_20.X.toarray(), axis=0)
@@ -306,20 +339,156 @@ df.to_csv('./attn/attn_no_norm_cnt_20_apFibro_3cell.txt', sep='\t', header=None,
 df['attn'].sum()   # 6102081.0
 
 
-#################################### MyoFibro ####################################
+
+
+
+######################################################################## qFibro ########################################################################
+rna_qFibro_apFibro_MyoFibro = sc.read_h5ad('res_qFibro_apFibro_MyoFibro.h5ad')
+random.seed(0)
+qFibro_idx = list(np.argwhere(rna_qFibro_apFibro_MyoFibro.obs['cell_anno']=='qFibro').flatten())
+qFibro_idx_100 = random.sample(list(qFibro_idx), 100)
+out = sc.AnnData(rna_qFibro_apFibro_MyoFibro[qFibro_idx_100].raw.X, obs=rna_qFibro_apFibro_MyoFibro[qFibro_idx_100].obs, var=rna_qFibro_apFibro_MyoFibro[qFibro_idx_100].raw.var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 4051
+out.write('rna_qFibro_100.h5ad')
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_qFibro = atac[rna_qFibro_apFibro_MyoFibro.obs.index[qFibro_idx_100]].copy()
+atac_qFibro.write('atac_qFibro_100.h5ad')
+
+# python data_preprocess.py -r rna_qFibro_100.h5ad -a atac_qFibro_100.h5ad -s qFibro_pt_100 --dt test -n qFibro --config rna2atac_config_test_qFibro.yaml   # enc_max_len: 4051 
+
+with open("rna2atac_config_test_qFibro.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('../save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
+device = torch.device('cuda:6')
+model.to(device)
+model.eval()
+
+qFibro_data = torch.load("./qFibro_pt_100/qFibro_0.pt")
+dataset = PreDataset(qFibro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_qFibro = sc.read_h5ad('rna_qFibro_100.h5ad')
+atac_qFibro = sc.read_h5ad('atac_qFibro_100.h5ad')
+out = rna_qFibro.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_qFibro_100.h5ad')
+
+
+########################################################################################################################################################################################################################
+
+
+######################################################################## apFibro ########################################################################
+rna_qFibro_apFibro_MyoFibro = sc.read_h5ad('res_qFibro_apFibro_MyoFibro.h5ad')
+random.seed(0)
+apFibro_idx = list(np.argwhere(rna_qFibro_apFibro_MyoFibro.obs['cell_anno']=='apFibro').flatten())
+apFibro_idx_100 = random.sample(list(apFibro_idx), 100)
+out = sc.AnnData(rna_qFibro_apFibro_MyoFibro[apFibro_idx_100].raw.X, obs=rna_qFibro_apFibro_MyoFibro[apFibro_idx_100].obs, var=rna_qFibro_apFibro_MyoFibro[apFibro_idx_100].raw.var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 6791
+out.write('rna_apFibro_100.h5ad')
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_apFibro = atac[rna_qFibro_apFibro_MyoFibro.obs.index[apFibro_idx_100]].copy()
+atac_apFibro.write('atac_apFibro_100.h5ad')
+
+# python data_preprocess.py -r rna_apFibro_100.h5ad -a atac_apFibro_100.h5ad -s apFibro_pt_100 --dt test -n apFibro --config rna2atac_config_test_apFibro.yaml   # enc_max_len: 6791 
+
+with open("rna2atac_config_test_apFibro.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('../save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
+device = torch.device('cuda:7')
+model.to(device)
+model.eval()
+
+apFibro_data = torch.load("./apFibro_pt_100/apFibro_0.pt")
+dataset = PreDataset(apFibro_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_apFibro = sc.read_h5ad('rna_apFibro_100.h5ad')
+atac_apFibro = sc.read_h5ad('atac_apFibro_100.h5ad')
+out = rna_apFibro.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_apFibro_100.h5ad')
+# out.X = out.X / out.X.max(axis=1)[:, np.newaxis]
+########################################################################################################################################################################################################################
+
+
+######################################################################## MyoFibro ########################################################################
 rna_qFibro_apFibro_MyoFibro = sc.read_h5ad('res_qFibro_apFibro_MyoFibro.h5ad')
 random.seed(0)
 MyoFibro_idx = list(np.argwhere(rna_qFibro_apFibro_MyoFibro.obs['cell_anno']=='MyoFibro').flatten())
-MyoFibro_idx_20 = random.sample(list(MyoFibro_idx), 20)
-out = sc.AnnData(rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_20].raw.X, obs=rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_20].obs, var=rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_20].raw.var)
-np.count_nonzero(out.X.toarray(), axis=1).max()  # 2186
-out.write('rna_MyoFibro_20.h5ad')
+MyoFibro_idx_100 = random.sample(list(MyoFibro_idx), 100)
+out = sc.AnnData(rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_100].raw.X, obs=rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_100].obs, var=rna_qFibro_apFibro_MyoFibro[MyoFibro_idx_100].raw.var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 3519
+out.write('rna_MyoFibro_100.h5ad')
 
 atac = sc.read_h5ad('../atac.h5ad')
-atac_MyoFibro = atac[rna_qFibro_apFibro_MyoFibro.obs.index[MyoFibro_idx_20]].copy()
-atac_MyoFibro.write('atac_MyoFibro_20.h5ad')
+atac_MyoFibro = atac[rna_qFibro_apFibro_MyoFibro.obs.index[MyoFibro_idx_100]].copy()
+atac_MyoFibro.write('atac_MyoFibro_100.h5ad')
 
-# python data_preprocess.py -r rna_MyoFibro_20.h5ad -a atac_MyoFibro_20.h5ad -s MyoFibro_pt_20 --dt test -n MyoFibro --config rna2atac_config_test_MyoFibro.yaml   # enc_max_len: 2186 
+# python data_preprocess.py -r rna_MyoFibro_100.h5ad -a atac_MyoFibro_100.h5ad -s MyoFibro_pt_100 --dt test -n MyoFibro --config rna2atac_config_test_MyoFibro.yaml   # enc_max_len: 3519 
 
 with open("rna2atac_config_test_MyoFibro.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -351,48 +520,52 @@ device = torch.device('cuda:2')
 model.to(device)
 model.eval()
 
-MyoFibro_data = torch.load("./MyoFibro_pt_20/MyoFibro_0.pt")
+MyoFibro_data = torch.load("./MyoFibro_pt_100/MyoFibro_0.pt")
 dataset = PreDataset(MyoFibro_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
-# time: 1.5 min
-i=0
+rna_MyoFibro = sc.read_h5ad('rna_MyoFibro_100.h5ad')
+atac_MyoFibro = sc.read_h5ad('atac_MyoFibro_100.h5ad')
+out = rna_MyoFibro.copy()
+out.X = np.zeros(out.shape)
+i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
-    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
-    attn = attn[0]  # attn = attn[0].to(torch.float16)
-    with h5py.File('attn/attn_MyoFibro_'+str(i)+'.h5', 'w') as f:
-        f.create_dataset('attn', data=attn)
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
     torch.cuda.empty_cache()
     i += 1
 
-rna_MyoFibro_20 = sc.read_h5ad('rna_MyoFibro_20.h5ad')
-nonzero = np.count_nonzero(rna_MyoFibro_20.X.toarray(), axis=0)
-gene_lst = rna_MyoFibro_20.var.index[nonzero>=3]  # 3404
+out.write('attn_MyoFibro_100.h5ad')
 
-atac_MyoFibro_20 = sc.read_h5ad('atac_MyoFibro_20.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.019685058037266
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))   # 18.41228501488108
+########################################################################################################################################################################################################################
+
+
+
+
 
 
 
 ###################################################################################################################################################################################
-MyoFibro_data = torch.load("./MyoFibro_pt_20/MyoFibro_0.pt")
-rna_MyoFibro_20 = sc.read_h5ad('rna_MyoFibro_20.h5ad')
-atac_MyoFibro_20 = sc.read_h5ad('atac_MyoFibro_20.h5ad')
-rna_sequence_0 = MyoFibro_data[0][0].flatten()
-rna_sequence_1 = MyoFibro_data[0][1].flatten()
+qFibro_data = torch.load("./qFibro_pt_20/qFibro_0.pt")
+rna_qFibro_20 = sc.read_h5ad('rna_qFibro_20.h5ad')
+atac_qFibro_20 = sc.read_h5ad('atac_qFibro_20.h5ad')
+rna_sequence_0 = qFibro_data[0][0].flatten()
+rna_sequence_1 = qFibro_data[0][1].flatten()
 
-with h5py.File('attn/attn_MyoFibro_0.h5', 'r') as f:
+with h5py.File('attn/attn_qFibro_0.h5', 'r') as f:
     attn_0 = f['attn'][:]
     
-with h5py.File('attn/attn_MyoFibro_1.h5', 'r') as f:
+with h5py.File('attn/attn_qFibro_1.h5', 'r') as f:
     attn_1 = f['attn'][:]
 
-dat_0 = np.zeros([rna_MyoFibro_20.shape[1], atac_MyoFibro_20.shape[1]])
+dat_0 = np.zeros([rna_qFibro_20.shape[1], atac_qFibro_20.shape[1]])
 dat_0[rna_sequence_0[rna_sequence_0!=0]] = attn_0.T
 res_0 = dat_0.sum(axis=1)
 
-dat_1 = np.zeros([rna_MyoFibro_20.shape[1], atac_MyoFibro_20.shape[1]])
+dat_1 = np.zeros([rna_qFibro_20.shape[1], atac_qFibro_20.shape[1]])
 dat_1[rna_sequence_1[rna_sequence_1!=0]] = attn_1.T
 res_1 = dat_1.sum(axis=1)
 
