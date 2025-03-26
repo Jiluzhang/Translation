@@ -73,6 +73,9 @@ qFibro_apFibro_MyoFibro.obs['cell_anno'] = qFibro_apFibro_MyoFibro.obs['leiden']
 # qFibro_apFibro_MyoFibro.obs['cell_anno'].replace({'3':'apFibro', '8':'MyoFibro', '11':'qFibro',
 #                                                   '12':'MyoFibro', '14':'MyoFibro', '15':'qFibro'}, inplace=True)
 qFibro_apFibro_MyoFibro.obs['cell_anno'].replace({'3':'apFibro', '14':'MyoFibro', '15':'qFibro'}, inplace=True)
+qFibro_apFibro_MyoFibro.obs['cell_anno'] = pd.Categorical(qFibro_apFibro_MyoFibro.obs['cell_anno'], categories=['qFibro', 'apFibro', 'MyoFibro'])
+
+qFibro_apFibro_MyoFibro.uns['cell_anno_colors'] = ['#ff7f0e', '#1f77b4', '#d62728']
 
 sc.pl.umap(qFibro_apFibro_MyoFibro, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
            title='', frameon=True, save='_cell_anno_qFibro_apFibro_MyoFibro.pdf')
@@ -80,11 +83,10 @@ sc.pl.umap(qFibro_apFibro_MyoFibro, color='cell_anno', legend_fontsize='5', lege
 sc.pl.umap(qFibro_apFibro_MyoFibro, color='leiden', legend_fontsize='5', legend_loc='right margin', size=5,
            title='', frameon=True, save='_leiden_qFibro_apFibro_MyoFibro.pdf')
 
-qFibro_apFibro_MyoFibro.obs['cell_anno'] = pd.Categorical(qFibro_apFibro_MyoFibro.obs['cell_anno'], categories=['qFibro', 'apFibro', 'MyoFibro'])
 
-sc.pl.matrixplot(qFibro_apFibro_MyoFibro, ['SAA1', 'CDC20',
-                                           'CCL5', 'PTPRC', 'CCL4',
-                                           'MYH11', 'ACTA2', 'CCL19', 'RGS5'],
+sc.pl.matrixplot(qFibro_apFibro_MyoFibro, ['SAA1',
+                                           'CCL5', 'CCL4',
+                                           'MYH11', 'ACTA2'],
                  groupby='cell_anno', cmap='coolwarm', standard_scale='var',
                  save='cell_anno_heatmap_qFibro_apFibro_MyoFibro.pdf')
 
@@ -368,6 +370,68 @@ cr_tf = cr + tf   # 763
 
 (attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.7327993408691938  (seed=1  0.9140492756775177)
 
+###### calculate TF_CR regulatory strength
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.rcParams['pdf.fonttype'] = 42
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+attn_qfibro = sc.read_h5ad('../attn_qFibro_100.h5ad')
+(attn_qfibro.X.sum(axis=0) / (attn_qfibro.X.sum(axis=0).max()))[attn_qfibro.var.index.isin(cr_tf)].sum()   # 0.5951161888828844
+(attn_qfibro.X.sum(axis=0) / (attn_qfibro.X.sum(axis=0).max()))[attn_qfibro.var.index.isin(tf)].sum()      # 0.5844785989337269
+
+attn_apfibro = sc.read_h5ad('../attn_apFibro_100.h5ad')
+(attn_apfibro.X.sum(axis=0) / (attn_apfibro.X.sum(axis=0).max()))[attn_apfibro.var.index.isin(cr_tf)].sum()   # 0.6601534981235282
+(attn_apfibro.X.sum(axis=0) / (attn_apfibro.X.sum(axis=0).max()))[attn_apfibro.var.index.isin(tf)].sum()      # 0.6490329382727964
+
+attn_myofibro = sc.read_h5ad('../attn_MyoFibro_100.h5ad')
+(attn_myofibro.X.sum(axis=0) / (attn_myofibro.X.sum(axis=0).max()))[attn_myofibro.var.index.isin(cr_tf)].sum()   # 0.7327993408691938
+(attn_myofibro.X.sum(axis=0) / (attn_myofibro.X.sum(axis=0).max()))[attn_myofibro.var.index.isin(tf)].sum()      # 0.7167387699141555
+
+dat = pd.DataFrame({'idx':['qfibro', 'apfibro', 'myofibro'],
+                    'val':[0.595, 0.660, 0.733]})
+dat['idx'] = pd.Categorical(dat['idx'], categories=['qfibro', 'apfibro', 'myofibro'])
+
+p = ggplot(dat, aes(x='idx', y='val', fill='idx')) + geom_col(position='dodge') +\
+                                                     scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.2, 0.2)) + theme_bw()  # limits min must set to 0
+p.save(filename='qfibro_apfibro_myofibro_reg_score.pdf', dpi=600, height=4, width=4)
+
+## heatmap of factors (may be retrain the model)
+df_naive_effect = pd.merge(df_naive[['gene', 'attn_norm']], df_effect[['gene', 'attn_norm']], how='outer', on='gene')
+df_naive_effect_ex = pd.merge(df_naive_effect, df_ex[['gene', 'attn_norm']], how='outer')
+df_naive_effect_ex.fillna(0, inplace=True)
+df_naive_effect_ex.rename(columns={'attn_norm_x':'attn_norm_naive', 'attn_norm_y':'attn_norm_effect', 'attn_norm':'attn_norm_ex'}, inplace=True)
+
+df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
+
+naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
+                                 (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
+effect_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                                  (df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_ex'])]
+ex_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                              (df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_effect'])]
+sp = pd.concat([naive_sp, effect_sp, ex_sp])
+sp.index = sp['gene'].values
+
+sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
+               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 40)) 
+plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
+plt.close()
 
 
 
