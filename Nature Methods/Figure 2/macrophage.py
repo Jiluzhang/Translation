@@ -66,10 +66,12 @@ macro_fcn1_il32_c1qc = macro[macro.obs['leiden'].isin(['13', '6', '7'])].copy() 
 macro_fcn1_il32_c1qc.obs['cell_anno'] = macro_fcn1_il32_c1qc.obs['leiden']
 macro_fcn1_il32_c1qc.obs['cell_anno'].replace({'13':'Macro_C1QC', '6':'Macro_IL32', '7':'Mono_FCN1'}, inplace=True)
 
+macro_fcn1_il32_c1qc.obs['cell_anno'] = pd.Categorical(macro_fcn1_il32_c1qc.obs['cell_anno'], categories=['Mono_FCN1', 'Macro_IL32', 'Macro_C1QC'])
+macro_fcn1_il32_c1qc.uns['cell_anno_colors'] = ['#ff7f0e', '#1f77b4', '#d62728']
+
 sc.pl.umap(macro_fcn1_il32_c1qc, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=5,
            title='', frameon=True, save='_cell_anno_macro_fcn1_il32_c1qc.pdf')
 
-macro_fcn1_il32_c1qc.obs['cell_anno'] = pd.Categorical(macro_fcn1_il32_c1qc.obs['cell_anno'], categories=['Mono_FCN1', 'Macro_IL32', 'Macro_C1QC'])
 
 sc.pl.matrixplot(macro_fcn1_il32_c1qc, ['FCN1', 'IL32', 'C1QC'],
                  groupby='cell_anno', cmap='coolwarm', standard_scale='var',
@@ -354,6 +356,76 @@ tf = list(tf_lst[0].values)   # 735
 cr_tf = cr + tf   # 763
 
 (attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.09610137466087999
+
+
+
+###### calculate TF_CR regulatory strength
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.rcParams['pdf.fonttype'] = 42
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+attn_fcn1 = sc.read_h5ad('../attn_fcn1_100.h5ad')
+(attn_fcn1.X.sum(axis=0) / (attn_fcn1.X.sum(axis=0).max()))[attn_fcn1.var.index.isin(cr_tf)].sum()   # 0.6027194894236233
+(attn_fcn1.X.sum(axis=0) / (attn_fcn1.X.sum(axis=0).max()))[attn_fcn1.var.index.isin(tf)].sum()      # 0.5809213165206873
+
+attn_il32 = sc.read_h5ad('../attn_il32_100.h5ad')
+(attn_il32.X.sum(axis=0) / (attn_il32.X.sum(axis=0).max()))[attn_il32.var.index.isin(cr_tf)].sum()   # 0.7982198998103225
+(attn_il32.X.sum(axis=0) / (attn_il32.X.sum(axis=0).max()))[attn_il32.var.index.isin(tf)].sum()      # 0.7787964792590573
+
+attn_c1qc = sc.read_h5ad('../attn_c1qc_100.h5ad')
+(attn_c1qc.X.sum(axis=0) / (attn_c1qc.X.sum(axis=0).max()))[attn_c1qc.var.index.isin(cr_tf)].sum()   # 0.09610137466087999
+(attn_c1qc.X.sum(axis=0) / (attn_c1qc.X.sum(axis=0).max()))[attn_c1qc.var.index.isin(tf)].sum()      # 0.09529167982401046
+
+dat = pd.DataFrame({'idx':['fcn1', 'il32', 'c1qc'],
+                    'val':[0.603, 0.798, 0.096]})
+dat['idx'] = pd.Categorical(dat['idx'], categories=['fcn1', 'il32', 'c1qc'])
+
+p = ggplot(dat, aes(x='idx', y='val', fill='idx')) + geom_col(position='dodge') +\
+                                                     scale_y_continuous(limits=[0, 1.0], breaks=np.arange(0, 1.0+0.2, 0.2)) + theme_bw()  # limits min must set to 0
+p.save(filename='fcn1_il32_c1qc_reg_score.pdf', dpi=600, height=4, width=4)
+
+## heatmap of factors (may be retrain the model)
+df_naive_effect = pd.merge(df_naive[['gene', 'attn_norm']], df_effect[['gene', 'attn_norm']], how='outer', on='gene')
+df_naive_effect_ex = pd.merge(df_naive_effect, df_ex[['gene', 'attn_norm']], how='outer')
+df_naive_effect_ex.fillna(0, inplace=True)
+df_naive_effect_ex.rename(columns={'attn_norm_x':'attn_norm_naive', 'attn_norm_y':'attn_norm_effect', 'attn_norm':'attn_norm_ex'}, inplace=True)
+
+df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
+
+naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
+                                 (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
+effect_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                                  (df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_ex'])]
+ex_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                              (df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_effect'])]
+sp = pd.concat([naive_sp, effect_sp, ex_sp])
+sp.index = sp['gene'].values
+
+sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
+               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 40)) 
+plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
+plt.close()
+
+
+
+
+
 
 
 # ## Attention score comparison during macrophage differentiation process
