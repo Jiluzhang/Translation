@@ -425,11 +425,10 @@ p = ggplot(dat, aes(x='idx', y='val', fill='idx')) + geom_col(position='dodge') 
 p.save(filename='cd8_t_naive_effect_ex_reg_score.pdf', dpi=600, height=4, width=4)
 
 ## heatmap of factors (may be retrain the model)
-df_naive_effect = pd.merge(df_naive[['gene', 'attn_norm']], df_effect[['gene', 'attn_norm']], how='outer', on='gene')
-df_naive_effect_ex = pd.merge(df_naive_effect, df_ex[['gene', 'attn_norm']], how='outer')
-df_naive_effect_ex.fillna(0, inplace=True)
-df_naive_effect_ex.rename(columns={'attn_norm_x':'attn_norm_naive', 'attn_norm_y':'attn_norm_effect', 'attn_norm':'attn_norm_ex'}, inplace=True)
-
+df_naive_effect_ex = pd.DataFrame({'gene':attn_naive.var.index.values,
+                                   'attn_norm_naive':(attn_naive.X.sum(axis=0) / (attn_naive.X.sum(axis=0).max())),
+                                   'attn_norm_effect':(attn_effect.X.sum(axis=0) / (attn_effect.X.sum(axis=0).max())),
+                                   'attn_norm_ex':(attn_ex.X.sum(axis=0) / (attn_ex.X.sum(axis=0).max()))})
 df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
 
 naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
@@ -447,6 +446,21 @@ plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
 plt.close()
 
 
+naive_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(601)})
+effect_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(601)})
+ex_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(601)})
+
+naive_effect_rank = pd.merge(naive_rank, effect_rank)
+naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
+
+
+
+naive_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(19160)})
+effect_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(19160)})
+ex_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(19160)})
+
+naive_effect_rank = pd.merge(naive_rank, effect_rank)
+naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
 
 
 # ## Attention score comparison during CD8+ T cell exhaustion process
