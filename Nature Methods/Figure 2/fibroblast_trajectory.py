@@ -105,26 +105,26 @@ qFibro_apFibro_MyoFibro.write('res_qFibro_apFibro_MyoFibro.h5ad')
 
 
 ######################################################################## qFibro ########################################################################
-# import pandas as pd
-# import numpy as np
-# import random
-# from functools import partial
-# import sys
-# sys.path.append("M2Mmodel")
-# from utils import PairDataset
-# import scanpy as sc
-# import torch
-# from M2Mmodel.utils import *
-# from collections import Counter
-# import pickle as pkl
-# import yaml
-# from M2Mmodel.M2M import M2M_rna2atac
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
 
-# import h5py
-# from tqdm import tqdm
+import h5py
+from tqdm import tqdm
 
-# from multiprocessing import Pool
-# import pickle
+from multiprocessing import Pool
+import pickle
 
 rna_qFibro_apFibro_MyoFibro = sc.read_h5ad('res_qFibro_apFibro_MyoFibro.h5ad')
 random.seed(0)
