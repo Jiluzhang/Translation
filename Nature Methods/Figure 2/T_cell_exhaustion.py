@@ -441,7 +441,7 @@ sp = pd.concat([naive_sp, effect_sp, ex_sp])
 sp.index = sp['gene'].values
 
 sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
-               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 40)) 
+               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 150)) 
 plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
 plt.close()
 
