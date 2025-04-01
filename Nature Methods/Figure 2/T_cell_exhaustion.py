@@ -150,7 +150,355 @@ python split_train_val.py --RNA rna_naive_effect_ex.h5ad --ATAC atac_naive_effec
 python data_preprocess.py -r rna_naive_effect_ex_train.h5ad -a atac_naive_effect_ex_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_naive_effect_ex_val.h5ad -a atac_naive_effect_ex_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac > 20250401.log &    # 441067
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac > 20250401.log &    # 694279
+
+
+######################################################################## naive ########################################################################
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
+
+import h5py
+from tqdm import tqdm
+
+from multiprocessing import Pool
+import pickle
+
+rna_cd8_t_naive_effect_ex = sc.read_h5ad('rna_naive_effect_ex.h5ad')
+random.seed(0)
+naive_idx = list(np.argwhere(rna_cd8_t_naive_effect_ex.obs['cell_anno']=='naive').flatten())
+naive_idx_100 = random.sample(list(naive_idx), 100)
+out = sc.AnnData(rna_cd8_t_naive_effect_ex[naive_idx_100].X, obs=rna_cd8_t_naive_effect_ex[naive_idx_100].obs, var=rna_cd8_t_naive_effect_ex[naive_idx_100].var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 1889
+out.write('rna_naive_100_2.h5ad')
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_naive = atac[rna_cd8_t_naive_effect_ex.obs.index[naive_idx_100]].copy()
+atac_naive.write('atac_naive_100_2.h5ad')
+
+# python data_preprocess.py -r rna_naive_100_2.h5ad -a atac_naive_100_2.h5ad -s naive_pt_100_2 --dt test -n naive --config rna2atac_config_test_naive_2.yaml   # enc_max_len: 1889 
+
+with open("rna2atac_config_test_naive_2.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
+device = torch.device('cuda:3')
+model.to(device)
+model.eval()
+
+naive_data = torch.load("./naive_pt_100_2/naive_0.pt")
+dataset = PreDataset(naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_naive = sc.read_h5ad('rna_naive_100_2.h5ad')
+atac_naive = sc.read_h5ad('atac_naive_100_2.h5ad')
+out = rna_naive.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_naive_100_2.h5ad')
+
+attn = sc.read_h5ad('attn_naive_100_2.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.326419237472365
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 12.417829552474469
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.4711050192363572
+
+
+######################################################################## effect ########################################################################
+rna_cd8_t_naive_effect_ex = sc.read_h5ad('rna_naive_effect_ex.h5ad')
+random.seed(0)
+effect_idx = list(np.argwhere(rna_cd8_t_naive_effect_ex.obs['cell_anno']=='effect').flatten())
+effect_idx_100 = random.sample(list(effect_idx), 100)
+out = sc.AnnData(rna_cd8_t_naive_effect_ex[effect_idx_100].X, obs=rna_cd8_t_naive_effect_ex[effect_idx_100].obs, var=rna_cd8_t_naive_effect_ex[effect_idx_100].var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 2569
+out.write('rna_effect_100_2.h5ad')
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_effect = atac[rna_cd8_t_naive_effect_ex.obs.index[effect_idx_100]].copy()
+atac_effect.write('atac_effect_100_2.h5ad')
+
+# python data_preprocess.py -r rna_effect_100_2.h5ad -a atac_effect_100_2.h5ad -s effect_pt_100_2 --dt test -n effect --config rna2atac_config_test_effect_2.yaml   # enc_max_len: 2569 
+
+with open("rna2atac_config_test_effect_2.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
+device = torch.device('cuda:3')
+model.to(device)
+model.eval()
+
+effect_data = torch.load("./effect_pt_100_2/effect_0.pt")
+dataset = PreDataset(effect_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_effect = sc.read_h5ad('rna_effect_100_2.h5ad')
+atac_effect = sc.read_h5ad('atac_effect_100_2.h5ad')
+out = rna_effect.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_effect_100_2.h5ad')
+
+attn = sc.read_h5ad('attn_effect_100_2.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.199357513890188
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 15.380465022705604
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.6067062092931708
+
+
+######################################################################## ex ########################################################################
+rna_cd8_t_naive_effect_ex = sc.read_h5ad('rna_naive_effect_ex.h5ad')
+random.seed(0)
+ex_idx = list(np.argwhere(rna_cd8_t_naive_effect_ex.obs['cell_anno']=='ex').flatten())
+ex_idx_100 = random.sample(list(ex_idx), 100)
+out = sc.AnnData(rna_cd8_t_naive_effect_ex[ex_idx_100].X, obs=rna_cd8_t_naive_effect_ex[ex_idx_100].obs, var=rna_cd8_t_naive_effect_ex[ex_idx_100].var)
+np.count_nonzero(out.X.toarray(), axis=1).max()  # 2332
+out.write('rna_ex_100_2.h5ad')
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_ex = atac[rna_cd8_t_naive_effect_ex.obs.index[ex_idx_100]].copy()
+atac_ex.write('atac_ex_100_2.h5ad')
+
+# python data_preprocess.py -r rna_ex_100_2.h5ad -a atac_ex_100_2.h5ad -s ex_pt_100_2 --dt test -n ex --config rna2atac_config_test_ex_2.yaml   # enc_max_len: 2332
+
+with open("rna2atac_config_test_ex_2.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
+device = torch.device('cuda:3')
+model.to(device)
+model.eval()
+
+ex_data = torch.load("./ex_pt_100_2/ex_0.pt")
+dataset = PreDataset(ex_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_ex = sc.read_h5ad('rna_ex_100_2.h5ad')
+atac_ex = sc.read_h5ad('atac_ex_100_2.h5ad')
+out = rna_ex.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=0)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_ex_100_2.h5ad')
+
+attn = sc.read_h5ad('attn_ex_100_2.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.868378001903976
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 15.162787544241699
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.5193253297731053
+
+
+###### calculate TF_CR regulatory strength
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from plotnine import *
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.rcParams['pdf.fonttype'] = 42
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+# attn_naive = sc.read_h5ad('../attn_naive_100.h5ad')
+# (attn_naive.X.sum(axis=0) / (attn_naive.X.sum(axis=0).max()))[attn_naive.var.index.isin(cr_tf)].sum()   # 0.7030022788395824
+# (attn_naive.X.sum(axis=0) / (attn_naive.X.sum(axis=0).max()))[attn_naive.var.index.isin(tf)].sum()      # 0.6617182942278171
+
+# attn_effect = sc.read_h5ad('../attn_effect_100.h5ad')
+# (attn_effect.X.sum(axis=0) / (attn_effect.X.sum(axis=0).max()))[attn_effect.var.index.isin(cr_tf)].sum()   # 0.8288548825845072
+# (attn_effect.X.sum(axis=0) / (attn_effect.X.sum(axis=0).max()))[attn_effect.var.index.isin(tf)].sum()      # 0.782808529601877
+
+# attn_ex = sc.read_h5ad('../attn_ex_100.h5ad')
+# (attn_ex.X.sum(axis=0) / (attn_ex.X.sum(axis=0).max()))[attn_ex.var.index.isin(cr_tf)].sum()   # 1.0526708883364444
+# (attn_ex.X.sum(axis=0) / (attn_ex.X.sum(axis=0).max()))[attn_ex.var.index.isin(tf)].sum()      # 1.0351343935422546
+
+# dat = pd.DataFrame({'idx':['naive', 'effect', 'ex'],
+#                     'val':[0.703, 0.829, 1.053]})
+# dat['idx'] = pd.Categorical(dat['idx'], categories=['naive', 'effect', 'ex'])
+
+# p = ggplot(dat, aes(x='idx', y='val', fill='idx')) + geom_col(position='dodge') +\
+#                                                      scale_y_continuous(limits=[0, 1.2], breaks=np.arange(0, 1.2+0.2, 0.2)) + theme_bw()  # limits min must set to 0
+# p.save(filename='cd8_t_naive_effect_ex_reg_score.pdf', dpi=600, height=4, width=4)
+
+## heatmap of factors (may be retrain the model)
+attn_naive = sc.read_h5ad('../attn_naive_100_2.h5ad')
+attn_effect = sc.read_h5ad('../attn_effect_100_2.h5ad')
+attn_ex = sc.read_h5ad('../attn_ex_100_2.h5ad')
+
+df_naive_effect_ex = pd.DataFrame({'gene':attn_naive.var.index.values,
+                                   'attn_norm_naive':(attn_naive.X.sum(axis=0) / (attn_naive.X.sum(axis=0).max())),
+                                   'attn_norm_effect':(attn_effect.X.sum(axis=0) / (attn_effect.X.sum(axis=0).max())),
+                                   'attn_norm_ex':(attn_ex.X.sum(axis=0) / (attn_ex.X.sum(axis=0).max()))})
+df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
+
+naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
+                                 (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
+effect_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                                  (df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_ex'])]
+ex_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_naive']) & 
+                              (df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_effect'])]
+sp = pd.concat([naive_sp, effect_sp, ex_sp])
+sp.index = sp['gene'].values
+
+sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
+               cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.2, vmax=1.2, figsize=(5, 150)) 
+plt.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
+plt.close()
+
+
+naive_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(601)})
+effect_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(601)})
+ex_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(601)})
+
+naive_effect_rank = pd.merge(naive_rank, effect_rank)
+naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
+
+
+
+naive_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(19160)})
+effect_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(19160)})
+ex_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(19160)})
+
+naive_effect_rank = pd.merge(naive_rank, effect_rank)
+naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
 
 
 
@@ -217,7 +565,7 @@ model = M2M_rna2atac(
         )
 model = model.half()
 model.load_state_dict(torch.load('../save/2024-10-25_rna2atac_pan_cancer_5/pytorch_model.bin'))
-device = torch.device('cuda:7')
+device = torch.device('cuda:3')
 model.to(device)
 model.eval()
 
