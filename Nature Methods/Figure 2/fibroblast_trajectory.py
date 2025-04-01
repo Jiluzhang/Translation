@@ -1,6 +1,17 @@
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/cisformer/Fibroblast
 
 import scanpy as sc
+import numpy as np
+
+rna = sc.read_h5ad('../rna.h5ad')   # 144409 × 19160
+fibro = rna[rna.obs['cell_anno']=='Fibroblasts'].copy()  # 28023 × 19160
+
+fibro_ref = sc.read_h5ad('/fs/home/zouqihang/to_luz/fibro_inte_annotation_atac.h5ad')  # 26751 × 1033239
+
+
+
+
+import scanpy as sc
 import harmonypy as hm
 import pandas as pd
 import numpy as np
