@@ -214,8 +214,8 @@ model = M2M_rna2atac(
             dec_attn_dropout = config["model"].get("dec_attn_dropout")
         )
 model = model.half()
-model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
-device = torch.device('cuda:3')
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_15/pytorch_model.bin'))
+device = torch.device('cuda:4')
 model.to(device)
 model.eval()
 
@@ -235,11 +235,11 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     torch.cuda.empty_cache()
     i += 1
 
-out.write('attn_naive_100_2.h5ad')
+out.write('attn_naive_100_epoch_15.h5ad')
 
-attn = sc.read_h5ad('attn_naive_100_2.h5ad')
-(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.326419237472365
-sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 12.417829552474469
+attn = sc.read_h5ad('attn_naive_100_epoch_15.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 16.665475665891847  (epoch 5: 10.326419237472365)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 32.12709405396575   (epoch 5: 12.417829552474469)
 
 cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
@@ -252,7 +252,7 @@ tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
 tf = list(tf_lst[0].values)   # 735
 cr_tf = cr + tf   # 763
 
-(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.4711050192363572
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 1.6094337648910697 (epoch 5: 0.4711050192363572)
 
 
 ######################################################################## effect ########################################################################
@@ -295,8 +295,8 @@ model = M2M_rna2atac(
             dec_attn_dropout = config["model"].get("dec_attn_dropout")
         )
 model = model.half()
-model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
-device = torch.device('cuda:3')
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_15/pytorch_model.bin'))
+device = torch.device('cuda:4')
 model.to(device)
 model.eval()
 
@@ -316,11 +316,11 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     torch.cuda.empty_cache()
     i += 1
 
-out.write('attn_effect_100_2.h5ad')
+out.write('attn_effect_100_epoch_15.h5ad')
 
-attn = sc.read_h5ad('attn_effect_100_2.h5ad')
-(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.199357513890188
-sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 15.380465022705604
+attn = sc.read_h5ad('attn_effect_100_epoch_15.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 15.175752659680876 (epoch 5: 10.199357513890188)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 27.021624765302345 (epoch 5: 15.380465022705604)
 
 cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
@@ -333,7 +333,7 @@ tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
 tf = list(tf_lst[0].values)   # 735
 cr_tf = cr + tf   # 763
 
-(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.6067062092931708
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 1.4744988805587256 (epoch 5: 0.6067062092931708)
 
 
 ######################################################################## ex ########################################################################
@@ -376,8 +376,8 @@ model = M2M_rna2atac(
             dec_attn_dropout = config["model"].get("dec_attn_dropout")
         )
 model = model.half()
-model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_5/pytorch_model.bin'))
-device = torch.device('cuda:3')
+model.load_state_dict(torch.load('./save/2025-04-01_rna2atac_15/pytorch_model.bin'))
+device = torch.device('cuda:4')
 model.to(device)
 model.eval()
 
@@ -397,11 +397,11 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     torch.cuda.empty_cache()
     i += 1
 
-out.write('attn_ex_100_2.h5ad')
+out.write('attn_ex_100_epoch_15.h5ad')
 
-attn = sc.read_h5ad('attn_ex_100_2.h5ad')
-(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 10.868378001903976
-sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 15.162787544241699
+attn = sc.read_h5ad('attn_ex_100_epoch_15.h5ad')
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 16.637949347573063 (epoch 5: 10.868378001903976)
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 34.62644547844507  (epoch 5: 15.162787544241699)
 
 cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
       'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
@@ -414,7 +414,7 @@ tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
 tf = list(tf_lst[0].values)   # 735
 cr_tf = cr + tf   # 763
 
-(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.5193253297731053
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 1.7680259990680656 (epoch 5: 0.5193253297731053)
 
 
 ###### calculate TF_CR regulatory strength
@@ -459,15 +459,18 @@ cr_tf = cr + tf   # 763
 # p.save(filename='cd8_t_naive_effect_ex_reg_score.pdf', dpi=600, height=4, width=4)
 
 ## heatmap of factors (may be retrain the model)
-attn_naive = sc.read_h5ad('../attn_naive_100_2.h5ad')
-attn_effect = sc.read_h5ad('../attn_effect_100_2.h5ad')
-attn_ex = sc.read_h5ad('../attn_ex_100_2.h5ad')
+attn_naive = sc.read_h5ad('../attn_naive_100_epoch_15.h5ad')
+attn_effect = sc.read_h5ad('../attn_effect_100_epoch_15.h5ad')
+attn_ex = sc.read_h5ad('../attn_ex_100_epoch_15.h5ad')
 
 df_naive_effect_ex = pd.DataFrame({'gene':attn_naive.var.index.values,
                                    'attn_norm_naive':(attn_naive.X.sum(axis=0) / (attn_naive.X.sum(axis=0).max())),
                                    'attn_norm_effect':(attn_effect.X.sum(axis=0) / (attn_effect.X.sum(axis=0).max())),
                                    'attn_norm_ex':(attn_ex.X.sum(axis=0) / (attn_ex.X.sum(axis=0).max()))})
 df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf)]
+
+
+
 
 naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
                                  (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
