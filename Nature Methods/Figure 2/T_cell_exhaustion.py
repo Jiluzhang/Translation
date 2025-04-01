@@ -119,6 +119,42 @@ sc.pl.umap(cd8_t_naive_effect_ex, color='dpt_pseudotime', legend_fontsize='5', l
 cd8_t_naive_effect_ex.write('res_cd8_t_naive_effect_ex.h5ad')
 
 
+
+## retrain the model
+import scanpy as sc
+
+rna = sc.read_h5ad('../rna.h5ad')   # 144409 × 19160
+navie_effect_ex_rna = sc.read_h5ad('res_cd8_t_naive_effect_ex.h5ad')
+navie_effect_ex_rna.obs['cell_anno'].value_counts()
+# ex        4090
+# naive     3436
+# effect    1489
+
+rna_out = rna[navie_effect_ex_rna.obs.index].copy()
+rna_out.obs['cell_anno']= navie_effect_ex_rna.obs['cell_anno']    # 9015 × 19160
+sc.pp.filter_genes(rna_out, min_cells=10)   # 9015 × 15656
+rna_out.write('rna_naive_effect_ex.h5ad')
+
+np.percentile(np.count_nonzero(rna_out.X.toarray(), axis=1), 80)   # 1247.0
+np.percentile(np.count_nonzero(rna_out.X.toarray(), axis=1), 95)   # 1693.0
+np.percentile(np.count_nonzero(rna_out.X.toarray(), axis=1), 100)  # 4064.0
+
+atac = sc.read_h5ad('../atac.h5ad')
+atac_out = atac[navie_effect_ex_rna.obs.index].copy()   # 9015 × 389267
+atac_out.obs['cell_anno'] = navie_effect_ex_rna.obs['cell_anno']
+sc.pp.filter_genes(atac_out, min_cells=10)  # 9015 × 229621
+atac_out.write('atac_naive_effect_ex.h5ad')
+
+
+python split_train_val.py --RNA rna_naive_effect_ex.h5ad --ATAC atac_naive_effect_ex.h5ad --train_pct 0.9
+python data_preprocess.py -r rna_naive_effect_ex_train.h5ad -a atac_naive_effect_ex_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml
+python data_preprocess.py -r rna_naive_effect_ex_val.h5ad -a atac_naive_effect_ex_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
+nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29823 rna2atac_train.py --config_file rna2atac_config_train.yaml \
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac > 20250401.log &    # 441067
+
+
+
+
 ######################################################################## naive ########################################################################
 import pandas as pd
 import numpy as np
