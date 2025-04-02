@@ -100,7 +100,7 @@ python split_train_val.py --RNA rna.h5ad --ATAC atac.h5ad --train_pct 0.9
 python data_preprocess.py -r rna_train.h5ad -a atac_train.h5ad -s train_pt --dt train -n train --config rna2atac_config_train.yaml
 python data_preprocess.py -r rna_val.h5ad -a atac_val.h5ad -s val_pt --dt val -n val --config rna2atac_config_val.yaml
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29824 rna2atac_train.py --config_file rna2atac_config_train.yaml \
-                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac > 20250402.log &    # 
+                        --train_data_dir train_pt --val_data_dir val_pt -s save -n rna2atac > 20250402.log &    # 2880898
 
 
 
