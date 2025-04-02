@@ -493,8 +493,9 @@ p = sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
 yticklabels = p.ax_heatmap.get_yticklabels()
 for label in yticklabels:
     text = label.get_text()
-    if text not in ['TCF7', 'BACH2', 'FOXP1', 'SMAD3', 'KLF2',            ########################## HERE ##########################   cd8 t cell naive "KLF2"   SMAD5,MYBL1,NR1D2,E2F3,NR2C1,KLF12,ELF2,KLF2,ELF1,ZFP14中哪些因子对cd8+ naive T cell的身份维持很重要
-
+    if text not in ['TCF7', 'BACH2', 'FOXP1', 'SMAD3', 'KLF2',            
+                    ########################## HERE ##########################   cd8 t cell naive "KLF2"   SMAD5,MYBL1,NR1D2,E2F3,NR2C1,KLF12,ELF2,KLF2,ELF1,ZFP14中哪些因子对cd8+ naive T cell的身份维持很重要
+                                                                                                           naive_sp.sort_values('attn_norm_naive', ascending=False)[20:30]
 
                     'BATF3', 'ACTL6A', 
                     'NR3C1', 'NFKB2', 'NFKB1', 'BATF']:
