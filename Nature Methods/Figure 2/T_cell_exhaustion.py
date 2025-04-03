@@ -471,20 +471,27 @@ df_naive_effect_ex_tf = df_naive_effect_ex[df_naive_effect_ex['gene'].isin(cr_tf
 
 naive_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_effect']) & 
                                  (df_naive_effect_ex_tf['attn_norm_naive']>df_naive_effect_ex_tf['attn_norm_ex'])]
+naive_sp = naive_sp.sort_values('attn_norm_naive', ascending=False)
+naive_sp = naive_sp[naive_sp['attn_norm_naive']>(1e-5)]
+naive_sp.index = range(naive_sp.shape[0])
+
 effect_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_naive']) & 
                                   (df_naive_effect_ex_tf['attn_norm_effect']>df_naive_effect_ex_tf['attn_norm_ex'])]
+effect_sp = effect_sp.sort_values('attn_norm_effect', ascending=False)
+effect_sp = effect_sp[effect_sp['attn_norm_effect']>(1e-5)]
+effect_sp.index = range(effect_sp.shape[0])
+
 ex_sp = df_naive_effect_ex_tf[(df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_naive']) & 
                               (df_naive_effect_ex_tf['attn_norm_ex']>df_naive_effect_ex_tf['attn_norm_effect'])]
+ex_sp = ex_sp.sort_values('attn_norm_ex', ascending=False)
+ex_sp = ex_sp[ex_sp['attn_norm_ex']>(1e-5)]
+ex_sp.index = range(ex_sp.shape[0])
+
 sp = pd.concat([naive_sp, effect_sp, ex_sp])
 sp.index = sp['gene'].values
 
 p = sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
                    cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=0, vmin=-1, vmax=1, figsize=(5, 150)) 
-
-# p = sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
-#                    cmap='coolwarm', row_cluster=True, col_cluster=False, z_score=0, vmin=-1, vmax=1, figsize=(5, 150))
-# p.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap_tmp.pdf')
-# plt.close()
 
 # ['RBPJ', 'TCF7', 'LEF1', 'BACH2',
 #  'PRDM1', 'EOMES', 'TBX21', 'YY1', 'FOXO3', 'TFAP4', 'STAT5A',
@@ -493,16 +500,12 @@ p = sns.clustermap(sp[['attn_norm_naive', 'attn_norm_effect', 'attn_norm_ex']],
 yticklabels = p.ax_heatmap.get_yticklabels()
 for label in yticklabels:
     text = label.get_text()
-    if text not in ['TCF7', 'BACH2', 'FOXP1', 'SMAD3', 'KLF2',            
-                    ########################## HERE ##########################   cd8 t cell naive "KLF2"   SMAD5,MYBL1,NR1D2,E2F3,NR2C1,KLF12,ELF2,KLF2,ELF1,ZFP14中哪些因子对cd8+ naive T cell的身份维持很重要
-                                                                                                           naive_sp.sort_values('attn_norm_naive', ascending=False)[20:30]
-
-                    'BATF3', 'ACTL6A', 
-                    'NR3C1', 'NFKB2', 'NFKB1', 'BATF']:
+    if text not in ['FOXP1', 'SMAD3', 'KLF2', 'BACH2',  'TCF7',
+                    'ESR2', 'IKZF2', 'MLX', 'JUNB', 'BATF3', 
+                    'CHD2', 'NFKB2', 'NR3C1', 'BATF', 'NFKB1']:
         label.set_text(f"")
 
 p.ax_heatmap.set_yticklabels(yticklabels, rotation=0)
-
 p.savefig('cd8_t_naive_effect_ex_specific_factor_heatmap.pdf')
 plt.close()
 
@@ -514,21 +517,21 @@ plt.close()
 
 
 
-naive_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(601)})
-effect_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(601)})
-ex_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(601)})
+# naive_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(601)})
+# effect_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(601)})
+# ex_rank = pd.DataFrame({'gene':df_naive_effect_ex_tf.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(601)})
 
-naive_effect_rank = pd.merge(naive_rank, effect_rank)
-naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
+# naive_effect_rank = pd.merge(naive_rank, effect_rank)
+# naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
 
 
 
-naive_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(19160)})
-effect_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(19160)})
-ex_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(19160)})
+# naive_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_naive', ascending=False)['gene'].values, 'naive_rank':range(19160)})
+# effect_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_effect', ascending=False)['gene'].values, 'effect_rank':range(19160)})
+# ex_rank = pd.DataFrame({'gene':df_naive_effect_ex.sort_values('attn_norm_ex', ascending=False)['gene'].values, 'ex_rank':range(19160)})
 
-naive_effect_rank = pd.merge(naive_rank, effect_rank)
-naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
+# naive_effect_rank = pd.merge(naive_rank, effect_rank)
+# naive_effect_ex_rank = pd.merge(naive_effect_rank, ex_rank)
 
 
 
