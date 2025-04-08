@@ -372,3 +372,46 @@ sc.pl.umap(atac_babel, color='chr17:57356784-57357132', legend_fontsize='5', leg
            title='', frameon=True, save='_chr17_57356784_57357132_atac_babel.pdf')
 sc.pl.umap(rna_true, color='MSI2', legend_fontsize='5', legend_loc='right margin', size=5, cmap=LinearSegmentedColormap.from_list('lightgray_blue', ['lightgray', 'blue']),
            title='', frameon=True, save='_msi2_rna.pdf')
+
+
+
+## genomic tracks showing an example
+import scanpy as sc
+import pandas as pd
+
+rna_true = sc.read_h5ad('rna_test.h5ad')      # 2597 × 16706
+atac_true = sc.read_h5ad('atac_test.h5ad')    # 2597 × 236295
+
+def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
+    atac_X_raw = atac[atac.obs['cell_anno']==cell_type, :].X.toarray().sum(axis=0)
+    atac_X = atac_X_raw/atac_X_raw.sum()*(1e6)
+    df = pd.DataFrame({'chr': atac.var['gene_ids'].map(lambda x: x.split(':')[0]).values,
+                       'start': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).values,
+                       'end': atac.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).values,
+                       'val': atac_X})
+    df.to_csv(cell_type.replace(' ', '_')+'_atac_'+type+'_norm.bedgraph', index=False, header=False, sep='\t')
+
+ct_lst = set(atac_true.obs['cell_anno'])
+for ct in ct_lst:
+    out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
+    out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
+    out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
+    out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
