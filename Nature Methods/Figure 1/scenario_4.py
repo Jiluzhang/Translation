@@ -378,9 +378,9 @@ sc.pl.umap(rna_true, color='MSI2', legend_fontsize='5', legend_loc='right margin
 ## genomic tracks showing an example
 import scanpy as sc
 import pandas as pd
+import matplotlib.pyplot as plt
 
-rna_true = sc.read_h5ad('rna_test.h5ad')      # 2597 × 16706
-atac_true = sc.read_h5ad('atac_test.h5ad')    # 2597 × 236295
+plt.rcParams['pdf.fonttype'] = 42
 
 def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
     atac_X_raw = atac[atac.obs['cell_anno']==cell_type, :].X.toarray().sum(axis=0)
@@ -391,27 +391,49 @@ def out_norm_bedgraph(atac, cell_type='Oligodendrocyte', type='pred'):
                        'val': atac_X})
     df.to_csv(cell_type.replace(' ', '_')+'_atac_'+type+'_norm.bedgraph', index=False, header=False, sep='\t')
 
+rna_true = sc.read_h5ad('rna_test.h5ad')      # 2597 × 16706
+atac_true = sc.read_h5ad('atac_test.h5ad')    # 2597 × 236295
+
+sc.pp.normalize_total(rna_true, target_sum=1e4)
+sc.pp.log1p(rna_true)
+
+sc.pl.violin(rna_true, keys='MSI2', groupby='cell_anno', rotation=90, stripplot=False, save='_MSI2_exp.pdf')
+
+
 ct_lst = set(atac_true.obs['cell_anno'])
+
 for ct in ct_lst:
     out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
     out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
     out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
     out_norm_bedgraph(atac=atac_true, cell_type=ct, type='true')
 
+atac_babel = sc.read_h5ad('atac_babel_umap.h5ad')    # 2597 × 236295
+atac_babel.var['gene_ids'] = atac_babel.var.index.values
+for ct in ct_lst:
+    out_norm_bedgraph(atac=atac_babel, cell_type=ct, type='babel')
+    out_norm_bedgraph(atac=atac_babel, cell_type=ct, type='babel')
+    out_norm_bedgraph(atac=atac_babel, cell_type=ct, type='babel')
+    out_norm_bedgraph(atac=atac_babel, cell_type=ct, type='babel')
 
+# tar -czvf atac_babel_bedgraph.tar *.bedgraph
 
+atac_cisformer = sc.read_h5ad('atac_cisformer_umap.h5ad')    # 2597 × 236295
+atac_cisformer.var['gene_ids'] = atac_cisformer.var.index.values
+for ct in ct_lst:
+    out_norm_bedgraph(atac=atac_cisformer, cell_type=ct, type='cisformer')
+    out_norm_bedgraph(atac=atac_cisformer, cell_type=ct, type='cisformer')
+    out_norm_bedgraph(atac=atac_cisformer, cell_type=ct, type='cisformer')
+    out_norm_bedgraph(atac=atac_cisformer, cell_type=ct, type='cisformer')
 
+# tar -czvf atac_cisformer_bedgraph.tar *.bedgraph
 
+atac_scbt = sc.read_h5ad('atac_scbt_umap.h5ad')    # 2597 × 236295
+atac_scbt.var['gene_ids'] = atac_true.var.index.values
+for ct in ct_lst:
+    out_norm_bedgraph(atac=atac_scbt, cell_type=ct, type='scbt')
+    out_norm_bedgraph(atac=atac_scbt, cell_type=ct, type='scbt')
+    out_norm_bedgraph(atac=atac_scbt, cell_type=ct, type='scbt')
+    out_norm_bedgraph(atac=atac_scbt, cell_type=ct, type='scbt')
 
-
-
-
-
-
-
-
-
-
-
-
-
+# tar -czvf atac_cisformer_bedgraph.tar *.bedgraph
