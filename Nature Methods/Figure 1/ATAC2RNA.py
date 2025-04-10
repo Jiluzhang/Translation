@@ -402,8 +402,188 @@ p.save(filename='tumor_b_ami_nmi_ari_hom.pdf', dpi=600, height=4, width=6)
 
 
 
+############################################# set zero #############################################
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/ATAC2RNA/set_zero
+## AMI & NMI & ARI & HOM
+## PBMC
+import scanpy as sc
+import pandas as pd
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.stats import pearsonr, spearmanr
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
+
+plt.rcParams['pdf.fonttype'] = 42
+
+rna_ref = sc.read_h5ad('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/rna.h5ad')
+rna_true = sc.read_h5ad('../rna_pbmc_true.h5ad')
+
+idx = np.intersect1d(rna_ref.obs.index, rna_true.obs.index)
+
+rna_true = rna_true[idx].copy()
+rna_true.obs['cell_anno'] = rna_ref[idx].obs['cell_anno']  # 1954 × 38244
+sc.pp.highly_variable_genes(rna_true)
+rna_true = rna_true[:, rna_true.var.highly_variable]  # 1954 × 2857
+sc.tl.pca(rna_true)
+sc.pp.neighbors(rna_true)
+sc.tl.umap(rna_true)
+
+rcParams["figure.figsize"] = (2, 2)
+sc.pl.umap(rna_true, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
+           title='', frameon=True, save='_cell_anno_rna_true_pbmc.pdf')
+
+## archr
+rna_archr = sc.read_h5ad('../rna_pbmc_archr.h5ad')
+rna_archr = rna_archr[idx].copy()    # 1954 × 21369
+
+var_idx = np.intersect1d(rna_archr.var.index, rna_true.var.index)
+
+rna_true_archr = rna_true[:, var_idx]   # 1954 × 20032
+rna_archr = rna_archr[:, var_idx]       # 1954 × 20032
+rna_archr_X = rna_archr.X.toarray()
+rna_archr_X[rna_true_archr.X.toarray()==0] = 0  # set non-zero to zero (based on the raw data)
+rna_archr.X = csr_matrix(rna_archr_X)
+
+archr_X = rna_archr.X.toarray()
+true_X = rna_true_archr.X.toarray()
+
+archr_pearson_r_lst = []
+archr_spearman_r_lst = []
+for i in tqdm(range(rna_archr.X.shape[1]), ncols=80):
+    archr_i = archr_X[:, i]
+    true_i = true_X[:, i]
+    if len(set(true_i)) != 1:
+        archr_pearson_r_lst.append(pearsonr(archr_X[:, i], true_X[:, i])[0])
+        archr_spearman_r_lst.append(spearmanr(archr_X[:, i], true_X[:, i])[0])
+
+archr_pearson_r_array = np.nan_to_num(np.array(archr_pearson_r_lst), nan=0)
+archr_pearson_r_array.mean()                              # 0.5695329945686082
+archr_pearson_r_array[archr_pearson_r_array!=0].mean()    # 0.6351615575356329
+
+archr_spearman_r_array = np.nan_to_num(np.array(archr_spearman_r_lst), nan=0)
+archr_spearman_r_array.mean()                              # 0.6793824238309737
+archr_spearman_r_array[archr_spearman_r_array!=0].mean()   # 0.7576691826426437
 
 
+
+sc.pp.highly_variable_genes(rna_archr)
+rna_archr = rna_archr[:, rna_archr.var.highly_variable]  # 1954 × 5326
+sc.tl.pca(rna_archr)
+sc.pp.neighbors(rna_archr)
+sc.tl.umap(rna_archr)
+sc.tl.leiden(rna_archr)
+
+rna_archr.obs['cell_anno'] = rna_true.obs['cell_anno']
+sc.pl.umap(rna_archr, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
+           title='', frameon=True, save='_cell_anno_rna_archr_pbmc.pdf')
+
+adjusted_mutual_info_score(rna_true.obs['cell_anno'], rna_archr.obs['leiden'])     # 0.6702947344988958
+adjusted_rand_score(rna_true.obs['cell_anno'], rna_archr.obs['leiden'])            # 0.527498181193253
+homogeneity_score(rna_true.obs['cell_anno'], rna_archr.obs['leiden'])              # 0.6346569960985834
+normalized_mutual_info_score(rna_true.obs['cell_anno'], rna_archr.obs['leiden'])   # 0.6743807458691784
+
+## scarlink
+rna_scarlink = sc.read_h5ad('../rna_pbmc_scarlink.h5ad')
+rna_scarlink = rna_scarlink[idx].copy()    # 1954 × 526
+
+var_idx = np.intersect1d(rna_scarlink.var.index, rna_true.var.index)
+
+rna_true_scarlink = rna_true[:, var_idx]    # 1954 × 511
+rna_scarlink = rna_scarlink[:, var_idx]     # 1954 × 511
+rna_scarlink_X = rna_scarlink.X.toarray()
+rna_scarlink_X[rna_true_scarlink.X.toarray()==0] = 0  # set non-zero to zero (based on the raw data)
+rna_scarlink.X = csr_matrix(rna_scarlink_X)
+
+scarlink_X = rna_scarlink.X.toarray()
+true_X = rna_true_scarlink.X.toarray()
+
+scarlink_pearson_r_lst = []
+scarlink_spearman_r_lst = []
+for i in tqdm(range(rna_scarlink.X.shape[1]), ncols=80):
+    scarlink_i = scarlink_X[:, i]
+    true_i = true_X[:, i]
+    if len(set(true_i)) != 1:
+        archr_pearson_r_lst.append(pearsonr(scarlink_i, true_i)[0])
+        archr_spearman_r_lst.append(spearmanr(scarlink_i, true_i)[0])
+
+scarlink_pearson_r_array = np.nan_to_num(np.array(scarlink_pearson_r_lst), nan=0)
+scarlink_pearson_r_array.mean()                              # 0.5695329945686082
+scarlink_pearson_r_array[scarlink_pearson_r_array!=0].mean()    # 0.6351615575356329
+
+scarlink_spearman_r_array = np.nan_to_num(np.array(scarlink_spearman_r_lst), nan=0)
+scarlink_spearman_r_array.mean()                              # 0.6793824238309737
+scarlink_spearman_r_array[scarlink_spearman_r_array!=0].mean()   # 0.7576691826426437
+
+
+
+
+sc.pp.highly_variable_genes(rna_scarlink)
+rna_scarlink = rna_scarlink[:, rna_scarlink.var.highly_variable]  # 1954 × 25
+sc.tl.pca(rna_scarlink)
+sc.pp.neighbors(rna_scarlink)
+sc.tl.umap(rna_scarlink)
+sc.tl.leiden(rna_scarlink)
+
+rna_scarlink.obs['cell_anno'] = rna_true.obs['cell_anno']
+sc.pl.umap(rna_scarlink, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
+           title='', frameon=True, save='_cell_anno_rna_scarlink_pbmc.pdf')
+
+
+
+
+
+
+adjusted_mutual_info_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])     # 0.3389995946951028
+adjusted_rand_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])            # 0.27478068443487585
+homogeneity_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])              # 0.33714529881302363
+normalized_mutual_info_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])   # 0.3492819479771526
+
+## cisformer
+rna_cisformer = sc.read_h5ad('rna_pbmc_cisformer.h5ad')
+rna_cisformer = rna_cisformer[idx].copy()    # 1954 × 38244
+
+sc.pp.normalize_total(rna_cisformer, target_sum=1e4)
+sc.pp.log1p(rna_cisformer)
+
+sc.pp.highly_variable_genes(rna_cisformer)
+rna_cisformer = rna_cisformer[:, rna_cisformer.var.highly_variable]  # 1954 × 2716
+sc.tl.pca(rna_cisformer)
+sc.pp.neighbors(rna_cisformer)
+sc.tl.umap(rna_cisformer)
+sc.tl.leiden(rna_cisformer)
+
+rna_cisformer.obs['cell_anno'] = rna_true.obs['cell_anno']
+sc.pl.umap(rna_cisformer, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
+           title='', frameon=True, save='_cell_anno_rna_cisformer_pbmc.pdf')
+
+adjusted_mutual_info_score(rna_true.obs['cell_anno'], rna_cisformer.obs['leiden'])     # 0.6945638077638026
+adjusted_rand_score(rna_true.obs['cell_anno'], rna_cisformer.obs['leiden'])            # 0.608194907581094
+homogeneity_score(rna_true.obs['cell_anno'], rna_cisformer.obs['leiden'])              # 0.6110892448421035
+normalized_mutual_info_score(rna_true.obs['cell_anno'], rna_cisformer.obs['leiden'])   # 0.6980029861918517
+
+#### plot metrics
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+dat = pd.DataFrame({'Method':['ArchR']*4 + ['SCARlink']*4 + ['Cisformer']*4,
+                    'Metrics':['AMI', 'ARI', 'HOM', 'NMI']*3, 
+                    'val':[0.670, 0.527, 0.635, 0.674,
+                           0.339, 0.275, 0.337, 0.349,
+                           0.695, 0.608, 0.611, 0.698]})
+
+dat['Method'] = pd.Categorical(dat['Method'], categories=['ArchR', 'SCARlink', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['AMI', 'NMI', 'ARI', 'HOM'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pbmc_ami_nmi_ari_hom.pdf', dpi=600, height=4, width=6)
 
 
 
