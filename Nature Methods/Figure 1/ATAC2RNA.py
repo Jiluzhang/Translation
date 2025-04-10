@@ -506,18 +506,16 @@ for i in tqdm(range(rna_scarlink.X.shape[1]), ncols=80):
     scarlink_i = scarlink_X[:, i]
     true_i = true_X[:, i]
     if len(set(true_i)) != 1:
-        archr_pearson_r_lst.append(pearsonr(scarlink_i, true_i)[0])
-        archr_spearman_r_lst.append(spearmanr(scarlink_i, true_i)[0])
+        scarlink_pearson_r_lst.append(pearsonr(scarlink_i, true_i)[0])
+        scarlink_spearman_r_lst.append(spearmanr(scarlink_i, true_i)[0])
 
-scarlink_pearson_r_array = np.nan_to_num(np.array(scarlink_pearson_r_lst), nan=0)
-scarlink_pearson_r_array.mean()                              # 0.5695329945686082
-scarlink_pearson_r_array[scarlink_pearson_r_array!=0].mean()    # 0.6351615575356329
+scarlink_pearson_r_array = np.nan_to_num(np.array(scarlink_pearson_r_lst), nan=0)  # no nan
+scarlink_pearson_r_array.mean()                                 # 0.9034644320076812
+scarlink_pearson_r_array[scarlink_pearson_r_array!=0].mean()    # 0.9034644320076812
 
 scarlink_spearman_r_array = np.nan_to_num(np.array(scarlink_spearman_r_lst), nan=0)
-scarlink_spearman_r_array.mean()                              # 0.6793824238309737
-scarlink_spearman_r_array[scarlink_spearman_r_array!=0].mean()   # 0.7576691826426437
-
-
+scarlink_spearman_r_array.mean()                                 # 0.9591336475270621
+scarlink_spearman_r_array[scarlink_spearman_r_array!=0].mean()   # 0.9591336475270621
 
 
 sc.pp.highly_variable_genes(rna_scarlink)
@@ -542,8 +540,38 @@ homogeneity_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])        
 normalized_mutual_info_score(rna_true.obs['cell_anno'], rna_scarlink.obs['leiden'])   # 0.3492819479771526
 
 ## cisformer
-rna_cisformer = sc.read_h5ad('rna_pbmc_cisformer.h5ad')
+rna_cisformer = sc.read_h5ad('../rna_pbmc_cisformer.h5ad')
 rna_cisformer = rna_cisformer[idx].copy()    # 1954 × 38244
+
+var_idx = np.intersect1d(rna_cisformer.var.index, rna_true.var.index)
+
+rna_true_cisformer = rna_true[:, var_idx]     # 1954 × 38244
+rna_cisformer = rna_cisformer[:, var_idx]     # 1954 × 38244
+rna_cisformer_X = rna_cisformer.X.toarray()
+rna_cisformer_X[rna_true_cisformer.X.toarray()==0] = 0  # set non-zero to zero (based on the raw data)
+rna_cisformer.X = csr_matrix(rna_cisformer_X)
+
+cisformer_X = rna_cisformer.X.toarray()
+true_X = rna_true_cisformer.X.toarray()
+
+cisformer_pearson_r_lst = []
+cisformer_spearman_r_lst = []
+for i in tqdm(range(rna_cisformer.X.shape[1]), ncols=80):
+    cisformer_i = cisformer_X[:, i]
+    true_i = true_X[:, i]
+    if len(set(true_i)) != 1:
+        cisformer_pearson_r_lst.append(pearsonr(cisformer_i, true_i)[0])
+        cisformer_spearman_r_lst.append(spearmanr(cisformer_i, true_i)[0])
+
+cisformer_pearson_r_array = np.nan_to_num(np.array(cisformer_pearson_r_lst), nan=0)  
+cisformer_pearson_r_array.mean()                                  # 0.959877108085182
+cisformer_pearson_r_array[cisformer_pearson_r_array!=0].mean()    # 0.9599877376141494
+
+cisformer_spearman_r_array = np.nan_to_num(np.array(cisformer_spearman_r_lst), nan=0)
+cisformer_spearman_r_array.mean()                                  # 0.9882082012718311
+cisformer_spearman_r_array[cisformer_spearman_r_array!=0].mean()   # 0.9883220960682667
+
+
 
 sc.pp.normalize_total(rna_cisformer, target_sum=1e4)
 sc.pp.log1p(rna_cisformer)
