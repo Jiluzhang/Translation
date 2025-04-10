@@ -305,6 +305,7 @@ rcParams["figure.figsize"] = (2, 2)
 sc.pl.umap(rna_true, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
            title='', frameon=True, save='_cell_anno_rna_true_tumor_b.pdf')
 
+
 sc.pl.violin(rna_true, keys='MSI2', groupby='cell_anno', rotation=90, stripplot=False, save='_MSI2_exp.pdf')
 
 
