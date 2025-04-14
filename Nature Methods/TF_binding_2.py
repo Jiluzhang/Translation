@@ -138,12 +138,26 @@ loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
 rna_cd14_mono = sc.read_h5ad('rna_cd14_mono_100.h5ad')
 atac_cd14_mono = sc.read_h5ad('atac_cd14_mono_100.h5ad')
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+cr_tf_idx = np.argwhere(rna_cd14_mono.var.index.isin(cr_tf)).flatten()
+
 out = atac_cd14_mono.copy()
 out.X = np.zeros(out.shape)
 i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
-    out.X[i, :] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=1)
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = attn_tmp[:, [a.item() in cr_tf_idx for a in (rna_sequence[rna_sequence!=0]-1)]].sum(axis=1)  # only select CR & TF
     torch.cuda.empty_cache()
     i += 1
 
@@ -151,18 +165,24 @@ out.write('attn_cd14_mono_100_peak.h5ad')
 
 attn = sc.read_h5ad('attn_cd14_mono_100_peak.h5ad')
 
-gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4616
-gene_attn_df.index = atac_mix_20.var.index.values
-
-gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
-
 motif_info_raw = pd.read_table('peaks_motifs_count.txt', header=0)
 motif_info = motif_info_raw.copy()
 motif_info[motif_info!=0] = 1
 motif_info = motif_info.sum(axis=1)
-motif_info.index = gene_attn_df.index.values
+motif_info.index = attn.var.index.values
 
-df = pd.DataFrame({'attn':gene_attn_df_avg, 'motif':motif_info})
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+############################################################
+
+df = pd.DataFrame({'attn':attn.X.sum(axis=0), 'motif':motif_info})
 df['motif_bin'] = '0'
 df.loc[((df['motif']>0) & (df['motif']<=50)), 'motif_bin'] = '1'
 df.loc[(df['motif']>50), 'motif_bin'] = '2'
@@ -176,21 +196,8 @@ df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
 df[['attn', 'motif_bin']].to_csv('motif_attn_mix_norm.csv')
 
 
-(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.505314659025544
-sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 13.433583207272893
 
-cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
-      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
-      'BRD2', 'BRD3', 'BRD4', 'BRDT',
-      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
-      'SSRP1', 'SUPT16H',
-      'EP400',
-      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
-tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
-tf = list(tf_lst[0].values)   # 735
-cr_tf = cr + tf   # 763
 
-(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.7030022788395824
 
 
 ## plot box
