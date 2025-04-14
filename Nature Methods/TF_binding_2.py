@@ -63,37 +63,6 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import pickle
 
-# from config
-with open("rna2atac_config_test.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
-model = M2M_rna2atac(
-            dim = config["model"].get("dim"),
-
-            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
-            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
-            enc_depth = config["model"].get("enc_depth"),
-            enc_heads = config["model"].get("enc_heads"),
-            enc_ff_mult = config["model"].get("enc_ff_mult"),
-            enc_dim_head = config["model"].get("enc_dim_head"),
-            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
-            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
-            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
-
-            dec_depth = config["model"].get("dec_depth"),
-            dec_heads = config["model"].get("dec_heads"),
-            dec_ff_mult = config["model"].get("dec_ff_mult"),
-            dec_dim_head = config["model"].get("dec_dim_head"),
-            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
-            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
-            dec_attn_dropout = config["model"].get("dec_attn_dropout")
-        )
-model = model.half()
-model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
-device = torch.device('cuda:3')
-model.to(device)
-model.eval()
-
 rna = sc.read_h5ad('rna_train.h5ad')  # 6974 × 16706
 rna.obs['cell_anno'].value_counts()
 # CD14 Mono           1988
@@ -122,64 +91,68 @@ peaks[['chr', 'start', 'end']].to_csv('peaks.bed', index=False, header=False, se
 
 ################ CD14 Mono ################
 random.seed(0)
-idx = list(np.argwhere(rna.obs['cell_anno']=='CD14 Mono').flatten())
-idx_20 = random.sample(list(idx), 20)
-rna[idx_20].write('rna_cd14_mono_20.h5ad')
-np.count_nonzero(rna[idx_20].X.toarray(), axis=1).max()  # 2726
+cd14_mono_idx = list(np.argwhere(rna.obs['cell_anno']=='CD14 Mono').flatten())
+cd14_mono_idx_100 = random.sample(list(cd14_mono_idx), 100)
+rna[cd14_mono_idx_100].write('rna_cd14_mono_100.h5ad')
+np.count_nonzero(rna[cd14_mono_idx_100].X.toarray(), axis=1).max()  # 3174
 
-atac[idx_20].write('atac_cd14_mono_20.h5ad')
+atac[cd14_mono_idx_100].write('atac_cd14_mono_100.h5ad')
 
-# python data_preprocess.py -r rna_cd14_mono_20.h5ad -a atac_cd14_mono_20.h5ad -s pt_cd14_mono_20 --dt test -n cd14_mono_20 --config rna2atac_config_test_cd14_mono_20.yaml
-# enc_max_len: 2726
+# python data_preprocess.py -r rna_cd14_mono_100.h5ad -a atac_cd14_mono_100.h5ad -s pt_cd14_mono_100 --dt test -n cd14_mono_100 --config rna2atac_config_test_cd14_mono.yaml
+# enc_max_len: 3174
 
-cd14_mono_data = torch.load("./pt_cd14_mono_20/cd14_mono_20_0.pt")
+with open("rna2atac_config_test_cd14_mono.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
+device = torch.device('cuda:7')
+model.to(device)
+model.eval()
+
+cd14_mono_data = torch.load("./pt_cd14_mono_100/cd14_mono_100_0.pt")
 dataset = PreDataset(cd14_mono_data)
 dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
 loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
-# time: 1 min
-os.makedirs('./attn/cd14_mono')
-i=0
+rna_cd14_mono = sc.read_h5ad('rna_cd14_mono_100.h5ad')
+atac_cd14_mono = sc.read_h5ad('atac_cd14_mono_100.h5ad')
+out = atac_cd14_mono.copy()
+out.X = np.zeros(out.shape)
+i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
-    attn = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')
-    attn = attn[0]  # attn = attn[0].to(torch.float16)
-    with h5py.File('attn/cd14_mono/attn_cd14_mono_'+str(i)+'.h5', 'w') as f:
-        f.create_dataset('attn', data=attn)
+    out.X[i, :] = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0].sum(axis=1)
     torch.cuda.empty_cache()
     i += 1
 
-rna_cd14_mono_20 = sc.read_h5ad('rna_cd14_mono_20.h5ad')
-nonzero = np.count_nonzero(rna_cd14_mono_20.X.toarray(), axis=0)
-gene_lst = rna_cd14_mono_20.var.index[nonzero>=3]  # 4722
+out.write('attn_cd14_mono_100_peak.h5ad')
 
-atac_cd14_mono_20 = sc.read_h5ad('atac_cd14_mono_20.h5ad')
+attn = sc.read_h5ad('attn_cd14_mono_100_peak.h5ad')
 
-gene_attn = {}
-for gene in gene_lst:
-    gene_attn[gene] = np.zeros([atac_cd14_mono_20.shape[1], 1], dtype='float32')  # not float16
-
-# 10s/cell
-for i in range(20):
-    rna_sequence = cd14_mono_data[0][i].flatten()
-    with h5py.File('attn/cd14_mono/attn_cd14_mono_'+str(i)+'.h5', 'r') as f:
-        attn = f['attn'][:]
-        for gene in tqdm(gene_lst, ncols=80, desc='cell '+str(i)):
-            idx = torch.argwhere((rna_sequence==(np.argwhere(rna_cd14_mono_20.var.index==gene))[0][0]+1).flatten())
-            if len(idx)!=0:
-                gene_attn[gene] += attn[:, [idx.item()]]
-
-with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'wb') as file:
-    pickle.dump(gene_attn, file)
-
-with open('./attn/cd14_mono/attn_20_cd14_mono_3cell.pkl', 'rb') as file:
-    gene_attn = pickle.load(file)
-
-for gene in gene_attn:
-    gene_attn[gene] = gene_attn[gene].flatten()
-
-gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4722
-gene_attn_df.index = atac_cd14_mono_20.var.index.values
+gene_attn_df = pd.DataFrame(gene_attn)   # 236295 x 4616
+gene_attn_df.index = atac_mix_20.var.index.values
 
 gene_attn_df_avg = gene_attn_df.mean(axis=1)/20
 
@@ -196,11 +169,28 @@ df.loc[(df['motif']>50), 'motif_bin'] = '2'
 # df['attn'] = np.log10(df['attn']/df['attn'].min())
 # df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
 # df['attn'] = (df['attn']-df['attn'].mean())/df['attn'].std()
-df[['attn', 'motif_bin']].to_csv('motif_attn_cd14_mono.csv')
+df[['attn', 'motif_bin']].to_csv('motif_attn_mix.csv')
 
 df['attn'] = np.log10(df['attn']/df['attn'].min())
 df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
-df[['attn', 'motif_bin']].to_csv('motif_attn_cd14_mono_norm.csv')
+df[['attn', 'motif_bin']].to_csv('motif_attn_mix_norm.csv')
+
+
+(attn.X / attn.X.max(axis=1)[:, np.newaxis]).sum(axis=1).mean()  # 6.505314659025544
+sum(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))             # 13.433583207272893
+
+cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+      'BRD2', 'BRD3', 'BRD4', 'BRDT',
+      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+      'SSRP1', 'SUPT16H',
+      'EP400',
+      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf = list(tf_lst[0].values)   # 735
+cr_tf = cr + tf   # 763
+
+(attn.X.sum(axis=0) / (attn.X.sum(axis=0).max()))[attn.var.index.isin(cr_tf)].sum()   # 0.7030022788395824
 
 
 ## plot box
