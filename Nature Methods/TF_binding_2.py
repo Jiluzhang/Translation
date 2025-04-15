@@ -135,30 +135,28 @@ motif_info = motif_info.sum(axis=1)
 #         tf_idx.append(False)
 # maybe count is too small
 
-cr = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
-      'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
-      'BRD2', 'BRD3', 'BRD4', 'BRDT',
-      'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
-      'SSRP1', 'SUPT16H',
-      'EP400',
-      'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
-tf_lst = pd.read_table('attn/TF_jaspar.txt', header=None)
-tf = list(tf_lst[0].values)   # 735
+cr_lst = ['SMARCA4', 'SMARCA2', 'ARID1A', 'ARID1B', 'SMARCB1',
+          'CHD1', 'CHD2', 'CHD3', 'CHD4', 'CHD5', 'CHD6', 'CHD7', 'CHD8', 'CHD9',
+          'BRD2', 'BRD3', 'BRD4', 'BRDT',
+          'SMARCA5', 'SMARCA1', 'ACTL6A', 'ACTL6B',
+          'SSRP1', 'SUPT16H',
+          'EP400',
+          'SMARCD1', 'SMARCD2', 'SMARCD3']   # 28
+tf_raw = pd.read_table('attn/TF_jaspar.txt', header=None)
+tf_lst = list(tf_raw[0].values)   # 735
 cr_tf = cr + tf   # 763
 
-
-
 ################ CD14 Mono ################
-random.seed(1)
+random.seed(827)
 cd14_mono_idx = list(np.argwhere(rna.obs['cell_anno']=='CD14 Mono').flatten())
 cd14_mono_idx_100 = random.sample(list(cd14_mono_idx), 100)
 rna[cd14_mono_idx_100].write('rna_cd14_mono_100.h5ad')
-np.count_nonzero(rna[cd14_mono_idx_100].X.toarray(), axis=1).max()  # 3311
+np.count_nonzero(rna[cd14_mono_idx_100].X.toarray(), axis=1).max()  # 3336
 
 atac[cd14_mono_idx_100].write('atac_cd14_mono_100.h5ad')
 
 # python data_preprocess.py -r rna_cd14_mono_100.h5ad -a atac_cd14_mono_100.h5ad -s pt_cd14_mono_100 --dt test -n cd14_mono_100 --config rna2atac_config_test_cd14_mono.yaml
-# enc_max_len: 3311
+# enc_max_len: 3336
 
 cd14_mono_data = torch.load("./pt_cd14_mono_100/cd14_mono_100_0.pt")
 dataset = PreDataset(cd14_mono_data)
@@ -168,54 +166,66 @@ loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 rna_cd14_mono = sc.read_h5ad('rna_cd14_mono_100.h5ad')
 atac_cd14_mono = sc.read_h5ad('atac_cd14_mono_100.h5ad')
 
-tf_idx = np.argwhere(rna_cd14_mono.var.index.isin(tf_lst)).flatten()
-out = atac_cd14_mono.copy()
+out = rna_cd14_mono.copy()
 out.X = np.zeros(out.shape)
 i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = attn_tmp[:, [a.item() in tf_idx for a in (rna_sequence[rna_sequence!=0]-1)]].sum(axis=1)  # only select TFs with motif info
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = np.nansum(attn_tmp, axis=0)
     torch.cuda.empty_cache()
     i += 1
 
-out.write('attn_cd14_mono_100_peak.h5ad')
+out.write('attn_cd14_mono_100_gene.h5ad')
 
-attn = sc.read_h5ad('attn_cd14_mono_100_peak.h5ad')
-motif_info.index = attn.var.index.values
+attn = sc.read_h5ad('attn_cd14_mono_100_gene.h5ad')
 
-df = pd.DataFrame({'attn':attn.X.sum(axis=0), 'motif':motif_info}).dropna()
+df = pd.DataFrame({'attn':attn.X.sum(axis=0)})
+df['attn'] = np.log10(df['attn']+1)
 df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
-df.to_csv('attn/motif_attn_cd14_mono_norm.txt', sep='\t')
+df.index = out.var.index.values
+
+gene_idx = []
+for g in df.index:
+    if g in cr:
+        gene_idx.append('CR')
+    elif g in tf:
+        gene_idx.append('TF')
+    else:
+        gene_idx.append('Others')
+
+df['gene_idx'] = gene_idx
+df.to_csv('attn/gene_attn_cd14_mono_norm.txt', sep='\t')
 
 ## plot box
-df = pd.read_table('motif_attn_cd14_mono_norm.txt', index_col=0)
-df['motif_bin'] = 'with'
-df.loc[df['motif']==0, 'motif_bin'] = 'without'
-df['motif_bin'] = pd.Categorical(df['motif_bin'], categories=['without', 'with'])
+import pandas as pd
+from plotnine import *
+import numpy as np
+from scipy import stats
 
-p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                 coord_cartesian(ylim=(0, 0.4)) +\
-                                                                 scale_y_continuous(breaks=np.arange(0, 0.4+0.1, 0.1)) + theme_bw()
-p.save(filename='motif_attn_cd14_mono_norm.pdf', dpi=600, height=4, width=4)
+df = pd.read_table('gene_attn_cd14_mono_norm.txt', index_col=0)
+df['gene_idx'] = pd.Categorical(df['gene_idx'], categories=['CR', 'TF', 'Others'])
 
-df[df['motif_bin']=='with']['attn'].median()      # 0.0570092652575205
-df[df['motif_bin']=='without']['attn'].median()   # 0.0555553865101178
+p = ggplot(df, aes(x='gene_idx', y='attn', fill='gene_idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                               coord_cartesian(ylim=(0, 1)) +\
+                                                               scale_y_continuous(breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='gene_attn_cd14_mono_norm.pdf', dpi=600, height=4, width=4)
 
-stats.ttest_ind(df[df['motif_bin']=='with']['attn'], df[df['motif_bin']=='without']['attn'], alternative='greater')  # pvalue=0.31611932364830075
-
+df[df['gene_idx']=='CR']['attn'].median()          # 0.245241705928947
+df[df['gene_idx']=='TF']['attn'].median()          # 0.14723526393665845
+df[df['gene_idx']=='Others']['attn'].median()      # 0.12335009009233949
 
 ################ CD8 Naive ################
-random.seed(1)
+random.seed(827)
 cd8_naive_idx = list(np.argwhere(rna.obs['cell_anno']=='CD8 Naive').flatten())
 cd8_naive_idx_100 = random.sample(list(cd8_naive_idx), 100)
 rna[cd8_naive_idx_100].write('rna_cd8_naive_100.h5ad')
-np.count_nonzero(rna[cd8_naive_idx_100].X.toarray(), axis=1).max()  # 2481
+np.count_nonzero(rna[cd8_naive_idx_100].X.toarray(), axis=1).max()  # 2056
 
 atac[cd8_naive_idx_100].write('atac_cd8_naive_100.h5ad')
 
 # python data_preprocess.py -r rna_cd8_naive_100.h5ad -a atac_cd8_naive_100.h5ad -s pt_cd8_naive_100 --dt test -n cd8_naive_100 --config rna2atac_config_test_cd8_naive.yaml
-# enc_max_len: 2481
+# enc_max_len: 2056
 
 cd8_naive_data = torch.load("./pt_cd8_naive_100/cd8_naive_100_0.pt")
 dataset = PreDataset(cd8_naive_data)
@@ -224,42 +234,65 @@ loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
 rna_cd8_naive = sc.read_h5ad('rna_cd8_naive_100.h5ad')
 atac_cd8_naive = sc.read_h5ad('atac_cd8_naive_100.h5ad')
-tf_idx = np.argwhere(rna_cd8_naive.var.index.isin(tf_lst)).flatten()
 
-out = atac_cd8_naive.copy()
+out = rna_cd8_naive.copy()
 out.X = np.zeros(out.shape)
 i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = attn_tmp[:, [a.item() in tf_idx for a in (rna_sequence[rna_sequence!=0]-1)]].sum(axis=1)
+    out.X[i, (rna_sequence[rna_sequence!=0]-1).cpu()] = np.nansum(attn_tmp, axis=0)
     torch.cuda.empty_cache()
     i += 1
 
-out.write('attn_cd8_naive_100_peak.h5ad')
+out.write('attn_cd8_naive_100_gene.h5ad')
 
-attn = sc.read_h5ad('attn_cd8_naive_100_peak.h5ad')
-motif_info.index = attn.var.index.values
+attn = sc.read_h5ad('attn_cd8_naive_100_gene.h5ad')
 
-df = pd.DataFrame({'attn':attn.X.sum(axis=0), 'motif':motif_info}).dropna()
+df = pd.DataFrame({'attn':attn.X.sum(axis=0)})
+df['attn'] = np.log10(df['attn']+1)
 df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
-df.to_csv('attn/motif_attn_cd8_naive_norm.txt', sep='\t')
+df.index = out.var.index.values
+
+gene_idx = []
+for g in df.index:
+    if g in cr:
+        gene_idx.append('CR')
+    elif g in tf:
+        gene_idx.append('TF')
+    else:
+        gene_idx.append('Others')
+
+df['gene_idx'] = gene_idx
+df.to_csv('attn/gene_attn_cd8_naive_norm.txt', sep='\t')
 
 ## plot box
-df = pd.read_table('motif_attn_cd8_naive_norm.txt', index_col=0)
-df['motif_bin'] = 'with'
-df.loc[df['motif']==0, 'motif_bin'] = 'without'
-df['motif_bin'] = pd.Categorical(df['motif_bin'], categories=['without', 'with'])
+df = pd.read_table('gene_attn_cd8_naive_norm.txt', index_col=0)
+df['gene_idx'] = pd.Categorical(df['gene_idx'], categories=['CR', 'TF', 'Others'])
 
-p = ggplot(df, aes(x='motif_bin', y='attn', fill='motif_bin')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-                                                                 coord_cartesian(ylim=(0, 0.4)) +\
-                                                                 scale_y_continuous(breaks=np.arange(0, 0.4+0.1, 0.1)) + theme_bw()
-p.save(filename='motif_attn_cd8_naive_norm.pdf', dpi=600, height=4, width=4)
+p = ggplot(df, aes(x='gene_idx', y='attn', fill='gene_idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                               coord_cartesian(ylim=(0, 1)) +\
+                                                               scale_y_continuous(breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='gene_attn_cd8_naive_norm.pdf', dpi=600, height=4, width=4)
 
-df[df['motif_bin']=='with']['attn'].median()      # 0.0266318288701666
-df[df['motif_bin']=='without']['attn'].median()   # 0.02765796381739285
+df[df['gene_idx']=='CR']['attn'].median()          # 0.26734742020212543
+df[df['gene_idx']=='TF']['attn'].median()          # 0.1362775167584097
+df[df['gene_idx']=='Others']['attn'].median()      # 0.11817493606847296
 
-stats.ttest_ind(df[df['motif_bin']=='with']['attn'], df[df['motif_bin']=='without']['attn'])  # pvalue=0.00037513581887976897
+
+
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+################################################################
+
 
 
 ################ CD4 Naive ################
