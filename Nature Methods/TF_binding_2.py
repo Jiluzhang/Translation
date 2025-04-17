@@ -1347,7 +1347,7 @@ plt.close()
 import pandas as pd
 import numpy as np
 
-## b memory ets1 & ctcf
+## b memory ets1
 df = pd.read_table('../attn_b_mem_100_peak_gene.txt', index_col=0)['ETS1'].dropna()
 
 df_top = pd.DataFrame(df.sort_values(ascending=False)[:10000].index)
@@ -1362,7 +1362,67 @@ df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
 df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
 df_btm.iloc[:, 1:].to_csv('attn_btm_10000_b_mem_ets1.bed', index=False, header=False, sep='\t')
 
+## b memory ctcf
+df = pd.read_table('../attn_b_mem_100_peak_gene.txt', index_col=0)['CTCF'].dropna()
+
+df_top = pd.DataFrame(df.sort_values(ascending=False)[:10000].index)
+df_top['chrom'] = df_top[0].apply(lambda x: x.split(':')[0])
+df_top['start'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_top['end'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_top.iloc[:, 1:].to_csv('attn_top_10000_b_mem_ctcf.bed', index=False, header=False, sep='\t')
+
+df_btm = pd.DataFrame(df.sort_values(ascending=True)[:10000].index)
+df_btm['chrom'] = df_btm[0].apply(lambda x: x.split(':')[0])
+df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_btm.iloc[:, 1:].to_csv('attn_btm_10000_b_mem_ctcf.bed', index=False, header=False, sep='\t')
+
+## nk ets1
+df = pd.read_table('../attn_nk_100_peak_gene.txt', index_col=0)['ETS1'].dropna()
+
+df_top = pd.DataFrame(df.sort_values(ascending=False)[:10000].index)
+df_top['chrom'] = df_top[0].apply(lambda x: x.split(':')[0])
+df_top['start'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_top['end'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_top.iloc[:, 1:].to_csv('attn_top_10000_nk_ets1.bed', index=False, header=False, sep='\t')
+
+df_btm = pd.DataFrame(df.sort_values(ascending=True)[:10000].index)
+df_btm['chrom'] = df_btm[0].apply(lambda x: x.split(':')[0])
+df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_btm.iloc[:, 1:].to_csv('attn_btm_10000_nk_ets1.bed', index=False, header=False, sep='\t')
+
+## nk ctcf
+df = pd.read_table('../attn_nk_100_peak_gene.txt', index_col=0)['CTCF'].dropna()
+
+df_top = pd.DataFrame(df.sort_values(ascending=False)[:10000].index)
+df_top['chrom'] = df_top[0].apply(lambda x: x.split(':')[0])
+df_top['start'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_top['end'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_top.iloc[:, 1:].to_csv('attn_top_10000_nk_ctcf.bed', index=False, header=False, sep='\t')
+
+df_btm = pd.DataFrame(df.sort_values(ascending=True)[:10000].index)
+df_btm['chrom'] = df_btm[0].apply(lambda x: x.split(':')[0])
+df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_btm.iloc[:, 1:].to_csv('attn_btm_10000_nk_ctcf.bed', index=False, header=False, sep='\t')
+
 computeMatrix reference-point --referencePoint center -p 20 -S gm12878_ets1_signal.bigwig \
                               -R attn_top_10000_b_mem_ets1.bed attn_btm_10000_b_mem_ets1.bed \
-                              -o gm12878_attn_top_btm_ets1_signal.gz -a 5000 -b 5000 -bs 100
-plotProfile -m gm12878_attn_top_btm_ets1_signal.gz --yMin 0 --yMax 10 -out gm12878_attn_top_btm_ets1_signal.pdf
+                              -o gm12878_b_mem_attn_top_btm_ets1_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m gm12878_b_mem_attn_top_btm_ets1_signal.gz --yMin 0 --yMax 4 -out gm12878_b_mem_attn_top_btm_ets1_signal.pdf
+
+computeMatrix reference-point --referencePoint center -p 20 -S gm12878_ctcf_signal.bigwig \
+                              -R attn_top_10000_b_mem_ctcf.bed attn_btm_10000_b_mem_ctcf.bed \
+                              -o gm12878_b_mem_attn_top_btm_ctcf_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m gm12878_b_mem_attn_top_btm_ctcf_signal.gz --yMin 0 --yMax 15 -out gm12878_b_mem_attn_top_btm_ctcf_signal.pdf
+
+computeMatrix reference-point --referencePoint center -p 20 -S k562_ets1_signal.bigwig \
+                              -R attn_top_10000_nk_ets1.bed attn_btm_10000_nk_ets1.bed \
+                              -o k562_nk_attn_top_btm_ets1_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m k562_nk_attn_top_btm_ets1_signal.gz --yMin 0 --yMax 3 -out k562_nk_attn_top_btm_ets1_signal.pdf
+
+computeMatrix reference-point --referencePoint center -p 20 -S k562_ctcf_signal.bigwig \
+                              -R attn_top_10000_nk_ctcf.bed attn_btm_10000_nk_ctcf.bed \
+                              -o k562_nk_attn_top_btm_ctcf_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m k562_nk_attn_top_btm_ctcf_signal.gz --yMin 0 --yMax 12 -out k562_nk_attn_top_btm_ctcf_signal.pdf
