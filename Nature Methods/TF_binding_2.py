@@ -1321,3 +1321,48 @@ plt.savefig('k562_df_10000_ratio_heatmap.pdf')
 plt.close()
 
 
+########## ETS1 B memory GM12878 #############
+# install deeptools
+# conda create -n deeptools python=3.8
+# conda activate deeptools
+# conda install -c conda-forge -c bioconda deeptools  # not work
+# pip install deeptools  # works
+
+## ets1 gm12878
+# wget -c https://www.encodeproject.org/files/ENCFF686FAA/@@download/ENCFF686FAA.bigWig
+# mv ENCFF686FAA.bigWig gm12878_ets1_signal.bigwig
+
+## ets1 k562
+# wget -c https://www.encodeproject.org/files/ENCFF151QKU/@@download/ENCFF151QKU.bigWig
+# mv ENCFF151QKU.bigWig k562_ets1_signal.bigwig
+
+## ctcf gm12878
+# wget -c https://www.encodeproject.org/files/ENCFF637RGD/@@download/ENCFF637RGD.bigWig
+# mv ENCFF637RGD.bigWig gm12878_ctcf_signal.bigwig
+
+## ctcf k562
+# wget -c https://www.encodeproject.org/files/ENCFF168IFW/@@download/ENCFF168IFW.bigWig
+# mv ENCFF168IFW.bigWig k562_ctcf_signal.bigwig
+
+import pandas as pd
+import numpy as np
+
+## b memory ets1 & ctcf
+df = pd.read_table('../attn_b_mem_100_peak_gene.txt', index_col=0)['ETS1'].dropna()
+
+df_top = pd.DataFrame(df.sort_values(ascending=False)[:10000].index)
+df_top['chrom'] = df_top[0].apply(lambda x: x.split(':')[0])
+df_top['start'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_top['end'] = df_top[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_top.iloc[:, 1:].to_csv('attn_top_10000_b_mem_ets1.bed', index=False, header=False, sep='\t')
+
+df_btm = pd.DataFrame(df.sort_values(ascending=True)[:10000].index)
+df_btm['chrom'] = df_btm[0].apply(lambda x: x.split(':')[0])
+df_btm['start'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[0])
+df_btm['end'] = df_btm[0].apply(lambda x: x.split(':')[1].split('-')[1])
+df_btm.iloc[:, 1:].to_csv('attn_btm_10000_b_mem_ets1.bed', index=False, header=False, sep='\t')
+
+computeMatrix reference-point --referencePoint center -p 20 -S gm12878_ets1_signal.bigwig \
+                              -R attn_top_10000_b_mem_ets1.bed attn_btm_10000_b_mem_ets1.bed \
+                              -o gm12878_attn_top_btm_ets1_signal.gz -a 5000 -b 5000 -bs 100
+plotProfile -m gm12878_attn_top_btm_ets1_signal.gz --yMin 0 --yMax 10 -out gm12878_attn_top_btm_ets1_signal.pdf
