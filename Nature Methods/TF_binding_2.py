@@ -1426,3 +1426,38 @@ computeMatrix reference-point --referencePoint center -p 20 -S k562_ctcf_signal.
                               -R attn_top_10000_nk_ctcf.bed attn_btm_10000_nk_ctcf.bed \
                               -o k562_nk_attn_top_btm_ctcf_signal.gz -a 5000 -b 5000 -bs 100
 plotProfile -m k562_nk_attn_top_btm_ctcf_signal.gz --yMin 0 --yMax 12 -out k562_nk_attn_top_btm_ctcf_signal.pdf
+
+
+## Remap2022: https://remap.univ-amu.fr/
+## B cell
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/ENCSR000AUV.CTCF.B-cell.bed.gz -O CTCF.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE43350.BCL6.B-cell_GERMINAL_CENTER.bed.gz -O BCL6.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE43350.BCOR.B-cell_GERMINAL_CENTER.bed.gz -O BCOR.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE43350.NCOR2.B-cell_GERMINAL_CENTER.bed.gz -O NCOR2.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE102460.BACH2.B-cell_IL2.bed.gz -O BACH2.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE142493.IRF4.B-cell.bed.gz -O IRF4.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE114803.FOXP1.B-cell_IgD-pos.bed.gz -O FOXP1.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE123398.STAT3.B-cell.bed.gz -O STAT3.bed.gz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
