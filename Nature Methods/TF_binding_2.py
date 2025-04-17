@@ -1429,7 +1429,7 @@ plotProfile -m k562_nk_attn_top_btm_ctcf_signal.gz --yMin 0 --yMax 12 -out k562_
 
 
 ## Remap2022: https://remap.univ-amu.fr/
-## B cell
+######################## B cell ########################
 wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/ENCSR000AUV.CTCF.B-cell.bed.gz -O CTCF.bed.gz
 wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE43350.BCL6.B-cell_GERMINAL_CENTER.bed.gz -O BCL6.bed.gz
 wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE43350.BCOR.B-cell_GERMINAL_CENTER.bed.gz -O BCOR.bed.gz
@@ -1439,25 +1439,807 @@ wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE142493
 wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE114803.FOXP1.B-cell_IgD-pos.bed.gz -O FOXP1.bed.gz
 wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE123398.STAT3.B-cell.bed.gz -O STAT3.bed.gz
 
+for file in `ls *.bed`;do
+    cl_tf=${file//.bed/}
+    awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' $cl_tf.bed | sort -k1,1 -k2,2n | uniq > $cl_tf\_peaks.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+    sort -k1,1 -k2,2n ccre_peaks_raw.bed > $cl_tf\_ccre_peaks.bed
+    rm $cl_tf\_peaks.bed ccre_peaks_raw.bed
+    echo $cl_tf done
+done
+
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
+
+import h5py
+from tqdm import tqdm
+
+from multiprocessing import Pool
+import pickle
+
+with open("rna2atac_config_test.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
+device = torch.device('cuda:7')
+model.to(device)
+model.eval()
+
+TFs = ['BACH2', 'BCL6', 'BCOR', 'CTCF', 'FOXP1', 'IRF4', 'NCOR2', 'STAT3']
+
+## b_naive
+b_naive_data = torch.load("./pt_b_naive_100/b_naive_100_0.pt")
+dataset = PreDataset(b_naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_b_naive = sc.read_h5ad('rna_b_naive_100.h5ad')
+atac_b_naive = sc.read_h5ad('atac_b_naive_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_b_naive.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_b_naive.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_b_naive.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_b_naive.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/b_cell/attn_b_naive_100_peak_gene.txt', sep='\t')
+
+## b_mem
+b_mem_data = torch.load("./pt_b_mem_100/b_mem_100_0.pt")
+dataset = PreDataset(b_mem_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_b_mem = sc.read_h5ad('rna_b_mem_100.h5ad')
+atac_b_mem = sc.read_h5ad('atac_b_mem_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_b_mem.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_b_mem.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_b_mem.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_b_mem.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/b_cell/attn_b_mem_100_peak_gene.txt', sep='\t')
+
+ct_lst = ['b_naive', 'b_mem']
+mat = pd.DataFrame(np.zeros([tfs_lst.shape[0], len(ct_lst)]))
+mat.index = tfs_lst
+mat.columns = ct_lst
+
+for ct in ct_lst:
+    gene_attn = pd.read_table('./tf_chipseq/b_cell/attn_'+ct+'_100_peak_gene.txt', index_col=0)
+    
+    for tf in tqdm(tfs_lst, desc='b cell '+ct+' cal ratio', ncols=80):
+        if tf in gene_attn.columns:
+            gene_attn_tf = pd.DataFrame(gene_attn[tf])
+            gene_attn_tf.columns = ['attn']
+            
+            tf_peaks = pd.read_table('./tf_chipseq/b_cell/'+tf+'_ccre_peaks.bed', header=None)
+            tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
+            tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+            df = gene_attn_tf.copy()
+            df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
+            df['peak_or_not'] = df['peak_or_not'].apply(str)
+            
+            df_random = df.copy()
+            df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+            df.to_csv('./tf_chipseq/b_cell/'+ct+'_'+tf+'_attn_peak_or_not.txt', sep='\t')
+            
+            true_ratio = round(df[df['attn']>=df['attn'].quantile(1-10000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 10,000
+            rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-10000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
+            
+            mat.loc[tf, ct] = np.round(true_ratio/rand_ratio, 4)
+
+mat.to_csv('./tf_chipseq/b_cell/b_cell_tf_10000_ratio.txt', sep='\t')
+
+## plot heatmap & boxplot
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from plotnine import *
+import seaborn as sns
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## heatmap
+df = pd.read_table('b_cell_tf_10000_ratio.txt', index_col=0)
+df = df.loc[:, ['b_naive', 'b_mem']]
+df['avg'] = df.mean(axis=1)
+df = df[df['avg']!=0]
+df.sort_values('avg', ascending=False, inplace=True)
+
+plt.figure(figsize=(6, 10))
+sns.heatmap(df.iloc[:, :-1], cmap='bwr', vmin=0, vmax=2, center=1, xticklabels=True, yticklabels=True)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('b_cell_df_10000_ratio_heatmap.pdf')
+plt.close()
+
+## boxplot
+## b naive bcl6
+df = pd.read_csv('b_naive_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='b_naive_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6179193991476443
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6429061043662391
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## b naive ctcf
+df = pd.read_csv('b_naive_CTCF_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='b_naive_CTCF_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.657836659044057
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6850519049569874
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## b mem bcl6
+df = pd.read_csv('b_mem_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='b_mem_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6292523200456566
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6508482339665147
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=7.566605804521646e-289
+
+## b memory ctcf
+df = pd.read_csv('b_mem_CTCF_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='b_mem_CTCF_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6475590101706166
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6767493086070151
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+
+######################## CD4 ########################
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE116695.FOS.CD4.bed.gz -O FOS.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE116695.NFATC2.CD4.bed.gz -O NFATC2.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE116695.JUNB.CD4.bed.gz -O JUNB.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE72266.MAF.CD4_Th1.bed.gz -O MAF.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE59933.BCL6.CD4.bed.gz -O BCL6.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE72266.MYB.CD4_Th1.bed.gz -O MYB.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE62482.AFF4.CD4_Th1_DMSO.bed.gz -O AFF4.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE62482.MED1.CD4_Th1_DMSO.bed.gz -O MED1.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE49570.REST.CD4.bed.gz -O REST.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE62482.BRD4.CD4_Th1_DMSO.bed.gz -O BRD4.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE62482.RELA.CD4_Th1_DMSO.bed.gz -O RELA.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE62482.TBX21.CD4_Th1.bed.gz -O TBX21.bed.gz
+
+gunzip *.gz
+
+for file in `ls *.bed`;do
+    cl_tf=${file//.bed/}
+    awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' $cl_tf.bed | sort -k1,1 -k2,2n | uniq > $cl_tf\_peaks.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+    sort -k1,1 -k2,2n ccre_peaks_raw.bed > $cl_tf\_ccre_peaks.bed
+    rm $cl_tf\_peaks.bed ccre_peaks_raw.bed
+    echo $cl_tf done
+done
+
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
+
+import h5py
+from tqdm import tqdm
+
+from multiprocessing import Pool
+import pickle
+
+with open("rna2atac_config_test.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
+device = torch.device('cuda:7')
+model.to(device)
+model.eval()
+
+TFs = ['AFF4', 'BCL6', 'BRD4', 'FOS', 'JUNB', 'MAF', 'MED1', 'MYB', 'NFATC2', 'RELA', 'REST', 'TBX21']
+
+## cd4_tcm
+cd4_tcm_data = torch.load("./pt_cd4_tcm_100/cd4_tcm_100_0.pt")
+dataset = PreDataset(cd4_tcm_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_cd4_tcm = sc.read_h5ad('rna_cd4_tcm_100.h5ad')
+atac_cd4_tcm = sc.read_h5ad('atac_cd4_tcm_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_cd4_tcm.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd4_tcm.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd4_tcm.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_cd4_tcm.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/cd4/attn_cd4_tcm_100_peak_gene.txt', sep='\t')
+
+## cd4_tem
+cd4_tem_data = torch.load("./pt_cd4_tem_100/cd4_tem_100_0.pt")
+dataset = PreDataset(cd4_tem_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_cd4_tem = sc.read_h5ad('rna_cd4_tem_100.h5ad')
+atac_cd4_tem = sc.read_h5ad('atac_cd4_tem_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_cd4_tem.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd4_tem.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd4_tem.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_cd4_tem.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/cd4/attn_cd4_tem_100_peak_gene.txt', sep='\t')
+
+## cd4_inter
+cd4_inter_data = torch.load("./pt_cd4_inter_100/cd4_inter_100_0.pt")
+dataset = PreDataset(cd4_inter_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_cd4_inter = sc.read_h5ad('rna_cd4_inter_100.h5ad')
+atac_cd4_inter = sc.read_h5ad('atac_cd4_inter_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_cd4_inter.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd4_inter.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd4_inter.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_cd4_inter.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/cd4/attn_cd4_inter_100_peak_gene.txt', sep='\t')
+
+## cd4_naive
+cd4_naive_data = torch.load("./pt_cd4_naive_100/cd4_naive_100_0.pt")
+dataset = PreDataset(cd4_naive_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_cd4_naive = sc.read_h5ad('rna_cd4_naive_100.h5ad')
+atac_cd4_naive = sc.read_h5ad('atac_cd4_naive_100.h5ad')
+
+tfs_lst = np.intersect1d(TFs, rna_cd4_naive.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd4_naive.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd4_naive.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
+
+out_2.index = atac_cd4_naive.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/cd4/attn_cd4_naive_100_peak_gene.txt', sep='\t')
+
+ct_lst = ['cd4_naive', 'cd4_inter', 'cd4_tem', 'cd4_tcm']
+mat = pd.DataFrame(np.zeros([tfs_lst.shape[0], len(ct_lst)]))
+mat.index = tfs_lst
+mat.columns = ct_lst
+
+for ct in ct_lst:
+    gene_attn = pd.read_table('./tf_chipseq/cd4/attn_'+ct+'_100_peak_gene.txt', index_col=0)
+    
+    for tf in tqdm(tfs_lst, desc='cd4 '+ct+' cal ratio', ncols=80):
+        if tf in gene_attn.columns:
+            gene_attn_tf = pd.DataFrame(gene_attn[tf])
+            gene_attn_tf.columns = ['attn']
+            
+            tf_peaks = pd.read_table('./tf_chipseq/cd4/'+tf+'_ccre_peaks.bed', header=None)
+            tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
+            tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+            df = gene_attn_tf.copy()
+            df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
+            df['peak_or_not'] = df['peak_or_not'].apply(str)
+            
+            df_random = df.copy()
+            df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+            df.to_csv('./tf_chipseq/cd4/'+ct+'_'+tf+'_attn_peak_or_not.txt', sep='\t')
+            
+            true_ratio = round(df[df['attn']>=df['attn'].quantile(1-10000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 10,000
+            rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-10000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
+            
+            mat.loc[tf, ct] = np.round(true_ratio/rand_ratio, 4)
+
+mat.to_csv('./tf_chipseq/cd4/cd4_tf_10000_ratio.txt', sep='\t')
+
+## plot heatmap & boxplot
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from plotnine import *
+import seaborn as sns
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## heatmap
+df = pd.read_table('cd4_tf_10000_ratio.txt', index_col=0)
+df = df.loc[:, ['cd4_naive', 'cd4_inter', 'cd4_tem', 'cd4_tcm']]
+df['avg'] = df.mean(axis=1)
+df = df[df['avg']!=0]
+df.sort_values('avg', ascending=False, inplace=True)
+
+plt.figure(figsize=(6, 10))
+sns.heatmap(df.iloc[:, :-1], cmap='bwr', vmin=0, vmax=2, center=1, xticklabels=True, yticklabels=True)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('cd4_df_10000_ratio_heatmap.pdf')
+plt.close()
+
+## boxplot
+## cd4 naive bcl6
+df = pd.read_csv('cd4_naive_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_naive_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6214116849050577
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6584501426000879
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 inter bcl6
+df = pd.read_csv('cd4_inter_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_inter_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6108320147115189
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6536818073104775
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 tem bcl6
+df = pd.read_csv('cd4_tem_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_tem_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.629532255038071
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6695657438619638
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 tcm bcl6
+df = pd.read_csv('cd4_tcm_BCL6_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_tcm_BCL6_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6027858610125902
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6487124072073317
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
 
 
 
+######################## Mono ########################
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE106359.INTS13.monocyte.bed.gz -O INTS13.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE100381.IRF1.monocyte_notreatment.bed.gz -O IRF1.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE98367.SMC1A.monocyte_INFg.bed.gz -O SMC1A.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE98367.CEBPB.monocyte.bed.gz -O CEBPB.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE31621.SPI1.monocyte.bed.gz -O SPI1.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE131294.CREBBP.monocyte_IFNg.bed.gz -O CREBBP.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE120943.STAT3.monocyte_resting.bed.gz -O STAT3.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE129202.SREBP2.monocyte.bed.gz -O SREBP2.bed.gz
+wget -c https://remap.univ-amu.fr/storage/remap2022/hg38/MACS2/DATASET/GSE120943.SMC1.monocyte_IFNg-LPS.bed.gz -O SMC1.bed.gz
 
+gunzip *.gz
 
+for file in `ls *.bed`;do
+    cl_tf=${file//.bed/}
+    awk '{print $1 "\t" int(($2+$3)/2) "\t" int(($2+$3)/2+1)}' $cl_tf.bed | sort -k1,1 -k2,2n | uniq > $cl_tf\_peaks.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 1}' >> ccre_peaks_raw.bed
+    bedtools intersect -a /fs/home/jiluzhang/Nature_methods/TF_binding/peaks.bed -b $cl_tf\.bed -wa -v | sort -k1,1 -k2,2n | uniq | awk '{print $0 "\t" 0}' >> ccre_peaks_raw.bed
+    sort -k1,1 -k2,2n ccre_peaks_raw.bed > $cl_tf\_ccre_peaks.bed
+    rm $cl_tf\_peaks.bed ccre_peaks_raw.bed
+    echo $cl_tf done
+done
 
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
 
+import h5py
+from tqdm import tqdm
 
+from multiprocessing import Pool
+import pickle
 
+with open("rna2atac_config_test.yaml", "r") as f:
+    config = yaml.safe_load(f)
 
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
 
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
 
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
+device = torch.device('cuda:7')
+model.to(device)
+model.eval()
 
+TFs = ['CEBPB', 'CREBBP', 'INTS13', 'IRF1', 'SMC1A', 'SMC1', 'SPI1', 'SREBP2', 'STAT3']
 
+## cd14_mono
+cd14_mono_data = torch.load("./pt_cd14_mono_100/cd14_mono_100_0.pt")
+dataset = PreDataset(cd14_mono_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
+rna_cd14_mono = sc.read_h5ad('rna_cd14_mono_100.h5ad')
+atac_cd14_mono = sc.read_h5ad('atac_cd14_mono_100.h5ad')
 
+tfs_lst = np.intersect1d(TFs, rna_cd14_mono.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd14_mono.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd14_mono.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
 
+out_2.index = atac_cd14_mono.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/mono/attn_cd14_mono_100_peak_gene.txt', sep='\t')
 
+## cd16_mono
+cd16_mono_data = torch.load("./pt_cd16_mono_100/cd16_mono_100_0.pt")
+dataset = PreDataset(cd16_mono_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
 
+rna_cd16_mono = sc.read_h5ad('rna_cd16_mono_100.h5ad')
+atac_cd16_mono = sc.read_h5ad('atac_cd16_mono_100.h5ad')
 
+tfs_lst = np.intersect1d(TFs, rna_cd16_mono.var.index)
+out_2 = pd.DataFrame(np.zeros([atac_cd16_mono.n_vars, len(tfs_lst)]))
+out_2.columns = [np.argwhere(rna_cd16_mono.var.index==tf).item() for tf in tfs_lst]
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_m = pd.DataFrame(model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0])
+    attn_m.columns = (rna_sequence[rna_sequence!=0]-1).cpu().numpy()
+    ovp_idx = np.intersect1d(out_2.columns, attn_m.columns)
+    out_2.loc[:, ovp_idx] += attn_m.loc[:, ovp_idx]
+    torch.cuda.empty_cache()
+    i += 1
 
+out_2.index = atac_cd16_mono.var.index.values
+out_2.columns = tfs_lst
+out_2.to_csv('./tf_chipseq/mono/attn_cd16_mono_100_peak_gene.txt', sep='\t')
+
+ct_lst = ['cd14_mono', 'cd16_mono']
+mat = pd.DataFrame(np.zeros([tfs_lst.shape[0], len(ct_lst)]))
+mat.index = tfs_lst
+mat.columns = ct_lst
+
+for ct in ct_lst:
+    gene_attn = pd.read_table('./tf_chipseq/mono/attn_'+ct+'_100_peak_gene.txt', index_col=0)
+    
+    for tf in tqdm(tfs_lst, desc='cd4 '+ct+' cal ratio', ncols=80):
+        if tf in gene_attn.columns:
+            gene_attn_tf = pd.DataFrame(gene_attn[tf])
+            gene_attn_tf.columns = ['attn']
+            
+            tf_peaks = pd.read_table('./tf_chipseq/mono/'+tf+'_ccre_peaks.bed', header=None)
+            tf_peaks.index = tf_peaks[0]+':'+tf_peaks[1].apply(str)+'-'+tf_peaks[2].apply(str)
+            tf_peaks.columns = ['chrom', 'start', 'end', 'peak_or_not']
+
+            df = gene_attn_tf.copy()
+            df['peak_or_not'] = tf_peaks.loc[gene_attn_tf.index, 'peak_or_not']
+            df['peak_or_not'] = df['peak_or_not'].apply(str)
+            
+            df_random = df.copy()
+            df_random['attn'] = df_random['attn'].sample(frac=1, random_state=0).values
+
+            df.to_csv('./tf_chipseq/mono/'+ct+'_'+tf+'_attn_peak_or_not.txt', sep='\t')
+            
+            true_ratio = round(df[df['attn']>=df['attn'].quantile(1-10000/df['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)  # select top 10,000
+            rand_ratio = round(df_random[df_random['attn']>=df_random['attn'].quantile(1-10000/df_random['attn'].shape[0])]['peak_or_not'].value_counts(normalize=True).iloc[1], 4)
+            
+            mat.loc[tf, ct] = np.round(true_ratio/rand_ratio, 4)
+
+mat.to_csv('./tf_chipseq/mono/mono_tf_10000_ratio.txt', sep='\t')
+
+## plot heatmap & boxplot
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from plotnine import *
+import seaborn as sns
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## heatmap
+df = pd.read_table('mono_tf_10000_ratio.txt', index_col=0)
+df = df.loc[:, ['cd14_mono', 'cd16_mono']]
+df['avg'] = df.mean(axis=1)
+df = df[df['avg']!=0]
+df.sort_values('avg', ascending=False, inplace=True)
+
+plt.figure(figsize=(6, 10))
+sns.heatmap(df.iloc[:, :-1], cmap='bwr', vmin=0, vmax=2, center=1, xticklabels=True, yticklabels=True)  # cbar=False, vmin=0, vmax=10, linewidths=0.1, linecolor='grey'
+plt.savefig('mono_df_10000_ratio_heatmap.pdf')
+plt.close()
+
+## boxplot
+## cd14 mono crebbp
+df = pd.read_csv('cd14_mono_CREBBP_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.40, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.40, 1.00+0.1, 0.1)) + theme_bw()
+p.save(filename='cd14_mono_CREBBP_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.7773218365384222
+df[df['peak_or_not']=='1']['attn'].median()   # 0.8090586778876951
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=9.070138314521261e-184
+
+## cd16 mono crebbp
+df = pd.read_csv('cd16_mono_CREBBP_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.40, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.40, 1.00+0.1, 0.1)) + theme_bw()
+p.save(filename='cd16_mono_CREBBP_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.7559777028731193
+df[df['peak_or_not']=='1']['attn'].median()   # 0.7957283159944656
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=7.401156926759293e-258
+
+## cd14 mono cebpb (not enriched)
+df = pd.read_csv('cd14_mono_CEBPB_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.40, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.40, 1.00+0.1, 0.1)) + theme_bw()
+p.save(filename='cd14_mono_CEBPB_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6619999337663763
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6629187984587724
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=9.070138314521261e-184
+
+## cd16 mono cebpb (not enriched)
+df = pd.read_csv('cd16_mono_CEBPB_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.40, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.40, 1.00+0.1, 0.1)) + theme_bw()
+p.save(filename='cd16_mono_CEBPB_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6367948047706885
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6280392946265236
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=2.1785679367889394e-16
 
