@@ -242,6 +242,9 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.1271388349028105
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.3990297335773566
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.119766991298275
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.06356941745140525
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.1995148667886783
 
 ################ CD8 Naive ################
 random.seed(827)
@@ -331,6 +334,10 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.044194324992587616
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.23630539262304362
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.06362711104626011
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.022097162496293808
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.11815269631152181
+
 ################ CD4 TCM ################
 random.seed(827)
 cd4_tcm_idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 TCM').flatten())
@@ -419,7 +426,9 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.051429821750443194
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.14362160547127634
 
-
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.0780086737615701
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.025714910875221597
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.07181080273563817
 
 ################ CD4 Naive ################
 random.seed(827)
@@ -509,6 +518,10 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.058211211936213605
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.27588136254382695
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.07389029631141808
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.029105605968106803
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.13794068127191347
+
 ################ CD4 Intermediate ################
 random.seed(827)
 cd4_inter_idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 intermediate').flatten())
@@ -596,6 +609,10 @@ df[df['gene_idx']=='Others']['attn'].median()      # 0.5932509238313652
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'])      # pvalue=0.1395801947674662
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.04684837217466316
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.15416150338435375
+
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.0697900973837331
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.02342418608733158
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.07708075169217687
 
 ################ CD8 TEM ################
 random.seed(827)
@@ -685,6 +702,10 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.10478131921037626
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.025339326545570997
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.17428980411762274
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.05239065960518813
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.012669663272785498
+
 ################ CD4 TEM ################
 random.seed(827)
 cd4_tem_idx = list(np.argwhere(rna.obs['cell_anno']=='CD4 TEM').flatten())
@@ -772,6 +793,10 @@ df[df['gene_idx']=='Others']['attn'].median()      # 0.5489987669938118
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'])      # pvalue=0.17387120706218734
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.040502892901245674
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.04864860945738346
+
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.08693560353109367
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.020251446450622837
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.02432430472869173
 
 ################ B memory ################
 random.seed(827)
@@ -861,6 +886,10 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.07829921220679327
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.13760342082995577
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.10324586279588933
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.039149606103396635
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.06880171041497789
+
 ################ NK ################
 random.seed(827)
 nk_idx = list(np.argwhere(rna.obs['cell_anno']=='NK').flatten())
@@ -948,6 +977,10 @@ df[df['gene_idx']=='Others']['attn'].median()      # 0.5580211336995884
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'])      # pvalue=0.2182299997505756
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.10835547351173073
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.33427124214615944
+
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.1091149998752878
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.05417773675586537
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.16713562107307972
 
 ################ CD16 Mono ################
 random.seed(827)
@@ -1037,6 +1070,10 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.1215945143690751
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.502982714879039
 
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.10345926889409805
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.06079725718453755
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.2514913574395195
+
 ################ B naive ################
 random.seed(827)
 b_naive_idx = list(np.argwhere(rna.obs['cell_anno']=='B naive').flatten())
@@ -1125,7 +1162,9 @@ stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn
 stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.04040017738345766
 stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'])  # pvalue=0.19584252449117587
 
-
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='TF']['attn'], alternative='greater')      # pvalue=0.06577145742440572
+stats.ttest_ind(df[df['gene_idx']=='CR']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.02020008869172883
+stats.ttest_ind(df[df['gene_idx']=='TF']['attn'], df[df['gene_idx']=='Others']['attn'], alternative='greater')  # pvalue=0.09792126224558793
 
 
 # ################ CD4 Intermediate ################
