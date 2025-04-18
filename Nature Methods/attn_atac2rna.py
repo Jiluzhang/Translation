@@ -43,6 +43,56 @@ pd.DataFrame({'chrom':'chr16', 'start': df.index.values, 'end': df.index.values+
 # tar -czvf atac_attn_cd19_bedgraph.tar *.bedgraph
 
 
+## marker gene heatmap
+import pandas as pd
+import matplotlib.pyplot as plt
+from plotnine import *
+import seaborn as sns
+
+plt.rcParams['pdf.fonttype'] = 42
+
+df = pd.read_table('marker_gene_pair_attention_raw_data.tsv', sep='\t', index_col=0).drop_duplicates()
+df.index = df.index.map(lambda x:x.split(' & ')[1])
+df.columns = ['tumor_b', 't_cell', 'normal_b', 'mono']
+df = df.loc[:, ['t_cell', 'mono', 'normal_b', 'tumor_b']]
+
+t_cell_marker_lst = ['PRKCH', 'FYN', 'BCL11B', 'INPP4B', 'CELF2', 'CD247', 'MBNL1', 'CBLB']  # THEMIS  LINC01934
+monocyte_marker_lst = ['SLC8A1', 'RBM47', 'LRMDA', 'TYMP', 'DMXL2', 'DPYD', 'TNS3', 'MCTP1', 'PLXDC2', 'FMNL2']
+normal_b_marker_lst = ['BANK1', 'RALGPS2', 'CCSER1', 'MEF2C', 'FCRL1', 'FCHSD2', 'MS4A1', 'AFF3', 'CDK14', 'RIPOR2']
+tumor_b_marker_lst = ['TCF4', 'PAX5', 'ARHGAP24', 'AFF3', 'FCRL5', 'GPM6A', 'LINC01320', 'NIBAN3', 'FOXP1', 'RUBCNL']
+
+df_t_cell = df.loc[t_cell_marker_lst]
+df_t_cell = df_t_cell[df_t_cell.sum(axis=1)!=0]
+df_t_cell = df_t_cell[df_t_cell.idxmax(axis=1)=='t_cell']  # 5
+
+df_mono = df.loc[monocyte_marker_lst]
+df_mono = df_mono[df_mono.sum(axis=1)!=0]
+df_mono = df_mono[df_mono.idxmax(axis=1)=='mono']   # 10
+
+df_normal_b = df.loc[normal_b_marker_lst]
+df_normal_b = df_normal_b[df_normal_b.sum(axis=1)!=0]
+df_normal_b = df_normal_b[df_normal_b.idxmax(axis=1)=='normal_b']  # 4
+
+df_tumor_b = df.loc[tumor_b_marker_lst]
+df_tumor_b = df_tumor_b[df_tumor_b.sum(axis=1)!=0]
+df_tumor_b = df_tumor_b[df_tumor_b.idxmax(axis=1)=='tumor_b']  # 9
+
+df = pd.concat([df_t_cell, df_mono, df_normal_b, df_tumor_b])  # 28
+df = df[df.index!='ARHGAP24']
+
+
+plt.figure(figsize=(6, 8))
+#sns.clustermap(df, cmap='bwr', vmin=0, vmax=4, center=1, xticklabels=True, yticklabels=True, annot=True, fmt='.2g')
+
+sns.clustermap(df, cmap='bwr', row_cluster=False, col_cluster=False, z_score=0, vmin=-1.5, vmax=1.5)   # vmin=0, vmax=0.01, yticklabels=False, figsize=[40, 5])
+
+plt.savefig('marker_gene_pair_attention.pdf')
+plt.close()
+
+
+
+
+
 import pickle
 
 with open('Relation-of-Enhancer-Number-and-GEX-of-Monocyte-in-Tumor_B-dataset.pdf_raw_data.pkl', 'rb') as file:
