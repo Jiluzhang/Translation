@@ -94,6 +94,78 @@ plt.close()
 
 
 import pickle
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from plotnine import *
 
+plt.rcParams['pdf.fonttype'] = 42
+
+def set_bin(x):
+    if x>10:
+        return '11'
+    else:
+        return str(x)
+
+# ct_lst = ['T-cell', 'Monocyte', 'Normal-B-cell', 'Tumor-B-cell']
+
+## t cell
+with open('Relation-of-Enhancer-Number-and-GEX-of-T-cell-in-Tumor_B-dataset.pdf_raw_data.pkl', 'rb') as file:
+    df_t_cell = pickle.load(file)[9]
+df_t_cell['num_enhancer'] = df_t_cell['num_enhancer'].apply(set_bin)
+df_t_cell['num_enhancer'] = pd.Categorical(df_t_cell['num_enhancer'], categories=[str(i) for i in range(12)])
+
+p = ggplot(df_t_cell, aes(x='num_enhancer', y='exp', fill='num_enhancer')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                             coord_cartesian(ylim=(0, 0.5)) +\
+                                                                             scale_y_continuous(breaks=np.arange(0, 0.5+0.1, 0.1)) + theme_bw()
+p.save(filename='gex_enhancer_num_t_cell.pdf', dpi=600, height=4, width=4)
+
+## monocyte
 with open('Relation-of-Enhancer-Number-and-GEX-of-Monocyte-in-Tumor_B-dataset.pdf_raw_data.pkl', 'rb') as file:
-    dat = pickle.load(file)
+    df_mono = pickle.load(file)[9]
+df_mono['num_enhancer'] = df_mono['num_enhancer'].apply(set_bin)
+df_mono['num_enhancer'] = pd.Categorical(df_mono['num_enhancer'], categories=[str(i) for i in range(12)])
+
+p = ggplot(df_mono, aes(x='num_enhancer', y='exp', fill='num_enhancer')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                           coord_cartesian(ylim=(0, 1.0)) +\
+                                                                           scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.2)) + theme_bw()
+p.save(filename='gex_enhancer_num_mono.pdf', dpi=600, height=4, width=4)
+
+## normal b
+with open('Relation-of-Enhancer-Number-and-GEX-of-Normal-B-cell-in-Tumor_B-dataset.pdf_raw_data.pkl', 'rb') as file:
+    df_normal_b = pickle.load(file)[9]
+df_normal_b['num_enhancer'] = df_normal_b['num_enhancer'].apply(set_bin)
+df_normal_b['num_enhancer'] = pd.Categorical(df_normal_b['num_enhancer'], categories=[str(i) for i in range(12)])
+
+p = ggplot(df_normal_b, aes(x='num_enhancer', y='exp', fill='num_enhancer')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                               coord_cartesian(ylim=(0, 0.8)) +\
+                                                                               scale_y_continuous(breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='gex_enhancer_num_normal_b.pdf', dpi=600, height=4, width=4)
+
+## tumor b
+with open('Relation-of-Enhancer-Number-and-GEX-of-Tumor-B-cell-in-Tumor_B-dataset.pdf_raw_data.pkl', 'rb') as file:
+    df_tumor_b = pickle.load(file)[9]
+df_tumor_b['num_enhancer'] = df_tumor_b['num_enhancer'].apply(set_bin)
+df_tumor_b['num_enhancer'] = pd.Categorical(df_tumor_b['num_enhancer'], categories=[str(i) for i in range(12)])
+
+p = ggplot(df_tumor_b, aes(x='num_enhancer', y='exp', fill='num_enhancer')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                              coord_cartesian(ylim=(0, 1.4)) +\
+                                                                              scale_y_continuous(breaks=np.arange(0, 1.4+0.1, 0.2)) + theme_bw()
+p.save(filename='gex_enhancer_num_tumor_b.pdf', dpi=600, height=4, width=4)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
