@@ -146,6 +146,33 @@ accelerate launch --config_file accelerator_config_test.yaml --main_process_port
 accelerate launch --config_file accelerator_config_test.yaml --main_process_port 29822 rna2atac_predict.py \
                   -d ./preprocessed_data_unpaired -l save_6_6/2025-03-13_rna2atac_aging_30/pytorch_model.bin --config_file rna2atac_config_test_6_6.yaml  #  min
 
+######## BABEL
+cp ../rna.h5ad rna_train_val.h5ad
+cp ../atac.h5ad atac_train_val.h5ad
+python h5ad2h5.py -n train_val   # train + val -> train_val
+
+# /fs/home/jiluzhang/BABEL/babel/sc_data_loaders.py
+# HG38_GTF -> MM10_GTF (line 174)
+nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 10 --device 7 --nofilter > train_20250420.log &  # 2132323
+
+python h5ad2h5.py -n test
+python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 0 --nofilter --noplot --transonly
+python match_cell.py
+python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
+# Cell-wise AUROC: 0.6384
+# Cell-wise AUPRC: 0.0272
+# Peak-wise AUROC: 0.4341
+# Peak-wise AUPRC: 0.0169
+python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
+python cal_cluster.py --file atac_babel_umap.h5ad
+# AMI: 0.2087
+# ARI: 0.1082
+# HOM: 0.2362
+# NMI: 0.2138
+
+
+
+
 ## plot umap for atac
 import scanpy as sc
 import numpy as np
