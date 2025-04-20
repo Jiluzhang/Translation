@@ -155,25 +155,25 @@ python h5ad2h5.py -n train_val   # train + val -> train_val
 # HG38_GTF -> MM10_GTF (line 174)
 nohup python /fs/home/jiluzhang/BABEL/bin/train_model.py --data train_val.h5 --outdir train_out --batchsize 512 --earlystop 10 --device 7 --nofilter > train_20250420.log &  # 2132323
 
+cp ../rna_unpaired.h5ad rna_test.h5ad
+cp ../atac_unpaired.h5ad atac_test.h5ad
+
+# ## reset obs index
+# import scanpy as sc
+
+# rna = sc.read_h5ad('rna_test.h5ad')
+# rna.obs.index = rna.obs.index.values
+# rna.write('rna_test.h5ad')
+
+# atac = sc.read_h5ad('atac_test.h5ad')
+# atac.obs.index = atac.obs.index.values
+# atac.write('atac_test.h5ad')
+
 python h5ad2h5.py -n test
-python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 0 --nofilter --noplot --transonly
+nohup python /fs/home/jiluzhang/BABEL/bin/predict_model.py --checkpoint ./train_out --data test.h5 --outdir test_out --device 7 --nofilter --noplot --transonly > predict_20240420.log &  # 2224825
 python match_cell.py
-python cal_auroc_auprc.py --pred atac_babel.h5ad --true atac_test.h5ad
-# Cell-wise AUROC: 0.6384
-# Cell-wise AUPRC: 0.0272
-# Peak-wise AUROC: 0.4341
-# Peak-wise AUPRC: 0.0169
-python plot_save_umap.py --pred atac_babel.h5ad --true atac_test.h5ad
-python cal_cluster.py --file atac_babel_umap.h5ad
-# AMI: 0.2087
-# ARI: 0.1082
-# HOM: 0.2362
-# NMI: 0.2138
 
-
-
-
-## plot umap for atac
+## plot umap for atac & calculate metrics
 import scanpy as sc
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -181,6 +181,157 @@ import snapatac2 as snap
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
+
+plt.rcParams['pdf.fonttype'] = 42
+
+atac = sc.read_h5ad('atac_babel.h5ad')
+m = atac.X.toarray()
+m = ((m.T>m.T.mean(axis=0)).T) & (m>m.mean(axis=0)).astype(int)
+atac.X = csr_matrix(m)
+
+true = sc.read_h5ad('atac_test.h5ad')
+atac.obs['cell_type'] = true.obs['cell_type']
+
+atac = atac[atac.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                        'B cell',
+                                        'epithelial cell of proximal tubule',
+                                        'kidney loop of Henle thick ascending limb epithelial cell',
+                                        'macrophage', 
+                                        'T cell',
+                                        'fenestrated cell',
+                                        'kidney collecting duct principal cell',
+                                        'kidney distal convoluted tubule epithelial cell'])].copy()  
+# 17517 × 63910 (delete too common cell annotation & too small cell number)
+
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
+snap.tl.umap(atac)
+
+atac.write('atac_babel_binary.h5ad')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_babel_atac.pdf')
+
+AMI_lst = []
+ARI_lst = []
+HOM_lst = []
+NMI_lst = []
+
+for _ in range(10):
+    snap.pp.knn(atac)
+    snap.tl.leiden(atac)
+    AMI_lst.append(adjusted_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+    ARI_lst.append(adjusted_rand_score(atac.obs['cell_type'], atac.obs['leiden']))
+    HOM_lst.append(homogeneity_score(atac.obs['cell_type'], atac.obs['leiden']))
+    NMI_lst.append(normalized_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+
+np.mean(AMI_lst)  # 0.534028949324214
+np.mean(ARI_lst)  # 0.24628838812540313
+np.mean(HOM_lst)  # 0.6442652309203132
+np.mean(NMI_lst)  # 0.5347980413779834
+
+
+#### scbutterfly
+## nohup python scbt_b.py > scbt_b_20250420.log &  # 2235081
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+import random
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+RNA_data = sc.read_h5ad('rna.h5ad')
+ATAC_data = sc.read_h5ad('atac.h5ad')
+
+random.seed(0)
+idx = list(range(RNA_data.n_obs))
+random.shuffle(idx)
+train_id = idx[:int(len(idx)*0.9)]
+validation_id = idx[int(len(idx)*0.9):]
+test_id = validation_id
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
+
+## nohup python scbt_b_predict.py > predict_20250420.log &  # 
+import os
+from scButterfly.butterfly import Butterfly
+from scButterfly.split_datasets import *
+import scanpy as sc
+import anndata as ad
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+RNA_data = sc.read_h5ad('rna_test.h5ad')
+ATAC_data = sc.read_h5ad('atac_test.h5ad')
+
+train_id = list(range(RNA_data.n_obs))[:10]       # pseudo
+validation_id = list(range(RNA_data.n_obs))[:10]  # pseudo
+test_id = list(range(RNA_data.n_obs))             # true
+
+butterfly = Butterfly()
+butterfly.load_data(RNA_data, ATAC_data, train_id, test_id, validation_id)
+butterfly.data_preprocessing(normalize_total=False, log1p=False, use_hvg=False, n_top_genes=None, binary_data=False, 
+                             filter_features=False, fpeaks=None, tfidf=False, normalize=False) 
+
+butterfly.ATAC_data_p.var['chrom'] = butterfly.ATAC_data_p.var['gene_ids'].map(lambda x: x.split(':')[0])
+chrom_list = []
+last_one = ''
+for i in range(len(butterfly.ATAC_data_p.var.chrom)):
+    temp = butterfly.ATAC_data_p.var.chrom[i]
+    if temp[0 : 3] == 'chr':
+        if not temp == last_one:
+            chrom_list.append(1)
+            last_one = temp
+        else:
+            chrom_list[-1] += 1
+    else:
+        chrom_list[-1] += 1
+
+butterfly.augmentation(aug_type=None)
+butterfly.construct_model(chrom_list=chrom_list)
+# butterfly.train_model(batch_size=16)
+A2R_predict, R2A_predict = butterfly.test_model(load_model=True, model_path='/fs/home/jiluzhang/Nature_methods/Figure_3/aging_kidney_2/scbt',
+                                                test_cluster=False, test_figure=False, output_data=True)
+
+cp predict/R2A.h5ad atac_scbt.h5ad
+
+
+
+
+## plot umap for atac (cisformer)
+import scanpy as sc
+import numpy as np
+from scipy.sparse import csr_matrix
+import snapatac2 as snap
+import pandas as pd
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -238,6 +389,24 @@ sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margi
 
 # sc.pl.umap(atac, color='cell_type', groups=['fenestrated cell', 'kidney cortex artery cell', 'kidney capillary endothelial cell'],
 #            legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_predict_atac_4.pdf')
+
+AMI_lst = []
+ARI_lst = []
+HOM_lst = []
+NMI_lst = []
+
+for _ in range(10):
+    snap.pp.knn(atac)
+    snap.tl.leiden(atac)
+    AMI_lst.append(adjusted_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+    ARI_lst.append(adjusted_rand_score(atac.obs['cell_type'], atac.obs['leiden']))
+    HOM_lst.append(homogeneity_score(atac.obs['cell_type'], atac.obs['leiden']))
+    NMI_lst.append(normalized_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+
+np.mean(AMI_lst)  # 0.5779084612099189
+np.mean(ARI_lst)  # 0.319774710637939
+np.mean(HOM_lst)  # 0.6427797387283993
+np.mean(NMI_lst)  # 0.5784536829286011
 
 
 ## cell annotation umap for rna
