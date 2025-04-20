@@ -277,7 +277,8 @@ butterfly.construct_model(chrom_list=chrom_list)
 butterfly.train_model(batch_size=16)
 A2R_predict, R2A_predict = butterfly.test_model(test_cluster=False, test_figure=False, output_data=True)
 
-## nohup python scbt_b_predict.py > predict_20250420.log &  # 
+# rm -r predict  # ensure output unpaired prediction
+# nohup python scbt_b_predict.py > predict_20250420.log &  # 2539530
 import os
 from scButterfly.butterfly import Butterfly
 from scButterfly.split_datasets import *
@@ -320,6 +321,63 @@ A2R_predict, R2A_predict = butterfly.test_model(load_model=True, model_path='/fs
 
 cp predict/R2A.h5ad atac_scbt.h5ad
 
+## plot umap for atac & calculate metrics
+import scanpy as sc
+import numpy as np
+from scipy.sparse import csr_matrix
+import snapatac2 as snap
+import pandas as pd
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, normalized_mutual_info_score, homogeneity_score
+
+plt.rcParams['pdf.fonttype'] = 42
+
+atac = sc.read_h5ad('atac_scbt.h5ad')
+m = atac.X.toarray()
+m = ((m.T>m.T.mean(axis=0)).T) & (m>m.mean(axis=0)).astype(int)
+atac.X = csr_matrix(m)
+
+true = sc.read_h5ad('atac_test.h5ad')
+atac.obs['cell_type'] = true.obs['cell_type']
+
+atac = atac[atac.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                        'B cell',
+                                        'epithelial cell of proximal tubule',
+                                        'kidney loop of Henle thick ascending limb epithelial cell',
+                                        'macrophage', 
+                                        'T cell',
+                                        'fenestrated cell',
+                                        'kidney collecting duct principal cell',
+                                        'kidney distal convoluted tubule epithelial cell'])].copy()  
+# 17517 × 63910 (delete too common cell annotation & too small cell number)
+
+snap.pp.select_features(atac)
+snap.tl.spectral(atac)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
+snap.tl.umap(atac)
+
+atac.write('atac_scbt_binary.h5ad')
+
+sc.pl.umap(atac, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5,
+           title='', frameon=True, save='_scbt_atac.pdf')
+
+AMI_lst = []
+ARI_lst = []
+HOM_lst = []
+NMI_lst = []
+
+for _ in range(10):
+    snap.pp.knn(atac)
+    snap.tl.leiden(atac)
+    AMI_lst.append(adjusted_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+    ARI_lst.append(adjusted_rand_score(atac.obs['cell_type'], atac.obs['leiden']))
+    HOM_lst.append(homogeneity_score(atac.obs['cell_type'], atac.obs['leiden']))
+    NMI_lst.append(normalized_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
+
+np.mean(AMI_lst)  # 0.534028949324214
+np.mean(ARI_lst)  # 0.24628838812540313
+np.mean(HOM_lst)  # 0.6442652309203132
+np.mean(NMI_lst)  # 0.5347980413779834
 
 
 
