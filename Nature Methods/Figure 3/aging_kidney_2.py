@@ -338,6 +338,12 @@ m = atac.X.toarray()
 m = ((m.T>m.T.mean(axis=0)).T) & (m>m.mean(axis=0)).astype(int)
 atac.X = csr_matrix(m)
 
+# atac = sc.read_h5ad('atac_scbt.h5ad')
+# m = atac.X.toarray()
+# m[m>0.5] = 1
+# m[m<=0.5] = 0
+# atac.X = csr_matrix(m)
+
 true = sc.read_h5ad('atac_test.h5ad')
 atac.obs['cell_type'] = true.obs['cell_type']
 
@@ -350,9 +356,9 @@ atac = atac[atac.obs['cell_type'].isin(['kidney proximal convoluted tubule epith
                                         'fenestrated cell',
                                         'kidney collecting duct principal cell',
                                         'kidney distal convoluted tubule epithelial cell'])].copy()  
-# 17517 × 63910 (delete too common cell annotation & too small cell number)
+# 17517 × 65352 (delete too common cell annotation & too small cell number)
 
-snap.pp.select_features(atac)
+snap.pp.select_features(atac)  # n_features=20000
 snap.tl.spectral(atac)  # snap.tl.spectral(atac, n_comps=100, weighted_by_sd=False)
 snap.tl.umap(atac)
 
@@ -374,10 +380,10 @@ for _ in range(10):
     HOM_lst.append(homogeneity_score(atac.obs['cell_type'], atac.obs['leiden']))
     NMI_lst.append(normalized_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
 
-np.mean(AMI_lst)  # 0.534028949324214
-np.mean(ARI_lst)  # 0.24628838812540313
-np.mean(HOM_lst)  # 0.6442652309203132
-np.mean(NMI_lst)  # 0.5347980413779834
+np.mean(AMI_lst)  # 0.6232300501249661
+np.mean(ARI_lst)  # 0.3134447495431582
+np.mean(HOM_lst)  # 0.7585169797275532
+np.mean(NMI_lst)  # 0.6239047230244502
 
 
 
@@ -461,10 +467,32 @@ for _ in range(10):
     HOM_lst.append(homogeneity_score(atac.obs['cell_type'], atac.obs['leiden']))
     NMI_lst.append(normalized_mutual_info_score(atac.obs['cell_type'], atac.obs['leiden']))
 
-np.mean(AMI_lst)  # 0.5779084612099189
-np.mean(ARI_lst)  # 0.319774710637939
-np.mean(HOM_lst)  # 0.6427797387283993
-np.mean(NMI_lst)  # 0.5784536829286011
+np.mean(AMI_lst)  # 0.6446262671191171
+np.mean(ARI_lst)  # 0.39339774822746815
+np.mean(HOM_lst)  # 0.7028368728814347
+np.mean(NMI_lst)  # 0.6450953102689998
+
+
+## AMI & NMI & ARI & HOM
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+dat = pd.DataFrame({'val': [0.5340, 0.2463, 0.6443, 0.5348,
+                            0.6232, 0.3134, 0.7585, 0.6239,
+                            0.6446, 0.3934, 0.7028, 0.6451]})
+dat['Method'] = ['BABEL']*4 + ['scButterfly']*4 + ['Cisformer']*4
+dat['Metrics'] = ['AMI', 'ARI', 'HOM', 'NMI']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['AMI', 'NMI', 'ARI', 'HOM'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='ami_nmi_ari_hom.pdf', dpi=600, height=4, width=6)
+
 
 
 ## cell annotation umap for rna
@@ -500,6 +528,16 @@ sc.tl.umap(rna)
 rna.uns['cell_type_colors'] = atac.uns['cell_type_colors']  # keep consistent color bw rna & atac
 sc.pl.umap(rna, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_ncomps_6.pdf')
 rna.write('rna_unpaired_cell_anno.h5ad')
+
+rna = sc.read_h5ad('rna_unpaired_cell_anno.h5ad')
+sc.tl.pca(rna, n_comps=20)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+#rna.uns['cell_type_colors'] = atac.uns['cell_type_colors']  # keep consistent color bw rna & atac
+sc.pl.umap(rna, color='cell_type', legend_fontsize='7', legend_loc='right margin', size=5, title='', frameon=True, save='_rna_ncomps_50.pdf')
+
+
+
 
 # sc.pl.umap(rna, color='cell_type', groups=['kidney loop of Henle ascending limb epithelial cell',
 #                                             'kidney distal convoluted tubule epithelial cell',
