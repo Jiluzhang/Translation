@@ -354,43 +354,231 @@ myh11 = motifs_enrich['myh11'].to_pandas()
 df = pd.DataFrame({'tf':saa1['name'],
                    'saa1_log2fc':saa1['log2(fold change)'], 'saa1_qval':saa1['adjusted p-value'],
                    'cthrc1_log2fc':cthrc1['log2(fold change)'], 'cthrc1_qval':cthrc1['adjusted p-value'],
-                   'colla1_log2fc':colla1['log2(fold change)'], 'colla1_qval':colla1['adjusted p-value'],
+                   'col11a1_log2fc':col11a1['log2(fold change)'], 'col11a1_qval':col11a1['adjusted p-value'],
                    'ccl5_log2fc':ccl5['log2(fold change)'], 'ccl5_qval':ccl5['adjusted p-value'],
                    'myh11_log2fc':myh11['log2(fold change)'], 'myh11_qval':myh11['adjusted p-value'],})
 
-saa1_spe = df[(df['saa1_log2fc']>np.log2(1.2)) & (df['saa1_qval']<0.05)]
-saa1_spe = saa1_spe.sort_values('saa1_log2fc', ascending=False)
+saa1_spe = df[(df['saa1_log2fc']>np.log2(1.1))         & 
+              (df['saa1_qval']<0.05)                   &
+              (df['saa1_log2fc']>df['cthrc1_log2fc'])  &
+              (df['saa1_log2fc']>df['col11a1_log2fc']) &
+              (df['saa1_log2fc']>df['ccl5_log2fc'])    &
+              (df['saa1_log2fc']>df['myh11_log2fc'])]
+saa1_spe = saa1_spe.sort_values('saa1_log2fc', ascending=False)  # 30
 
-cthrc1_spe = df[(df['cthrc1_log2fc']>np.log2(1.2)) & (df['cthrc1_qval']<0.05)]
-cthrc1_spe = cthrc1_spe.sort_values('cthrc1_log2fc', ascending=False)
+cthrc1_spe = df[(df['cthrc1_log2fc']>np.log2(1.1))         & 
+              (df['cthrc1_qval']<0.05)                   &
+              (df['cthrc1_log2fc']>df['saa1_log2fc'])  &
+              (df['cthrc1_log2fc']>df['col11a1_log2fc']) &
+              (df['cthrc1_log2fc']>df['ccl5_log2fc'])    &
+              (df['cthrc1_log2fc']>df['myh11_log2fc'])]
+cthrc1_spe = cthrc1_spe.sort_values('cthrc1_log2fc', ascending=False)  # 10
 
-col11a1_spe = df[(df['col11a1_log2fc']>np.log2(1.2)) & (df['col11a1_qval']<0.05)]
-col11a1_spe = col11a1_spe.sort_values('col11a1_log2fc', ascending=False)
+col11a1_spe = df[(df['col11a1_log2fc']>np.log2(1.5))         & 
+              (df['col11a1_qval']<0.05)                   &
+              (df['col11a1_log2fc']>df['cthrc1_log2fc'])  &
+              (df['col11a1_log2fc']>df['saa1_log2fc']) &
+              (df['col11a1_log2fc']>df['ccl5_log2fc'])    &
+              (df['col11a1_log2fc']>df['myh11_log2fc'])]
+col11a1_spe = col11a1_spe.sort_values('col11a1_log2fc', ascending=False)  # 42
 
-ccl5_spe = df[(df['ccl5_log2fc']>np.log2(1.2)) & (df['ccl5_qval']<0.05)]
-ccl5_spe = ccl5_spe.sort_values('ccl5_log2fc', ascending=False)
+ccl5_spe = df[(df['ccl5_log2fc']>np.log2(1.2))         & 
+              (df['ccl5_qval']<0.05)                   &
+              (df['ccl5_log2fc']>df['cthrc1_log2fc'])  &
+              (df['ccl5_log2fc']>df['col11a1_log2fc']) &
+              (df['ccl5_log2fc']>df['saa1_log2fc'])    &
+              (df['ccl5_log2fc']>df['myh11_log2fc'])]
+ccl5_spe = ccl5_spe.sort_values('ccl5_log2fc', ascending=False)  # 43
 
-myh11_spe = df[(df['myh11_log2fc']>np.log2(1.2)) & (df['myh11_qval']<0.05)]
-myh11_spe = myh11_spe.sort_values('myh11_log2fc', ascending=False)
+myh11_spe = df[(df['myh11_log2fc']>np.log2(1.4))         & 
+              (df['myh11_qval']<0.05)                   &
+              (df['myh11_log2fc']>df['cthrc1_log2fc'])  &
+              (df['myh11_log2fc']>df['col11a1_log2fc']) &
+              (df['myh11_log2fc']>df['ccl5_log2fc'])    &
+              (df['myh11_log2fc']>df['saa1_log2fc'])]
+myh11_spe = myh11_spe.sort_values('myh11_log2fc', ascending=False)  # 19
 
-saa1_spe['tf'].values
 cthrc1_spe['tf'].values
-col11a1_spe['tf'].values
-ccl5_spe['tf'].values
-myh11_spe['tf'].values
+# 'HOXA11', 'HOXD10', 'HOXC11', 'HOXA10', 'HOXD11', 'LHX6', 'LHX8', 'MSC', 'TCF7L2', 'ZNF547'
+# [TCF7L2]
+
+df_spe = pd.concat([saa1_spe, cthrc1_spe, col11a1_spe, ccl5_spe, myh11_spe])
+df_spe.to_csv('fibro_motifs_enrich_luz.txt', sep='\t', index=False)
+
+## macro
+macro = pd.read_table('macro_specific_enhancers_attention_raw_data.tsv', header=None)
+macro.index = macro[0].values
+macro = macro.iloc[:, 1:]
+macro_ref = pd.read_table('macro_specific_enhancers_accessibility_raw_data.tsv', index_col=0)
+macro.columns = macro_ref.columns
+
+sns.heatmap(macro, cmap='coolwarm', vmin=-1, vmax=1, xticklabels=False)
+plt.savefig('macro_specific_enhancers.png')
+plt.close()
+
+fcn1_peaks = macro.columns[macro.loc['Mono_FCN1']==1].values            # 11154
+thbs1_peaks = macro.columns[macro.loc['Macro_THBS1']==1].values         # 14879
+il32_peaks = macro.columns[macro.loc['Macro_IL32']==1].values           # 13056
+c1qc_peaks = macro.columns[macro.loc['Macro_C1QC']==1].values           # 4613
+spp1_peaks = macro.columns[macro.loc['Macro_SPP1']==1].values           # 8695
+cdc20_peaks = macro.columns[macro.loc['Macro_CDC20']==1].values         # 52746
+slpi_peaks = macro.columns[macro.loc['Macro_SLPI']==1].values           # 38076
+apoc1_peaks = macro.columns[macro.loc['Macro_APOC1']==1].values         # 6089
+col1a1_peaks = macro.columns[macro.loc['Macro_COL1A1']==1].values       # 54227
+
+peaks_dict = {'fcn1': fcn1_peaks, 'thbs1': thbs1_peaks, 'il32': il32_peaks,
+              'c1qc': c1qc_peaks, 'spp1': spp1_peaks, 'cdc20': cdc20_peaks,
+              'slpi': slpi_peaks, 'apoc1': apoc1_peaks, 'col1a1': col1a1_peaks}
+motifs_enrich = snap.tl.motif_enrichment(motifs=snap.datasets.cis_bp(unique=True),
+                                         regions=peaks_dict,
+                                         genome_fasta=snap.genome.hg38,
+                                         background=None,
+                                         method='hypergeometric')
+
+with open('macro_motifs_enrich_luz.pkl', 'wb') as file:
+    pickle.dump(motifs_enrich, file)
+
+# with open('macro_motifs_enrich_luz.pkl', 'rb') as file:
+#     motifs_enrich = pickle.load(file)
+
+fcn1 = motifs_enrich['fcn1'].to_pandas()
+thbs1 = motifs_enrich['thbs1'].to_pandas()
+il32 = motifs_enrich['il32'].to_pandas()
+c1qc = motifs_enrich['c1qc'].to_pandas()
+spp1 = motifs_enrich['spp1'].to_pandas()
+cdc20 = motifs_enrich['cdc20'].to_pandas()
+slpi = motifs_enrich['slpi'].to_pandas()
+apoc1 = motifs_enrich['apoc1'].to_pandas()
+col1a1 = motifs_enrich['col1a1'].to_pandas()
+
+df = pd.DataFrame({'tf':saa1['name'],
+                   'fcn1_log2fc':fcn1['log2(fold change)'], 'fcn1_qval':fcn1['adjusted p-value'],
+                   'thbs1_log2fc':thbs1['log2(fold change)'], 'thbs1_qval':thbs1['adjusted p-value'],
+                   'il32_log2fc':il32['log2(fold change)'], 'il32_qval':il32['adjusted p-value'],
+                   'c1qc_log2fc':c1qc['log2(fold change)'], 'c1qc_qval':c1qc['adjusted p-value'],
+                   'spp1_log2fc':spp1['log2(fold change)'], 'spp1_qval':spp1['adjusted p-value'],
+                   'cdc20_log2fc':cdc20['log2(fold change)'], 'cdc20_qval':cdc20['adjusted p-value'],
+                   'slpi_log2fc':slpi['log2(fold change)'], 'slpi_qval':slpi['adjusted p-value'],
+                   'apoc1_log2fc':apoc1['log2(fold change)'], 'apoc1_qval':apoc1['adjusted p-value'],
+                   'col1a1_log2fc':col1a1['log2(fold change)'], 'col1a1_qval':col1a1['adjusted p-value']})
+
+fcn1_spe = df[(df['fcn1_log2fc']>np.log2(1.15))         & 
+              (df['fcn1_qval']<0.05)                   &
+              (df['fcn1_log2fc']>df['thbs1_log2fc'])   &
+              (df['fcn1_log2fc']>df['il32_log2fc'])    &
+              (df['fcn1_log2fc']>df['c1qc_log2fc'])    &
+              (df['fcn1_log2fc']>df['spp1_log2fc'])    &
+              (df['fcn1_log2fc']>df['cdc20_log2fc'])   &
+              (df['fcn1_log2fc']>df['slpi_log2fc'])    &
+              (df['fcn1_log2fc']>df['apoc1_log2fc'])   &
+              (df['fcn1_log2fc']>df['col1a1_log2fc'])]
+fcn1_spe = fcn1_spe.sort_values('fcn1_log2fc', ascending=False)  # 65
+
+thbs1_spe = df[(df['thbs1_log2fc']>np.log2(1.15))         & 
+              (df['thbs1_qval']<0.05)                   &
+              (df['thbs1_log2fc']>df['fcn1_log2fc'])   &
+              (df['thbs1_log2fc']>df['il32_log2fc'])    &
+              (df['thbs1_log2fc']>df['c1qc_log2fc'])    &
+              (df['thbs1_log2fc']>df['spp1_log2fc'])    &
+              (df['thbs1_log2fc']>df['cdc20_log2fc'])   &
+              (df['thbs1_log2fc']>df['slpi_log2fc'])    &
+              (df['thbs1_log2fc']>df['apoc1_log2fc'])   &
+              (df['thbs1_log2fc']>df['col1a1_log2fc'])]
+thbs1_spe = thbs1_spe.sort_values('thbs1_log2fc', ascending=False)  # 55
+
+il32_spe = df[(df['il32_log2fc']>np.log2(1.15))         & 
+              (df['il32_qval']<0.05)                   &
+              (df['il32_log2fc']>df['thbs1_log2fc'])   &
+              (df['il32_log2fc']>df['fcn1_log2fc'])    &
+              (df['il32_log2fc']>df['c1qc_log2fc'])    &
+              (df['il32_log2fc']>df['spp1_log2fc'])    &
+              (df['il32_log2fc']>df['cdc20_log2fc'])   &
+              (df['il32_log2fc']>df['slpi_log2fc'])    &
+              (df['il32_log2fc']>df['apoc1_log2fc'])   &
+              (df['il32_log2fc']>df['col1a1_log2fc'])]
+il32_spe = il32_spe.sort_values('il32_log2fc', ascending=False)  # 59
+
+c1qc_spe = df[(df['c1qc_log2fc']>np.log2(1.15))         & 
+              (df['c1qc_qval']<0.05)                   &
+              (df['c1qc_log2fc']>df['thbs1_log2fc'])   &
+              (df['c1qc_log2fc']>df['il32_log2fc'])    &
+              (df['c1qc_log2fc']>df['fcn1_log2fc'])    &
+              (df['c1qc_log2fc']>df['spp1_log2fc'])    &
+              (df['c1qc_log2fc']>df['cdc20_log2fc'])   &
+              (df['c1qc_log2fc']>df['slpi_log2fc'])    &
+              (df['c1qc_log2fc']>df['apoc1_log2fc'])   &
+              (df['c1qc_log2fc']>df['col1a1_log2fc'])]
+c1qc_spe = c1qc_spe.sort_values('c1qc_log2fc', ascending=False)  # 71
+
+spp1_spe = df[(df['spp1_log2fc']>np.log2(1.15))         & 
+              (df['spp1_qval']<0.05)                   &
+              (df['spp1_log2fc']>df['thbs1_log2fc'])   &
+              (df['spp1_log2fc']>df['il32_log2fc'])    &
+              (df['spp1_log2fc']>df['c1qc_log2fc'])    &
+              (df['spp1_log2fc']>df['fcn1_log2fc'])    &
+              (df['spp1_log2fc']>df['cdc20_log2fc'])   &
+              (df['spp1_log2fc']>df['slpi_log2fc'])    &
+              (df['spp1_log2fc']>df['apoc1_log2fc'])   &
+              (df['spp1_log2fc']>df['col1a1_log2fc'])]
+spp1_spe = spp1_spe.sort_values('spp1_log2fc', ascending=False)  # 88
+
+cdc20_spe = df[(df['cdc20_log2fc']>np.log2(1.15))         & 
+              (df['cdc20_qval']<0.05)                   &
+              (df['cdc20_log2fc']>df['thbs1_log2fc'])   &
+              (df['cdc20_log2fc']>df['il32_log2fc'])    &
+              (df['cdc20_log2fc']>df['c1qc_log2fc'])    &
+              (df['cdc20_log2fc']>df['spp1_log2fc'])    &
+              (df['cdc20_log2fc']>df['fcn1_log2fc'])   &
+              (df['cdc20_log2fc']>df['slpi_log2fc'])    &
+              (df['cdc20_log2fc']>df['apoc1_log2fc'])   &
+              (df['cdc20_log2fc']>df['col1a1_log2fc'])]
+cdc20_spe = cdc20_spe.sort_values('cdc20_log2fc', ascending=False)  # 84
+
+slpi_spe = df[(df['slpi_log2fc']>np.log2(1.15))         & 
+              (df['slpi_qval']<0.05)                   &
+              (df['slpi_log2fc']>df['thbs1_log2fc'])   &
+              (df['slpi_log2fc']>df['il32_log2fc'])    &
+              (df['slpi_log2fc']>df['c1qc_log2fc'])    &
+              (df['slpi_log2fc']>df['spp1_log2fc'])    &
+              (df['slpi_log2fc']>df['cdc20_log2fc'])   &
+              (df['slpi_log2fc']>df['fcn1_log2fc'])    &
+              (df['slpi_log2fc']>df['apoc1_log2fc'])   &
+              (df['slpi_log2fc']>df['col1a1_log2fc'])]
+slpi_spe = slpi_spe.sort_values('slpi_log2fc', ascending=False)  # 18
+
+apoc1_spe = df[(df['apoc1_log2fc']>np.log2(1.15))         & 
+              (df['apoc1_qval']<0.05)                   &
+              (df['apoc1_log2fc']>df['thbs1_log2fc'])   &
+              (df['apoc1_log2fc']>df['il32_log2fc'])    &
+              (df['apoc1_log2fc']>df['c1qc_log2fc'])    &
+              (df['apoc1_log2fc']>df['spp1_log2fc'])    &
+              (df['apoc1_log2fc']>df['cdc20_log2fc'])   &
+              (df['apoc1_log2fc']>df['slpi_log2fc'])    &
+              (df['apoc1_log2fc']>df['fcn1_log2fc'])   &
+              (df['apoc1_log2fc']>df['col1a1_log2fc'])]
+apoc1_spe = apoc1_spe.sort_values('apoc1_log2fc', ascending=False)  # 89
+
+col1a1_spe = df[(df['col1a1_log2fc']>np.log2(1.15))         & 
+              (df['col1a1_qval']<0.05)                   &
+              (df['col1a1_log2fc']>df['thbs1_log2fc'])   &
+              (df['col1a1_log2fc']>df['il32_log2fc'])    &
+              (df['col1a1_log2fc']>df['c1qc_log2fc'])    &
+              (df['col1a1_log2fc']>df['spp1_log2fc'])    &
+              (df['col1a1_log2fc']>df['cdc20_log2fc'])   &
+              (df['col1a1_log2fc']>df['slpi_log2fc'])    &
+              (df['col1a1_log2fc']>df['apoc1_log2fc'])   &
+              (df['col1a1_log2fc']>df['fcn1_log2fc'])]
+col1a1_spe = col1a1_spe.sort_values('col1a1_log2fc', ascending=False)  # 56
+
+slpi_spe['tf'].values
+# 'TP73', 'ZEB1', 'ZNF284', 'ZBTB1', 'TCF4', 'KLF6', 'HES5', 'TFCP2L1', 'HES7',
+# 'TFAP2B', 'ZEB2', 'MNT', 'SNAI1', 'TP53', 'SP3', 'TFAP2A', 'MYF5', 'HSF1'
+
+df_spe = pd.concat([fcn1_spe, thbs1_spe, il32_spe, c1qc_spe, spp1_spe, cdc20_spe, slpi_spe, apoc1_spe, col1a1_spe])
+df_spe.to_csv('macro_motifs_enrich_luz.txt', sep='\t', index=False)
 
 
-
-
-
-
-
-
-df_spe = pd.concat([naive_spe, effect_spe, ex_spe])
-df_spe.to_csv('t_cell_motifs_enrich_luz.txt', sep='\t', index=False)
-
-
-## plot heatmap for enriched TFs in t cell
+## plot heatmap for enriched TFs in t cell & fibro & macro
 import pandas as pd
 import numpy as np
 from plotnine import *
@@ -399,6 +587,7 @@ import seaborn as sns
 
 plt.rcParams['pdf.fonttype'] = 42
 
+## t cell
 df_raw = pd.read_table('t_cell_motifs_enrich_luz.txt')
 df_raw.index = df_raw['tf'].values
 df = df_raw[['naive_log2fc', 'effect_log2fc', 'ex_log2fc']]
@@ -407,28 +596,20 @@ sns.clustermap(df.T, cmap='coolwarm', row_cluster=False, col_cluster=False, z_sc
 plt.savefig('t_cell_motifs_enrich_luz_heatmap.pdf')
 plt.close()
 
+## fibro
+df_raw = pd.read_table('fibro_motifs_enrich_luz.txt')
+df_raw.index = df_raw['tf'].values
+df = df_raw[['saa1_log2fc', 'cthrc1_log2fc', 'col11a1_log2fc', 'ccl5_log2fc', 'myh11_log2fc']]
 
+sns.clustermap(df.T, cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=1, vmin=-1.5, vmax=1.5, figsize=(40, 8))  # standard_scale=1, z_score=1
+plt.savefig('fibro_motifs_enrich_luz_heatmap.pdf')
+plt.close()
 
+## macro
+df_raw = pd.read_table('macro_motifs_enrich_luz.txt')
+df_raw.index = df_raw['tf'].values
+df = df_raw[['fcn1_log2fc', 'thbs1_log2fc', 'il32_log2fc', 'c1qc_log2fc', 'spp1_log2fc', 'cdc20_log2fc', 'slpi_log2fc', 'apoc1_log2fc', 'col1a1_log2fc']]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+sns.clustermap(df.T, cmap='coolwarm', row_cluster=False, col_cluster=False, z_score=1, vmin=-1.5, vmax=1.5, figsize=(40, 8))  # standard_scale=1, z_score=1
+plt.savefig('macro_motifs_enrich_luz_heatmap.pdf')
+plt.close()
