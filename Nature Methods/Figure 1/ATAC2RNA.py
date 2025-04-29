@@ -772,6 +772,11 @@ ax = sc.pl.violin(rna_true, keys='BANK1', groupby='cell_anno', rotation=90, stri
 ax.set_ylim(0-0.1, 4+0.1)
 ax.figure.savefig('./figures/violin_BANK1_exp_true.pdf')
 
+rcParams["figure.figsize"] = (4, 4)
+ax = sc.pl.violin(rna_true, keys='CD14', groupby='cell_anno', rotation=90, stripplot=False, show=False)
+ax.set_ylim(0-0.1, 2+0.1)
+ax.figure.savefig('./figures/violin_CD14_exp_true.pdf')
+
 ## archr
 rna_archr = rna_archr[idx].copy()    # 2555 × 21369
 
@@ -809,6 +814,7 @@ sc.tl.umap(rna_archr)
 sc.tl.leiden(rna_archr)
 
 rna_archr.obs['cell_anno'] = rna_true.obs['cell_anno']
+
 rcParams["figure.figsize"] = (2, 2)
 sc.pl.umap(rna_archr, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
            title='', frameon=True, save='_cell_anno_rna_archr_tumor_b.pdf')
@@ -822,6 +828,11 @@ rcParams["figure.figsize"] = (4, 4)
 ax = sc.pl.violin(rna_archr, keys='BANK1', groupby='cell_anno', rotation=90, stripplot=False, show=False)
 ax.set_ylim(0-0.5, 12+0.5)
 ax.figure.savefig('./figures/violin_BANK1_exp_archr.pdf')
+
+rcParams["figure.figsize"] = (4, 4)
+ax = sc.pl.violin(rna_archr, keys='CD14', groupby='cell_anno', rotation=90, stripplot=False, show=False)
+ax.set_ylim(0-0.5, 12+0.5)
+ax.figure.savefig('./figures/violin_CD14_exp_archr.pdf')
 
 ## scarlink
 rna_scarlink = sc.read_h5ad('../rna_tumor_b_scarlink.h5ad')
@@ -861,6 +872,7 @@ sc.tl.umap(rna_scarlink)
 sc.tl.leiden(rna_scarlink)
 
 rna_scarlink.obs['cell_anno'] = rna_true.obs['cell_anno']
+
 rcParams["figure.figsize"] = (2, 2)
 sc.pl.umap(rna_scarlink, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
            title='', frameon=True, save='_cell_anno_rna_scarlink_tumor_b.pdf')
@@ -874,6 +886,11 @@ rcParams["figure.figsize"] = (4, 4)
 ax = sc.pl.violin(rna_scarlink, keys='BANK1', groupby='cell_anno', rotation=90, stripplot=False, show=False)
 ax.set_ylim(0-0.1, 3+0.1)
 ax.figure.savefig('./figures/violin_BANK1_exp_scarlink.pdf')
+
+rcParams["figure.figsize"] = (4, 4)
+ax = sc.pl.violin(rna_scarlink, keys='CD14', groupby='cell_anno', rotation=90, stripplot=False, show=False)
+ax.set_ylim(0-0.1, 3+0.1)
+ax.figure.savefig('./figures/violin_CD14_exp_scarlink.pdf')  # CD14 is filtered out
 
 ## cisformer
 rna_cisformer = sc.read_h5ad('../rna_tumor_b_cisformer.h5ad')
@@ -915,6 +932,7 @@ sc.tl.umap(rna_cisformer)
 sc.tl.leiden(rna_cisformer)
 
 rna_cisformer.obs['cell_anno'] = rna_true.obs['cell_anno']
+
 rcParams["figure.figsize"] = (2, 2)
 sc.pl.umap(rna_cisformer, color='cell_anno', legend_fontsize='5', legend_loc='right margin', size=2.5, 
            title='', frameon=True, save='_cell_anno_rna_cisformer_tumor_b.pdf')
@@ -928,6 +946,11 @@ rcParams["figure.figsize"] = (4, 4)
 ax = sc.pl.violin(rna_cisformer, keys='BANK1', groupby='cell_anno', rotation=90, stripplot=False, show=False)
 ax.set_ylim(0-0.1, 5+0.1)
 ax.figure.savefig('./figures/violin_BANK1_exp_cisformer.pdf')
+
+rcParams["figure.figsize"] = (4, 4)
+ax = sc.pl.violin(rna_cisformer, keys='CD14', groupby='cell_anno', rotation=90, stripplot=False, show=False)
+ax.set_ylim(0-0.1, 4+0.1)
+ax.figure.savefig('./figures/violin_CD14_exp_cisformer.pdf')
 
 #### plot metrics
 from plotnine import *
