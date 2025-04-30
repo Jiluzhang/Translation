@@ -2028,6 +2028,76 @@ df[df['peak_or_not']=='1']['attn'].median()   # 0.6487124072073317
 
 stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
 
+## cd4 naive brd4
+df = pd.read_csv('cd4_naive_BRD4_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_naive_BRD4_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.5641533037562207
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6087792097830544
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 inter brd4
+df = pd.read_csv('cd4_inter_BRD4_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_inter_BRD4_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6148018041315899
+df[df['peak_or_not']=='1']['attn'].median()   # 0.655776932070032
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 tem brd4
+df = pd.read_csv('cd4_tem_BRD4_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_tem_BRD4_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.5996991638235405
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6483426909512414
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
+
+## cd4 tcm brd4
+df = pd.read_csv('cd4_tcm_BRD4_attn_peak_or_not.txt', index_col=0, sep='\t')
+df['peak_or_not'] = df['peak_or_not'].apply(str)
+df = df.replace([np.inf, -np.inf], np.nan).dropna()
+df = df[df['attn']!=0]
+df['attn'] = np.log10(df['attn']/df['attn'].min())
+df['attn'] = (df['attn']-df['attn'].min())/(df['attn'].max()-df['attn'].min())
+
+p = ggplot(df, aes(x='peak_or_not', y='attn', fill='peak_or_not')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(0.20, 1.00)) +\
+                                                                     scale_y_continuous(breaks=np.arange(0.20, 1.00+0.1, 0.2)) + theme_bw()
+p.save(filename='cd4_tcm_BRD4_attn_peak_or_not.pdf', dpi=600, height=4, width=4)
+
+df[df['peak_or_not']=='0']['attn'].median()   # 0.6189842789861798
+df[df['peak_or_not']=='1']['attn'].median()   # 0.6622617500038473
+
+stats.ttest_ind(df[df['peak_or_not']=='0']['attn'], df[df['peak_or_not']=='1']['attn'])  # pvalue=0.0
 
 
 ######################## Mono ########################
