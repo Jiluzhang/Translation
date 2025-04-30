@@ -43,7 +43,7 @@ pd.DataFrame({'chrom':'chr16', 'start': df.index.values, 'end': df.index.values+
 # tar -czvf atac_attn_cd19_bedgraph.tar *.bedgraph
 
 
-## marker gene heatmap
+## marker gene attention heatmap
 import pandas as pd
 import matplotlib.pyplot as plt
 from plotnine import *
@@ -89,7 +89,25 @@ sns.clustermap(df, cmap='bwr', row_cluster=False, col_cluster=False, z_score=0, 
 plt.savefig('marker_gene_pair_attention.pdf')
 plt.close()
 
+## marker gene expression heatmap
+import scanpy as sc
+import matplotlib.pyplot as plt
+import pandas as pd
 
+plt.rcParams['pdf.fonttype'] = 42
+
+rna = sc.read_h5ad('/fs/home/jiluzhang/Nature_methods/Figure_1/ATAC2RNA/rna_tumor_b_true.h5ad')
+rna = rna[rna.obs['cell_anno']!='Other'].copy()
+
+t_cell_marker_lst = ['PRKCH', 'FYN', 'BCL11B', 'INPP4B', 'CD247']  # THEMIS  LINC01934
+monocyte_marker_lst = ['SLC8A1', 'RBM47', 'LRMDA', 'TYMP', 'DMXL2', 'DPYD', 'TNS3', 'MCTP1', 'PLXDC2', 'FMNL2']
+normal_b_marker_lst = ['BANK1', 'CCSER1', 'FCRL1', 'RIPOR2']
+tumor_b_marker_lst = ['TCF4', 'PAX5', 'AFF3', 'FCRL5', 'GPM6A', 'NIBAN3', 'FOXP1', 'RUBCNL']
+marker_lst = t_cell_marker_lst + monocyte_marker_lst + normal_b_marker_lst + tumor_b_marker_lst
+
+rna.obs['cell_anno'] = pd.Categorical(rna.obs['cell_anno'], categories=['T cell', 'Monocyte', 'Normal B cell', 'Tumor B cell'])
+
+sc.pl.matrixplot(rna, marker_lst, groupby='cell_anno', cmap='bwr', standard_scale='var', save='tumor_b_marker_gex_heatmap.pdf')
 
 
 
