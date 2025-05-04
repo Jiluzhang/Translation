@@ -604,6 +604,45 @@ df['age'].value_counts()
 # 21m    1405
 # 24m       0
 
+## epithelial cells (proximal)
+rna_epip = rna[rna.obs['cell_type'].isin(['kidney proximal convoluted tubule epithelial cell',
+                                          'epithelial cell of proximal tubule'])].copy()
+df = pd.DataFrame({'age':rna_epip.obs['age'],
+                   'exp':rna_epip.X[:, np.argwhere(rna_epip.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_epi_proximal.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    3075
+# 18m    1517
+# 1m     1107
+# 21m     938
+# 3m      876
+# 24m       0
+
+## epithelial cells (distal) (the trend is not perfect)
+rna_epid = rna[rna.obs['cell_type'].isin(['kidney loop of Henle thick ascending limb epithelial cell',
+                                          'kidney collecting duct principal cell',
+                                          'kidney distal convoluted tubule epithelial cell'])].copy()
+df = pd.DataFrame({'age':rna_epid.obs['age'],
+                   'exp':rna_epid.X[:, np.argwhere(rna_epid.var.index=='Cdkn1a').flatten().item()].toarray().flatten()})
+df['age'] = pd.Categorical(df['age'], categories=['1m', '3m', '18m', '21m', '24m', '30m'])
+p = ggplot(df, aes(x='age', y='exp', fill='age')) + geom_jitter(size=1, width=0.2, height=0, show_legend=False) + xlab('Age') + ylab('Cdkn1a expression level') +\
+                                                    scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=0, stroke=1, show_legend=False) +\
+                                                    stat_summary(fun_y=np.mean, geom='point', color='red', size=3, shape=1, stroke=1, show_legend=False) + theme_bw()
+p.save(filename='Cdkn1a_exp_dotplot_epi_distal.pdf', dpi=600, height=4, width=4)
+df['age'].value_counts()
+# 30m    854
+# 1m     643
+# 18m    575
+# 3m     548
+# 21m    467
+# 24m      0
+
 ## fenestrated cell
 rna_fc = rna[rna.obs['cell_type'].isin(['fenestrated cell'])].copy()
 df = pd.DataFrame({'age':rna_fc.obs['age'],
