@@ -270,6 +270,7 @@ python cal_cluster.py --file atac_cisformer_umap.h5ad
 # HOM: 0.7201
 # NMI: 0.7239
 
+
 ### mult=40 (more and more parameters)
 nohup accelerate launch --config_file accelerator_config_train.yaml --main_process_port 29826 rna2atac_train.py --config_file rna2atac_config_train_mlt_40_huge.yaml \
                         --train_data_dir train_pt_mlt_40 --val_data_dir val_pt -s save_mlt_40_huge -n rna2atac_pbmc > rna2atac_train_20241001_mlt_40_huge.log &   # 2368119
@@ -700,6 +701,90 @@ python cal_cluster.py --file atac_babel_umap.h5ad
 
 #### plot true atac umap
 ## python plot_true_umap.py
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Revision ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## cifm
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/res_mlt_40_large
+import scanpy as sc
+from scipy.stats import pearsonr
+import numpy as np
+from tqdm import tqdm
+
+true = sc.read_h5ad('atac_test.h5ad')
+cifm = sc.read_h5ad('atac_cisformer.h5ad')
+
+cor_lst = []
+for i in range(true.shape[0]):
+    cor_lst.append(pearsonr(cifm.X[i], true.X[i].toarray().flatten())[0])
+
+np.mean(cor_lst)  # 0.45932666743897077
+
+cifm_X_0_1 = cifm.X
+cifm_X_0_1[cifm_X_0_1>0.5]=1
+cifm_X_0_1[cifm_X_0_1<=0.5]=0
+np.save('cifm_X_0_1.npy', cifm_X_0_1)
+
+overlap_ratio_lst = []
+for i in tqdm(range(true.shape[0]), ncols=80):
+    overlap_ratio_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+
+
+
+np.mean(overlap_ratio_lst)  # 0.8448660998334653
+
+
+## scbt
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/scbt
+import scanpy as sc
+from scipy.stats import pearsonr
+import numpy as np
+from tqdm import tqdm
+
+true = sc.read_h5ad('atac_test.h5ad')
+scbt = sc.read_h5ad('atac_scbt.h5ad')
+
+cor_lst = []
+for i in range(true.shape[0]):
+    cor_lst.append(pearsonr(scbt.X[i].toarray().flatten(), true.X[i].toarray().flatten())[0])
+
+np.mean(cor_lst)  # 0.523705681809846
+
+
+## babel
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/babel
+import scanpy as sc
+from scipy.stats import pearsonr
+import numpy as np
+from tqdm import tqdm
+
+true = sc.read_h5ad('atac_test.h5ad')
+babl = sc.read_h5ad('atac_babel.h5ad')
+
+cor_lst = []
+for i in range(true.shape[0]):
+    cor_lst.append(pearsonr(babl.X[i].toarray().flatten(), true.X[i].toarray().flatten())[0])
+
+np.mean(cor_lst)  # 0.5214679648469931
+
+m = babl.X.toarray()
+babl_X_0_1 = ((m.T>m.T.mean(axis=0)).T) & (m>m.mean(axis=0)).astype(int)
+np.save('babl_X_0_1.npy', babl_X_0_1)
+
+overlap_ratio_lst = []
+for i in tqdm(range(true.shape[0]), ncols=80):
+    overlap_ratio_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(overlap_ratio_lst)  # 0.5474433598728647
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
 
 
 
