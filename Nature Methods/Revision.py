@@ -529,7 +529,8 @@ p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='ident
 p.save(filename='s_4_precision_recall_f1.pdf', dpi=600, height=4, width=6)
 
 
-
+######################## attention score comparison in tracks ########################
+# batch_attn = F.softmax(batch_attn, dim=-1)  M2M.py (line 134)
 
 
 
