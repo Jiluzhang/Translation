@@ -532,6 +532,103 @@ p.save(filename='s_4_precision_recall_f1.pdf', dpi=600, height=4, width=6)
 ######################## attention score comparison in tracks ########################
 # batch_attn = F.softmax(batch_attn, dim=-1)  M2M.py (line 134)
 
+import pandas as pd
+import numpy as np
+import random
+from functools import partial
+import sys
+sys.path.append("M2Mmodel")
+from utils import PairDataset
+import scanpy as sc
+import torch
+from M2Mmodel.utils import *
+from collections import Counter
+import pickle as pkl
+import yaml
+from M2Mmodel.M2M import M2M_rna2atac
+
+import h5py
+from tqdm import tqdm
+
+from multiprocessing import Pool
+import pickle
+
+with open("rna2atac_config_test.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+model = M2M_rna2atac(
+            dim = config["model"].get("dim"),
+
+            enc_num_gene_tokens = config["model"].get("total_gene") + 1, # +1 for <PAD>
+            enc_num_value_tokens = config["model"].get('max_express') + 1, # +1 for <PAD>
+            enc_depth = config["model"].get("enc_depth"),
+            enc_heads = config["model"].get("enc_heads"),
+            enc_ff_mult = config["model"].get("enc_ff_mult"),
+            enc_dim_head = config["model"].get("enc_dim_head"),
+            enc_emb_dropout = config["model"].get("enc_emb_dropout"),
+            enc_ff_dropout = config["model"].get("enc_ff_dropout"),
+            enc_attn_dropout = config["model"].get("enc_attn_dropout"),
+
+            dec_depth = config["model"].get("dec_depth"),
+            dec_heads = config["model"].get("dec_heads"),
+            dec_ff_mult = config["model"].get("dec_ff_mult"),
+            dec_dim_head = config["model"].get("dec_dim_head"),
+            dec_emb_dropout = config["model"].get("dec_emb_dropout"),
+            dec_ff_dropout = config["model"].get("dec_ff_dropout"),
+            dec_attn_dropout = config["model"].get("dec_attn_dropout")
+        )
+model = model.half()
+model.load_state_dict(torch.load('/fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/cisformer/save_mlt_40_large/2024-09-30_rna2atac_pbmc_34/pytorch_model.bin'))
+device = torch.device('cuda:3')
+model.to(device)
+model.eval()
+
+rna = sc.read_h5ad('rna_test.h5ad')     # /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/cisformer/rna_test.h5ad
+atac = sc.read_h5ad('atac_test.h5ad')   # /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/cisformer/atac_test.h5ad
+
+## Oligodendrocyte
+random.seed(0)
+oli_idx = list(np.argwhere(rna.obs['cell_anno']=='Oligodendrocyte').flatten())
+oli_idx_10 = random.sample(list(oli_idx), 10)
+rna[oli_idx_10].write('rna_oli_10.h5ad')
+np.count_nonzero(rna[oli_idx_10].X.toarray(), axis=1).max()  # 2724
+
+atac[oli_idx_10].write('atac_oli_10.h5ad')
+
+# python data_preprocess.py -r rna_oli_10.h5ad -a atac_oli_10.h5ad -s pt_oli_10 --dt test -n oli_10 --config rna2atac_config_test_oli.yaml
+# enc_max_len: 2724
+
+oli_data = torch.load("./pt_oli_10/oli_10_0.pt")
+dataset = PreDataset(oli_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_oli = sc.read_h5ad('rna_oli_10.h5ad')
+atac_oli = sc.read_h5ad('atac_oli_10.h5ad')
+
+out = atac_oli.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_oli_10_peaks.h5ad')
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
