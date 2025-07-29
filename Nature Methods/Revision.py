@@ -553,7 +553,7 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import pickle
 
-with open("rna2atac_config_test.yaml", "r") as f:
+with open("rna2atac_config_test.yaml", "r") as f:   # enc_max_len: 10000
     config = yaml.safe_load(f)
 
 model = M2M_rna2atac(
@@ -585,6 +585,28 @@ model.eval()
 
 rna = sc.read_h5ad('rna_test.h5ad')     # /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/cisformer/rna_test.h5ad
 atac = sc.read_h5ad('atac_test.h5ad')   # /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/cisformer/atac_test.h5ad
+
+rna.obs['cell_anno'].value_counts()
+# Oligodendrocyte    1595
+# Astrocyte           402
+# OPC                 174
+# VIP                 115
+# Microglia           109
+# SST                 104
+# IT                   83
+# PVALB                15
+
+peaks = atac.var[['gene_ids']]
+peaks['chr'] = peaks['gene_ids'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks['start'] = peaks['start'].astype(int)
+peaks['end'] = peaks['end'].astype(int)
+
+# chr17:57356784-57357132    MSI2
+#out.X[:, (peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)].sum(axis=0)
+#out.X[:, (peaks['chr']=='chr17') & (peaks['start']==57356784) & (peaks['end']==57357132)].sum()
+
 
 ## Oligodendrocyte
 random.seed(0)
@@ -619,17 +641,258 @@ for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'
 out.write('attn_oli_10_peaks.h5ad')
 
 
+## Astrocyte
+random.seed(0)
+ast_idx = list(np.argwhere(rna.obs['cell_anno']=='Astrocyte').flatten())
+ast_idx_10 = random.sample(list(ast_idx), 10)
+rna[ast_idx_10].write('rna_ast_10.h5ad')
+np.count_nonzero(rna[ast_idx_10].X.toarray(), axis=1).max()  # 3384
+
+atac[ast_idx_10].write('atac_ast_10.h5ad')
+
+# python data_preprocess.py -r rna_ast_10.h5ad -a atac_ast_10.h5ad -s pt_ast_10 --dt test -n ast_10 --config rna2atac_config_test_ast.yaml
+# enc_max_len: 3384
+
+ast_data = torch.load("./pt_ast_10/ast_10_0.pt")
+dataset = PreDataset(ast_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_ast = sc.read_h5ad('rna_ast_10.h5ad')
+atac_ast = sc.read_h5ad('atac_ast_10.h5ad')
+
+out = atac_ast.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_ast_10_peaks.h5ad')
 
 
+## OPC
+random.seed(0)
+opc_idx = list(np.argwhere(rna.obs['cell_anno']=='OPC').flatten())
+opc_idx_10 = random.sample(list(opc_idx), 10)
+rna[opc_idx_10].write('rna_opc_10.h5ad')
+np.count_nonzero(rna[opc_idx_10].X.toarray(), axis=1).max()  # 4595
+
+atac[opc_idx_10].write('atac_opc_10.h5ad')
+
+# python data_preprocess.py -r rna_opc_10.h5ad -a atac_opc_10.h5ad -s pt_opc_10 --dt test -n opc_10 --config rna2atac_config_test_opc.yaml
+# enc_max_len: 4595
+
+opc_data = torch.load("./pt_opc_10/opc_10_0.pt")
+dataset = PreDataset(opc_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_opc = sc.read_h5ad('rna_opc_10.h5ad')
+atac_opc = sc.read_h5ad('atac_opc_10.h5ad')
+
+out = atac_opc.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_opc_10_peaks.h5ad')
 
 
+## VIP
+random.seed(0)
+vip_idx = list(np.argwhere(rna.obs['cell_anno']=='VIP').flatten())
+vip_idx_10 = random.sample(list(vip_idx), 10)
+rna[vip_idx_10].write('rna_vip_10.h5ad')
+np.count_nonzero(rna[vip_idx_10].X.toarray(), axis=1).max()  # 6166
+
+atac[vip_idx_10].write('atac_vip_10.h5ad')
+
+# python data_preprocess.py -r rna_vip_10.h5ad -a atac_vip_10.h5ad -s pt_vip_10 --dt test -n vip_10 --config rna2atac_config_test_vip.yaml
+# enc_max_len: 6166
+
+vip_data = torch.load("./pt_vip_10/vip_10_0.pt")
+dataset = PreDataset(vip_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_vip = sc.read_h5ad('rna_vip_10.h5ad')
+atac_vip = sc.read_h5ad('atac_vip_10.h5ad')
+
+out = atac_vip.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_vip_10_peaks.h5ad')
 
 
+## Microglia
+random.seed(0)
+mic_idx = list(np.argwhere(rna.obs['cell_anno']=='Microglia').flatten())
+mic_idx_10 = random.sample(list(mic_idx), 10)
+rna[mic_idx_10].write('rna_mic_10.h5ad')
+np.count_nonzero(rna[mic_idx_10].X.toarray(), axis=1).max()  # 5751
+
+atac[mic_idx_10].write('atac_mic_10.h5ad')
+
+# python data_preprocess.py -r rna_mic_10.h5ad -a atac_mic_10.h5ad -s pt_mic_10 --dt test -n mic_10 --config rna2atac_config_test_mic.yaml
+# enc_max_len: 5751
+
+mic_data = torch.load("./pt_mic_10/mic_10_0.pt")
+dataset = PreDataset(mic_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_mic = sc.read_h5ad('rna_mic_10.h5ad')
+atac_mic = sc.read_h5ad('atac_mic_10.h5ad')
+
+out = atac_mic.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_mic_10_peaks.h5ad')
 
 
+## SST
+random.seed(0)
+sst_idx = list(np.argwhere(rna.obs['cell_anno']=='SST').flatten())
+sst_idx_10 = random.sample(list(sst_idx), 10)
+rna[sst_idx_10].write('rna_sst_10.h5ad')
+np.count_nonzero(rna[sst_idx_10].X.toarray(), axis=1).max()  # 6240
+
+atac[sst_idx_10].write('atac_sst_10.h5ad')
+
+# python data_preprocess.py -r rna_sst_10.h5ad -a atac_sst_10.h5ad -s pt_sst_10 --dt test -n sst_10 --config rna2atac_config_test_sst.yaml
+# enc_max_len: 6240
+
+sst_data = torch.load("./pt_sst_10/sst_10_0.pt")
+dataset = PreDataset(sst_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_sst = sc.read_h5ad('rna_sst_10.h5ad')
+atac_sst = sc.read_h5ad('atac_sst_10.h5ad')
+
+out = atac_sst.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_sst_10_peaks.h5ad')
 
 
+## IT
+random.seed(0)
+it_idx = list(np.argwhere(rna.obs['cell_anno']=='IT').flatten())
+it_idx_10 = random.sample(list(it_idx), 10)
+rna[it_idx_10].write('rna_it_10.h5ad')
+np.count_nonzero(rna[it_idx_10].X.toarray(), axis=1).max()  # 9665
+
+atac[it_idx_10].write('atac_it_10.h5ad')
+
+# python data_preprocess.py -r rna_it_10.h5ad -a atac_it_10.h5ad -s pt_it_10 --dt test -n it_10 --config rna2atac_config_test_it.yaml
+# enc_max_len: 9665
+
+it_data = torch.load("./pt_it_10/it_10_0.pt")
+dataset = PreDataset(it_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_it = sc.read_h5ad('rna_it_10.h5ad')
+atac_it = sc.read_h5ad('atac_it_10.h5ad')
+
+out = atac_it.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_it_10_peaks.h5ad')
 
 
+## PVALB
+random.seed(0)
+pva_idx = list(np.argwhere(rna.obs['cell_anno']=='PVALB').flatten())
+pva_idx_10 = random.sample(list(pva_idx), 10)
+rna[pva_idx_10].write('rna_pva_10.h5ad')
+np.count_nonzero(rna[pva_idx_10].X.toarray(), axis=1).max()  # 5231
+
+atac[pva_idx_10].write('atac_pva_10.h5ad')
+
+# python data_preprocess.py -r rna_pva_10.h5ad -a atac_pva_10.h5ad -s pt_pva_10 --dt test -n pva_10 --config rna2atac_config_test_pva.yaml
+# enc_max_len: 5231
+
+pva_data = torch.load("./pt_pva_10/pva_10_0.pt")
+dataset = PreDataset(pva_data)
+dataloader_kwargs = {'batch_size': 1, 'shuffle': False}
+loader = torch.utils.data.DataLoader(dataset, **dataloader_kwargs)
+
+rna_pva = sc.read_h5ad('rna_pva_10.h5ad')
+atac_pva = sc.read_h5ad('atac_pva_10.h5ad')
+
+out = atac_pva.copy()
+out.X = np.zeros(out.shape)
+i = 0
+for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
+    rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
+    attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
+    torch.cuda.empty_cache()
+    i += 1
+
+out.write('attn_pva_10_peaks.h5ad')
+
+
+## Plot attention score
+from plotnine import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+atac = sc.read_h5ad('atac_test.h5ad')
+peaks = atac.var[['gene_ids']]
+peaks['chr'] = peaks['gene_ids'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks['start'] = peaks['start'].astype(int)
+peaks['end'] = peaks['end'].astype(int)
+
+# chr17:57356784-57357132    MSI2
+idx = (peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)
+#out.X[:, (peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)].sum(axis=0)
+#out.X[:, (peaks['chr']=='chr17') & (peaks['start']==57356784) & (peaks['end']==57357132)].sum()
+
+oli = sc.read_h5ad('attn_oli_10_peaks.h5ad')
 
 
