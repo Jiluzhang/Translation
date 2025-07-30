@@ -634,7 +634,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nansum(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -667,7 +668,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nansum(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -700,7 +702,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -733,7 +736,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -766,7 +770,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -799,7 +804,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -832,7 +838,8 @@ i = 0
 for inputs in tqdm(loader, ncols=80, desc='output attention matrix with no norm'):
     rna_sequence, rna_value, atac_sequence, _, enc_pad_mask = [each.to(device) for each in inputs]
     attn_tmp = model.generate_attn_weight(rna_sequence, atac_sequence, rna_value, enc_mask=enc_pad_mask, which='decoder')[0]
-    out.X[i, :] = np.nansum(attn_tmp/1000000, axis=1)
+    out.X[i, :] = np.nanmean(attn_tmp/1000, axis=1)
+    out.X[i, :] = out.X[i, :]/(np.median(out.X[i, :]))
     torch.cuda.empty_cache()
     i += 1
 
@@ -877,6 +884,8 @@ out.write('attn_pva_10_peaks.h5ad')
 from plotnine import *
 import scanpy as sc
 import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -890,9 +899,42 @@ peaks['end'] = peaks['end'].astype(int)
 
 # chr17:57356784-57357132    MSI2
 idx = (peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)
-#out.X[:, (peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)].sum(axis=0)
-#out.X[:, (peaks['chr']=='chr17') & (peaks['start']==57356784) & (peaks['end']==57357132)].sum()
+peaks[(peaks['chr']=='chr17') & (peaks['start']>57226000) & (peaks['end']<57650000)][15:18]
+#                                         gene_ids    chr     start       end
+# chr17:57356784-57357132  chr17:57356784-57357132  chr17  57356784  57357132
+# chr17:57357146-57357345  chr17:57357146-57357345  chr17  57357146  57357345
+# chr17:57357455-57357802  chr17:57357455-57357802  chr17  57357455  57357802
 
-oli = sc.read_h5ad('attn_oli_10_peaks.h5ad')
+hlt = [0]*85
+hlt[15] = 1
+hlt[16] = 1
+hlt[17] = 1
 
+def out_df(cell_anno='oli'):
+    oli = sc.read_h5ad('attn_'+cell_anno+'_10_peaks.h5ad')
+    oli_lst = oli.X[:, idx].mean(axis=0)
+    oli_lst[~np.isfinite(oli_lst)] = oli_lst[np.isfinite(oli_lst)].max()
+    oli_lst = (oli_lst-oli_lst.min())/(oli_lst.max()-oli_lst.min())    
+    dat = pd.DataFrame({'cell_anno':cell_anno, 'attn':oli_lst, 'hlt':hlt})
+    return dat
 
+dat = pd.concat([out_df('oli'), out_df('ast'), out_df('opc'),
+                 out_df('vip'), out_df('mic'), out_df('sst'),
+                 out_df('it'),  out_df('pva')])
+
+dat['cell_anno'] = pd.Categorical(dat['cell_anno'], categories=['ast', 'it', 'mic', 'opc', 'oli', 'pva', 'sst', 'vip'])
+
+p = ggplot(dat, aes(x='cell_anno', y='attn', color='cell_anno')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                   coord_cartesian(ylim=(0, 0.6)) +\
+                                                                   scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.1)) +\
+                                                                   geom_point(dat[dat['hlt']==1], color='red', size=1) + theme_bw()
+p.save(filename='track_attn_box.pdf', dpi=600, height=4, width=4)
+
+# Oligodendrocyte    1595
+# Astrocyte           402
+# OPC                 174
+# VIP                 115
+# Microglia           109
+# SST                 104
+# IT                   83
+# PVALB                15
