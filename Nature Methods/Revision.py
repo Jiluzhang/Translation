@@ -997,13 +997,61 @@ np.mean(recall_lst)                                                             
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.15304619612167406
 
 ## Endothelial 
+random.seed(0)
+endo_idx_lst = random.sample(list(np.where(cifm.obs['cell_anno']=='Endothelial')[0]), 
+                             min(sum(cifm.obs['cell_anno']=='Endothelial'), 500))
 
-######################################################################################################################################################
-######################################################################################################################################################
-######################################################################################################################################################
-######################################################################################################################################################
-######################################################################################################################################################
-######################################################################################################################################################
+precision_lst = []
+recall_lst = []
+for i in tqdm(endo_idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.06428872713702377
+np.mean(recall_lst)                                                                                               # 0.8042201928981897
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.11619799792714877
+
+## Fibroblasts
+random.seed(0)
+fibro_idx_lst = random.sample(list(np.where(cifm.obs['cell_anno']=='Fibroblasts')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(fibro_idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07813243690980005
+np.mean(recall_lst)                                                                                               # 0.8008469322864205
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.13803724796444586
+
+## Macrophages
+random.seed(0)
+macro_idx_lst = random.sample(list(np.where(cifm.obs['cell_anno']=='Macrophages')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(macro_idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.06901650120364035
+np.mean(recall_lst)                                                                                               # 0.8539058774796146
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.125336972874082
+
+## T cell
+random.seed(0)
+tcell_idx_lst = random.sample(list(np.where(cifm.obs['cell_anno']=='T-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(tcell_idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.10134401268883131
+np.mean(recall_lst)                                                                                               # 0.8624758350115329
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.1762997600622369
 
 
 ## scbt
@@ -1017,6 +1065,7 @@ scbt_X_0_1 = scbt.X.toarray()
 random.seed(0)
 idx_lst = random.sample(list(range(true.shape[0])), 500)
 
+## cell 0 -> cell 499
 precision_lst = []
 recall_lst = []
 for i in tqdm(range(len(idx_lst)), ncols=80):
@@ -1026,6 +1075,90 @@ for i in tqdm(range(len(idx_lst)), ncols=80):
 np.mean(precision_lst)                                                                                            # 0.05888187379402629
 np.mean(recall_lst)                                                                                               # 0.47700629245772347
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.1014446268123869
+
+## random 500 cells
+precision_lst = []
+recall_lst = []
+for i in tqdm(idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07912352160910399
+np.mean(recall_lst)                                                                                               # 0.4470605507110836
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.12649792856105027
+
+## 'B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells'
+
+## B cell
+random.seed(0)
+bcell_idx_lst = random.sample(list(np.where(scbt.obs['cell_anno']=='B-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(bcell_idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.09068317974373025
+np.mean(recall_lst)                                                                                               # 0.5514114979090791
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.14771314082675732
+
+## Endothelial 
+random.seed(0)
+endo_idx_lst = random.sample(list(np.where(scbt.obs['cell_anno']=='Endothelial')[0]), 
+                             min(sum(scbt.obs['cell_anno']=='Endothelial'), 500))
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(endo_idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.05860204348276823
+np.mean(recall_lst)                                                                                               # 0.29205919125581237
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.09231573263681561
+
+## Fibroblasts
+random.seed(0)
+fibro_idx_lst = random.sample(list(np.where(scbt.obs['cell_anno']=='Fibroblasts')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(fibro_idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07605530987012625
+np.mean(recall_lst)                                                                                               # 0.4265941599625745
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.12194487282153642
+
+## Macrophages
+random.seed(0)
+macro_idx_lst = random.sample(list(np.where(scbt.obs['cell_anno']=='Macrophages')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(macro_idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.05923610786969398
+np.mean(recall_lst)                                                                                               # 0.394674591247737
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.09853872547420323
+
+## T cell
+random.seed(0)
+tcell_idx_lst = random.sample(list(np.where(scbt.obs['cell_anno']=='T-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(tcell_idx_lst, ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.09637860393530838
+np.mean(recall_lst)                                                                                               # 0.3590045609516801
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.14107506699406633
 
 
 ## babel
@@ -1039,6 +1172,7 @@ babl_X_0_1 = babl.X.toarray()
 random.seed(0)
 idx_lst = random.sample(list(range(true.shape[0])), 500)
 
+## cell 0 -> cell 499
 precision_lst = []
 recall_lst = []
 for i in tqdm(range(len(idx_lst)), ncols=80):
@@ -1048,6 +1182,90 @@ for i in tqdm(range(len(idx_lst)), ncols=80):
 np.mean(precision_lst)                                                                                            # 0.053536932950956344
 np.mean(recall_lst)                                                                                               # 0.3590095262425303
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.08751641766203117
+
+## random 500 cells
+precision_lst = []
+recall_lst = []
+for i in tqdm(idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07687440691648656
+np.mean(recall_lst)                                                                                               # 0.42256071761454234
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.12137646158600708
+
+## 'B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells'
+
+## B cell
+random.seed(0)
+bcell_idx_lst = random.sample(list(np.where(babl.obs['cell_anno']=='B-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(bcell_idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07914512541009337
+np.mean(recall_lst)                                                                                               # 0.3307198874540757
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.12032509575739175
+
+## Endothelial 
+random.seed(0)
+endo_idx_lst = random.sample(list(np.where(babl.obs['cell_anno']=='Endothelial')[0]), 
+                             min(sum(babl.obs['cell_anno']=='Endothelial'), 500))
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(endo_idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.05717498386459103
+np.mean(recall_lst)                                                                                               # 0.3546358870047395
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.08863125262965604
+
+## Fibroblasts
+random.seed(0)
+fibro_idx_lst = random.sample(list(np.where(babl.obs['cell_anno']=='Fibroblasts')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(fibro_idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.07097899824277375
+np.mean(recall_lst)                                                                                               # 0.3909794943201093
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.1114908501366938
+
+## Macrophages
+random.seed(0)
+macro_idx_lst = random.sample(list(np.where(babl.obs['cell_anno']=='Macrophages')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(macro_idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.06608417450171004
+np.mean(recall_lst)                                                                                               # 0.49220638593478255
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.11090390025782483
+
+## T cell
+random.seed(0)
+tcell_idx_lst = random.sample(list(np.where(babl.obs['cell_anno']=='T-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(tcell_idx_lst, ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.10246069987713889
+np.mean(recall_lst)                                                                                               # 0.49635852955421955
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.16179700008933404
 
 
 ## plot metrics
@@ -1068,12 +1286,87 @@ dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
 dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
 dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
 
-## plot all
 p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                             scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
 p.save(filename='pan_cancer_precision_recall_f1_cell_0_499.pdf', dpi=600, height=4, width=6)
 
+## precision & recell & F1 score (random 500)
+dat = pd.DataFrame([0.077, 0.423, 0.121,
+                    0.079, 0.447, 0.126,
+                    0.082, 0.839, 0.146], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
 
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_random_500.pdf', dpi=600, height=4, width=6)
+
+## precision & recell & F1 score (B-cells)
+dat = pd.DataFrame([0.079, 0.331, 0.120,
+                    0.091, 0.551, 0.148,
+                    0.086, 0.861, 0.153], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_bcells.pdf', dpi=600, height=4, width=6)
+
+## precision & recell & F1 score (Endothelial)
+dat = pd.DataFrame([0.057, 0.355, 0.089,
+                    0.059, 0.292, 0.092,
+                    0.064, 0.804, 0.116], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_endothelial.pdf', dpi=600, height=4, width=6)
+
+## precision & recell & F1 score (Fibroblasts)
+dat = pd.DataFrame([0.071, 0.391, 0.111,
+                    0.076, 0.427, 0.122,
+                    0.078, 0.801, 0.138], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_fibroblast.pdf', dpi=600, height=4, width=6)
+
+## precision & recell & F1 score (Macrophages)
+dat = pd.DataFrame([0.066, 0.492, 0.111,
+                    0.059, 0.395, 0.099,
+                    0.069, 0.854, 0.125], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_macrophage.pdf', dpi=600, height=4, width=6)
+
+## precision & recell & F1 score (T-cells)
+dat = pd.DataFrame([0.102, 0.496, 0.162,
+                    0.096, 0.359, 0.141,
+                    0.101, 0.862, 0.176], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1_cell_tcell.pdf', dpi=600, height=4, width=6)
 
 
 ########################### aging kidney ###########################
