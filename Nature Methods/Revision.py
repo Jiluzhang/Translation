@@ -952,11 +952,13 @@ import random
 true = sc.read_h5ad('atac_test.h5ad')
 cifm = sc.read_h5ad('atac_cisformer_umap.h5ad')
 
+## all cell types
 cifm_X_0_1 = cifm.X.toarray()
 
 random.seed(0)
 idx_lst = random.sample(list(range(true.shape[0])), 500)
 
+## cell 0 -> cell 499
 precision_lst = []
 recall_lst = []
 for i in tqdm(range(len(idx_lst)), ncols=80):
@@ -966,6 +968,42 @@ for i in tqdm(range(len(idx_lst)), ncols=80):
 np.mean(precision_lst)                                                                                            # 0.062182749667773395
 np.mean(recall_lst)                                                                                               # 0.8694642632272895
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.11428709808962342
+
+## random 500 cells
+precision_lst = []
+recall_lst = []
+for i in tqdm(idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.08207397206414342
+np.mean(recall_lst)                                                                                               # 0.8389998535174341
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.14587817733034122
+
+## 'B-cells', 'Endothelial', 'Fibroblasts', 'Macrophages', 'T-cells'
+
+## B cell
+random.seed(0)
+bcell_idx_lst = random.sample(list(np.where(cifm.obs['cell_anno']=='B-cells')[0]), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(bcell_idx_lst, ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.08619832931655753
+np.mean(recall_lst)                                                                                               # 0.8609875596239799
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.15304619612167406
+
+## Endothelial 
+
+######################################################################################################################################################
+######################################################################################################################################################
+######################################################################################################################################################
+######################################################################################################################################################
+######################################################################################################################################################
+######################################################################################################################################################
 
 
 ## scbt
@@ -1021,7 +1059,7 @@ import matplotlib.pyplot as plt
 
 plt.rcParams['pdf.fonttype'] = 42
 
-## precision & recell & F1 score
+## precision & recell & F1 score (cell 0 -> cell 499)
 dat = pd.DataFrame([0.054, 0.359, 0.088,
                     0.059, 0.477, 0.101,
                     0.062, 0.869, 0.114], columns=['val'])
@@ -1029,6 +1067,22 @@ dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
 dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
 dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
 dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+
+## plot all
 p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                             scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
-p.save(filename='pan_cancer_precision_recall_f1.pdf', dpi=600, height=4, width=6)
+p.save(filename='pan_cancer_precision_recall_f1_cell_0_499.pdf', dpi=600, height=4, width=6)
+
+
+
+
+########################### aging kidney ###########################
+## no ground truth !!!
+
+
+
+
+
+
+
+
