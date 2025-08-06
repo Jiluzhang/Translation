@@ -499,7 +499,7 @@ np.nanmean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) fo
 
 
 ## plot metrics
-## workdir: /fs/home/jiluzhang/Nature_methods/Revision
+## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
 from plotnine import *
 import pandas as pd
 import numpy as np
@@ -938,3 +938,97 @@ p.save(filename='track_attn_box.pdf', dpi=600, height=4, width=4)
 # SST                 104
 # IT                   83
 # PVALB                15
+
+
+########################### pan-cancer ###########################
+## cifm
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/cisformer
+import scanpy as sc
+from scipy.stats import pearsonr
+import numpy as np
+from tqdm import tqdm
+import random
+
+true = sc.read_h5ad('atac_test.h5ad')
+cifm = sc.read_h5ad('atac_cisformer_umap.h5ad')
+
+cifm_X_0_1 = cifm.X.toarray()
+
+random.seed(0)
+idx_lst = random.sample(list(range(true.shape[0])), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(range(len(idx_lst)), ncols=80):
+    precision_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / cifm_X_0_1[i].sum())
+    recall_lst.append(sum(cifm_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.062182749667773395
+np.mean(recall_lst)                                                                                               # 0.8694642632272895
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.11428709808962342
+
+
+## scbt
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/scbt
+
+true = sc.read_h5ad('atac_test.h5ad')
+scbt = sc.read_h5ad('atac_scbt_umap.h5ad')
+
+scbt_X_0_1 = scbt.X.toarray()
+
+random.seed(0)
+idx_lst = random.sample(list(range(true.shape[0])), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(range(len(idx_lst)), ncols=80):
+    precision_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / scbt_X_0_1[i].sum())
+    recall_lst.append(sum(scbt_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.05888187379402629
+np.mean(recall_lst)                                                                                               # 0.47700629245772347
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.1014446268123869
+
+
+## babel
+## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/babel
+
+true = sc.read_h5ad('atac_test.h5ad')
+babl = sc.read_h5ad('atac_babel_umap.h5ad')
+
+babl_X_0_1 = babl.X.toarray()
+
+random.seed(0)
+idx_lst = random.sample(list(range(true.shape[0])), 500)
+
+precision_lst = []
+recall_lst = []
+for i in tqdm(range(len(idx_lst)), ncols=80):
+    precision_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / babl_X_0_1[i].sum())
+    recall_lst.append(sum(babl_X_0_1[i] * true.X[i].toarray().flatten()) / true.X[i].toarray().sum())
+
+np.mean(precision_lst)                                                                                            # 0.053536932950956344
+np.mean(recall_lst)                                                                                               # 0.3590095262425303
+np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.08751641766203117
+
+
+## plot metrics
+## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## precision & recell & F1 score
+dat = pd.DataFrame([0.054, 0.359, 0.088,
+                    0.059, 0.477, 0.101,
+                    0.062, 0.869, 0.114], columns=['val'])
+dat['Method'] = ['BABEL']*3 + ['scButterfly']*3 + ['Cisformer']*3
+dat['Metrics'] = ['Precision', 'Recall', 'F1 score']*3
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall', 'F1 score'])
+p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                            scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='pan_cancer_precision_recall_f1.pdf', dpi=600, height=4, width=6)
