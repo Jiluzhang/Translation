@@ -508,6 +508,17 @@ pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().s
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
 np.mean(pearsonr_cell_type_lst)  # 0.5932539555527117
 
+## track peak correlation
+true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
+true.var['start'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+true.var['end'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+track_idx = (true.var['chr']=='chr17') & (true.var['start']>57226000) & (true.var['end']<57650000)
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0)[track_idx],
+                                   cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0)[track_idx])[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.360798075564162
+
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/scbt
 import scanpy as sc
@@ -545,6 +556,17 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.657052554
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
 np.mean(pearsonr_cell_type_lst)  # 0.4650946842494681
+
+## track peak correlation
+true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
+true.var['start'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+true.var['end'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+track_idx = (true.var['chr']=='chr17') & (true.var['start']>57226000) & (true.var['end']<57650000)
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0)[track_idx],
+                                   scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0)[track_idx])[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.29352532091402467
 
 ## babel
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/babel
@@ -584,6 +606,16 @@ pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().s
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
 np.mean(pearsonr_cell_type_lst)  # 0.5464218177855465
 
+## track peak correlation
+true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
+true.var['start'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[0]).astype('int')
+true.var['end'] = true.var['gene_ids'].map(lambda x: x.split(':')[1].split('-')[1]).astype('int')
+
+track_idx = (true.var['chr']=='chr17') & (true.var['start']>57226000) & (true.var['end']<57650000)
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0)[track_idx],
+                                   babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0)[track_idx])[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.3928825801314598
 
 ## plot metrics
 ## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
@@ -981,6 +1013,7 @@ import scanpy as sc
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import qnorm
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -1005,6 +1038,7 @@ hlt[15] = 1
 hlt[16] = 1
 hlt[17] = 1
 
+## without quantile normalization 
 def out_df(cell_anno='oli'):
     oli = sc.read_h5ad('attn_'+cell_anno+'_10_peaks.h5ad')
     oli_lst = oli.X[:, idx].mean(axis=0)
@@ -1024,6 +1058,36 @@ p = ggplot(dat, aes(x='cell_anno', y='attn', color='cell_anno')) + geom_boxplot(
                                                                    scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.1)) +\
                                                                    geom_point(dat[dat['hlt']==1], color='red', size=1) + theme_bw()
 p.save(filename='track_attn_box.pdf', dpi=600, height=4, width=4)
+
+## with quantile normalization
+def out_df(cell_anno='oli'):
+    oli = sc.read_h5ad('attn_'+cell_anno+'_10_peaks.h5ad')
+    oli_lst = oli.X[:, idx].mean(axis=0)
+    oli_lst[~np.isfinite(oli_lst)] = oli_lst[np.isfinite(oli_lst)].max()
+    oli_lst = (oli_lst-oli_lst.min())/(oli_lst.max()-oli_lst.min())    
+    dat = pd.DataFrame({cell_anno:oli_lst})
+    return dat
+
+dat = pd.concat([out_df('oli'), out_df('ast'), out_df('opc'),
+                 out_df('vip'), out_df('mic'), out_df('sst'),
+                 out_df('it'),  out_df('pva')], axis=1)
+
+dat_norm = qnorm.quantile_normalize(dat, axis=1)
+
+def out_df_2(cell_anno='oli'):
+    return pd.DataFrame({'cell_anno':cell_anno, 'attn':dat_norm[cell_anno], 'hlt':hlt})
+
+dat = pd.concat([out_df_2('oli'), out_df_2('ast'), out_df_2('opc'),
+                 out_df_2('vip'), out_df_2('mic'), out_df_2('sst'),
+                 out_df_2('it'),  out_df_2('pva')], axis=0)
+
+dat['cell_anno'] = pd.Categorical(dat['cell_anno'], categories=['ast', 'it', 'mic', 'opc', 'oli', 'pva', 'sst', 'vip'])
+
+p = ggplot(dat, aes(x='cell_anno', y='attn', color='cell_anno')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                   coord_cartesian(ylim=(0, 0.6)) +\
+                                                                   scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.1)) +\
+                                                                   geom_point(dat[dat['hlt']==1], color='red', size=1) + theme_bw()
+p.save(filename='track_attn_box_2.pdf', dpi=600, height=4, width=4)
 
 # Oligodendrocyte    1595
 # Astrocyte           402
