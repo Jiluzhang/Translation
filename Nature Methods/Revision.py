@@ -9,12 +9,12 @@ from tqdm import tqdm
 true = sc.read_h5ad('atac_test.h5ad')
 cifm = sc.read_h5ad('atac_cisformer.h5ad')
 
-cor_lst = []
-for i in range(true.shape[0]):
-    cor_lst.append(pearsonr(cifm.X[i], true.X[i].toarray().flatten())[0])
+# cor_lst = []
+# for i in range(true.shape[0]):
+#     cor_lst.append(pearsonr(cifm.X[i], true.X[i].toarray().flatten())[0])
 
-np.mean(cor_lst)    # 0.45932666743897077
-np.median(cor_lst)  # 0.4797373276162471
+# np.mean(cor_lst)    # 0.45932666743897077
+# np.median(cor_lst)  # 0.4797373276162471
 
 cifm_X_0_1 = cifm.X
 cifm_X_0_1[cifm_X_0_1>0.5]=1
@@ -32,6 +32,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.8448660998334653
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.42622835660476416
 
+pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.8531804889526358
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.7919644023632103
 
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_1/scbt
@@ -64,6 +69,12 @@ for i in tqdm(range(true.shape[0]), ncols=80):
 np.mean(precision_lst)                                                                                            # 0.3010578659342757
 np.mean(recall_lst)                                                                                               # 0.5664364082373033
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.381639430781429
+
+pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.7862439550571168
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.6972478250141221
 
 
 ## babel
@@ -98,9 +109,14 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.5474433598728647
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.35146998351787256
 
+pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.7789831482706692
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.7112536234005006
 
 ## plot metrics
-## workdir: /fs/home/jiluzhang/Nature_methods/Revision
+## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
 from plotnine import *
 import pandas as pd
 import numpy as np
@@ -116,6 +132,14 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.6], breaks=np.arange(0, 0.6+0.05, 0.1)) + theme_bw()
 p.save(filename='s_1_pearson.pdf', dpi=600, height=4, width=6)
+
+dat = pd.DataFrame([0.711, 0.697, 0.792])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='s_1_pearson_bulk.pdf', dpi=600, height=4, width=6)
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.280, 0.547, 0.351,
@@ -165,6 +189,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.8551389655999201
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.42748705091119527
 
+pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.8278550899270893
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.7713684174966176
 
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_2/scbt
@@ -198,6 +227,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.5498630914735302
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.36827096342979804
 
+pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.8123548140643425
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.641408594146931
 
 ## babel
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_2/babel
@@ -231,6 +265,11 @@ np.nanmean(precision_lst)                                                       
 np.mean(recall_lst)                                                                                                  # 0.4934721088997334
 np.nanmean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.3045336424771947
 
+pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.8035020364246552
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.675065323930018
 
 ## plot metrics
 ## workdir: /fs/home/jiluzhang/Nature_methods/Revision
@@ -249,6 +288,14 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.6], breaks=np.arange(0, 0.6+0.05, 0.1)) + theme_bw()
 p.save(filename='s_2_pearson.pdf', dpi=600, height=4, width=6)
+
+dat = pd.DataFrame([0.675, 0.641, 0.771])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='s_2_pearson_bulk.pdf', dpi=600, height=4, width=6)
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.256, 0.493, 0.305,
@@ -298,6 +345,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.8119704445071072
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.21170098396915063
 
+pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]   # 0.829551587326819
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.7116379073214449
 
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_3/scbt
@@ -330,6 +382,12 @@ for i in tqdm(range(true.shape[0]), ncols=80):
 np.mean(precision_lst)                                                                                            # 0.11771718798454622
 np.mean(recall_lst)                                                                                               # 0.506809532239657
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.17636299958116106
+
+pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]   # 0.7674200646813876
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.5944844011959521
 
 
 ## babel
@@ -364,6 +422,11 @@ np.nanmean(precision_lst)                                                       
 np.mean(recall_lst)                                                                                                  # 0.5219033202372002
 np.nanmean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.16500324688805224
 
+pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]   # 0.7673519588526763
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.6079898707045145
 
 ## plot metrics
 ## workdir: /fs/home/jiluzhang/Nature_methods/Revision
@@ -382,6 +445,14 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.4], breaks=np.arange(0, 0.4+0.05, 0.1)) + theme_bw()
 p.save(filename='s_3_pearson.pdf', dpi=600, height=4, width=6)
+
+dat = pd.DataFrame([0.608, 0.594, 0.712])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='s_3_pearson_bulk.pdf', dpi=600, height=4, width=6)
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.108, 0.522, 0.165,
@@ -431,6 +502,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.7611214112853847
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.2769516714707969
 
+pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.6204373245583849
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.5932539555527117
 
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/scbt
@@ -464,6 +540,11 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                                  # 0.5391674987890309
 np.nanmean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.21480630560530967
 
+pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.6570525540066422
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.4650946842494681
 
 ## babel
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_1/scenario_4/babel
@@ -497,6 +578,12 @@ np.nanmean(precision_lst)                                                       
 np.mean(recall_lst)                                                                                                  # 0.410129800179374
 np.nanmean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.19260729305972357
 
+pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.6453165065058858
+
+pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                   babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+np.mean(pearsonr_cell_type_lst)  # 0.5464218177855465
+
 
 ## plot metrics
 ## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
@@ -515,6 +602,14 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.4], breaks=np.arange(0, 0.4+0.05, 0.1)) + theme_bw()
 p.save(filename='s_4_pearson.pdf', dpi=600, height=4, width=6)
+
+dat = pd.DataFrame([0.546, 0.465, 0.593])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='s_4_pearson_bulk.pdf', dpi=600, height=4, width=6)
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.139, 0.410, 0.193,
