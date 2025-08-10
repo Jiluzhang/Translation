@@ -1107,6 +1107,7 @@ from scipy.stats import pearsonr
 import numpy as np
 from tqdm import tqdm
 import random
+import pandas as pd
 
 true = sc.read_h5ad('atac_test.h5ad')
 cifm = sc.read_h5ad('atac_cisformer_umap.h5ad')
@@ -1212,6 +1213,22 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.8624758350115329
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.1762997600622369
 
+## Pearson correlation (cell types)
+pearsonr_cell_type_df = pd.DataFrame({'ct':list(set(true.obs['cell_anno'].values)), 'val':0.0})
+for i in tqdm(range(pearsonr_cell_type_df.shape[0]), ncols=80):
+    ct = pearsonr_cell_type_df.iloc[i, 0]
+    pearsonr_cell_type_df.iloc[i, 1] = pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                                cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0]
+
+pearsonr_cell_type_df['val'].mean()  # 0.7351046256131196
+pearsonr_cell_type_df
+#             ct       val
+# 0  Fibroblasts  0.734514
+# 1  Macrophages  0.730063
+# 2       Plasma  0.752232
+# 3  Endothelial  0.704622
+# 4      B-cells  0.725553
+# 5      T-cells  0.763643
 
 ## scbt
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/scbt
@@ -1318,6 +1335,23 @@ for i in tqdm(tcell_idx_lst, ncols=80):
 np.mean(precision_lst)                                                                                            # 0.09637860393530838
 np.mean(recall_lst)                                                                                               # 0.3590045609516801
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.14107506699406633
+
+## Pearson correlation (cell types)
+pearsonr_cell_type_df = pd.DataFrame({'ct':list(set(true.obs['cell_anno'].values)), 'val':0.0})
+for i in tqdm(range(pearsonr_cell_type_df.shape[0]), ncols=80):
+    ct = pearsonr_cell_type_df.iloc[i, 0]
+    pearsonr_cell_type_df.iloc[i, 1] = pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                                scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0]
+
+pearsonr_cell_type_df['val'].mean()  # 0.6289478623890707
+pearsonr_cell_type_df
+#             ct       val
+# 0  Fibroblasts  0.644791
+# 1  Macrophages  0.529064
+# 2       Plasma  0.768015
+# 3  Endothelial  0.511689
+# 4      B-cells  0.735139
+# 5      T-cells  0.584989
 
 
 ## babel
@@ -1426,6 +1460,23 @@ np.mean(precision_lst)                                                          
 np.mean(recall_lst)                                                                                               # 0.49635852955421955
 np.mean([2*precision_lst[i]*recall_lst[i]/(precision_lst[i]+recall_lst[i]) for i in range(len(precision_lst))])   # 0.16179700008933404
 
+## Pearson correlation (cell types)
+pearsonr_cell_type_df = pd.DataFrame({'ct':list(set(true.obs['cell_anno'].values)), 'val':0.0})
+for i in tqdm(range(pearsonr_cell_type_df.shape[0]), ncols=80):
+    ct = pearsonr_cell_type_df.iloc[i, 0]
+    pearsonr_cell_type_df.iloc[i, 1] = pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
+                                                babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0]
+
+pearsonr_cell_type_df['val'].mean()  # 0.6380717803243243
+pearsonr_cell_type_df
+#             ct       val
+# 0  Fibroblasts  0.580028
+# 1  Macrophages  0.655730
+# 2       Plasma  0.555002
+# 3  Endothelial  0.606260
+# 4      B-cells  0.704967
+# 5      T-cells  0.726443
+
 
 ## plot metrics
 ## workdir: /fs/home/jiluzhang/Nature_methods/Revision/precision_recall_f1
@@ -1526,6 +1577,15 @@ dat['Metrics'] = pd.Categorical(dat['Metrics'], categories=['Precision', 'Recall
 p = ggplot(dat, aes(x='Metrics', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                             scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
 p.save(filename='pan_cancer_precision_recall_f1_cell_tcell.pdf', dpi=600, height=4, width=6)
+
+## pearsonr (all cell types)
+dat = pd.DataFrame([0.638, 0.629, 0.735])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_all.pdf', dpi=600, height=4, width=6)
 
 
 ########################### aging kidney ###########################
