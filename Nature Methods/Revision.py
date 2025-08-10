@@ -1587,6 +1587,50 @@ p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identi
                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
 p.save(filename='pan_cancer_pearson_bulk_all.pdf', dpi=600, height=4, width=6)
 
+## pearsonr (b cell)
+dat = pd.DataFrame([0.705, 0.735, 0.726])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_bcell.pdf', dpi=600, height=4, width=6)
+
+## pearsonr (endothelial)
+dat = pd.DataFrame([0.606, 0.512, 0.705])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_endo.pdf', dpi=600, height=4, width=6)
+
+## pearsonr (fibroblast)
+dat = pd.DataFrame([0.580, 0.645, 0.735])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_fibro.pdf', dpi=600, height=4, width=6)
+
+## pearsonr (macrophage)
+dat = pd.DataFrame([0.656, 0.529, 0.730])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_macro.pdf', dpi=600, height=4, width=6)
+
+## pearsonr (t cell)
+dat = pd.DataFrame([0.726, 0.585, 0.764])
+dat.columns = ['val']
+dat['Method'] = ['BABEL', 'scButterfly', 'Cisformer']
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                           scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
+p.save(filename='pan_cancer_pearson_bulk_tcell.pdf', dpi=600, height=4, width=6)
 
 ########################### aging kidney ###########################
 ## no ground truth !!!
