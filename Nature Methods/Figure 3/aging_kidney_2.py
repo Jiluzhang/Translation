@@ -918,6 +918,57 @@ dat['peak_id'] = df.loc[dat.index]['peak_id']
 dat.to_csv('correlation_of_EpiTraceAge_kp_kl_heatmap_cluster.txt', sep='\t', index=False)
 
 
+## repeat element enrichment
+import pandas as pd
+from sklearn.cluster import KMeans
+
+dat = df[['cor_kp', 'cor_kl']]
+kmeans = KMeans(n_clusters=4, random_state=0)
+kmeans.fit(dat)
+dat['cluster'] = kmeans.labels_   # 0:high_high  1:low_high  2:low_low  3:high_low
+dat['cluster'].value_counts()
+# 3    4975   high_low
+# 0    3263   high_high
+# 2    2485   low_low
+# 1    2272   low_high
+
+df['chrom'] = df['peak_id'].map(lambda x: x.split('-')[0])
+df['start'] = df['peak_id'].map(lambda x: x.split('-')[1])
+df['end'] = df['peak_id'].map(lambda x: x.split('-')[2])
+
+df[dat['cluster']==3][['chrom', 'start', 'end']].to_csv('pct_specific_peaks.bed', index=0, header=0, sep='\t')
+df[dat['cluster']==1][['chrom', 'start', 'end']].to_csv('tal_specific_peaks.bed', index=0, header=0, sep='\t')
+df[dat['cluster']==0][['chrom', 'start', 'end']].to_csv('shared_peaks.bed', index=0, header=0, sep='\t')
+
+## calculate enrichment
+wget -c http://hgdownload.soe.ucsc.edu/goldenPath/mm10/database/rmsk.txt.gz
+gunzip rmsk.txt.gz
+
+awk '{if($12=="LINE") print $6 "\t" $7 "\t" $8}' rmsk.txt > LINE.bed   # 1015000
+awk '{if($12=="SINE") print $6 "\t" $7 "\t" $8}' rmsk.txt > SINE.bed   # 1600329
+awk '{if($12=="LTR") print $6 "\t" $7 "\t" $8}' rmsk.txt > LTR.bed     # 1007570
+
+cat pct_specific_peaks.bed tal_specific_peaks.bed shared_peaks.bed | grep "chr" | grep -v "chrY" | sort -k1,1 -k2,2n > age_peaks.bed   # 10491
+bedtools shuffle -i age_peaks.bed -g mm10.chrom.sizes > random_peaks.bed
+
+bedtools intersect -a age_peaks.bed -b LINE.bed -wa | uniq | wc -l   # 770
+bedtools intersect -a random_peaks.bed -b LINE.bed | uniq | wc -l    # 5383
+
+bedtools intersect -a age_peaks.bed -b SINE.bed -wa | uniq | wc -l   # 3658
+bedtools intersect -a random_peaks.bed -b SINE.bed | uniq | wc -l    # 6020
+
+bedtools intersect -a age_peaks.bed -b LTR.bed -wa | uniq | wc -l    # 1272
+bedtools intersect -a random_peaks.bed -b LTR.bed | uniq | wc -l     # 4312
+
+###################### select more strict cutoff to filter age-associated peaks ######################
+###################### select more strict cutoff to filter age-associated peaks ######################
+###################### select more strict cutoff to filter age-associated peaks ######################
+###################### select more strict cutoff to filter age-associated peaks ######################
+
+
+
+# df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
+
 ## calculate motif enrichment
 import pandas as pd
 import snapatac2 as snap
