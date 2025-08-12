@@ -918,10 +918,12 @@ dat['peak_id'] = df.loc[dat.index]['peak_id']
 dat.to_csv('correlation_of_EpiTraceAge_kp_kl_heatmap_cluster.txt', sep='\t', index=False)
 
 
-## repeat element enrichment
+## repeat element enrichment (without filtering)
+## conda env: plotnine (different env with different clustering results)
 import pandas as pd
 from sklearn.cluster import KMeans
 
+df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
 dat = df[['cor_kp', 'cor_kl']]
 kmeans = KMeans(n_clusters=4, random_state=0)
 kmeans.fit(dat)
@@ -952,22 +954,105 @@ cat pct_specific_peaks.bed tal_specific_peaks.bed shared_peaks.bed | grep "chr" 
 bedtools shuffle -i age_peaks.bed -g mm10.chrom.sizes > random_peaks.bed
 
 bedtools intersect -a age_peaks.bed -b LINE.bed -wa | uniq | wc -l   # 770
-bedtools intersect -a random_peaks.bed -b LINE.bed | uniq | wc -l    # 5383
+bedtools intersect -a random_peaks.bed -b LINE.bed | uniq | wc -l    # 5169
 
 bedtools intersect -a age_peaks.bed -b SINE.bed -wa | uniq | wc -l   # 3658
-bedtools intersect -a random_peaks.bed -b SINE.bed | uniq | wc -l    # 6020
+bedtools intersect -a random_peaks.bed -b SINE.bed | uniq | wc -l    # 6310
 
 bedtools intersect -a age_peaks.bed -b LTR.bed -wa | uniq | wc -l    # 1272
-bedtools intersect -a random_peaks.bed -b LTR.bed | uniq | wc -l     # 4312
-
-###################### select more strict cutoff to filter age-associated peaks ######################
-###################### select more strict cutoff to filter age-associated peaks ######################
-###################### select more strict cutoff to filter age-associated peaks ######################
-###################### select more strict cutoff to filter age-associated peaks ######################
+bedtools intersect -a random_peaks.bed -b LTR.bed | uniq | wc -l     # 4256
 
 
+## repeat element enrichment (cor>0.2)
+## conda env: plotnine (different env with different clustering results)
+import pandas as pd
+from sklearn.cluster import KMeans
 
-# df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
+df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
+dat = df[['cor_kp', 'cor_kl']]
+kmeans = KMeans(n_clusters=4, random_state=0)
+kmeans.fit(dat)
+dat['cluster'] = kmeans.labels_   # 0:high_high  1:low_high  2:low_low  3:high_low
+dat['cluster'].value_counts()
+# 3    4975   high_low
+# 0    3263   high_high
+# 2    2485   low_low
+# 1    2272   low_high
+
+df['chrom'] = df['peak_id'].map(lambda x: x.split('-')[0])
+df['start'] = df['peak_id'].map(lambda x: x.split('-')[1])
+df['end'] = df['peak_id'].map(lambda x: x.split('-')[2])
+
+pct = df[dat['cluster']==3]
+pct = pct[pct['cor_kp']>0.2]
+pct[['chrom', 'start', 'end']].to_csv('pct_specific_peaks_0.2.bed', index=0, header=0, sep='\t')
+
+tal = df[dat['cluster']==1]
+tal = tal[tal['cor_kl']>0.2]
+tal[['chrom', 'start', 'end']].to_csv('tal_specific_peaks_0.2.bed', index=0, header=0, sep='\t')
+
+shared = df[dat['cluster']==0]
+shared = shared[(shared['cor_kp']>0.2) & (shared['cor_kl']>0.2)]
+shared[['chrom', 'start', 'end']].to_csv('shared_peaks_0.2.bed', index=0, header=0, sep='\t')
+
+## calculate enrichment
+cat pct_specific_peaks_0.2.bed tal_specific_peaks_0.2.bed shared_peaks_0.2.bed | grep "chr" | grep -v "chrY" | sort -k1,1 -k2,2n > age_peaks_0.2.bed   # 9582
+bedtools shuffle -i age_peaks_0.2.bed -g mm10.chrom.sizes > random_peaks_0.2.bed
+
+bedtools intersect -a age_peaks_0.2.bed -b LINE.bed -wa | uniq | wc -l   # 712
+bedtools intersect -a random_peaks_0.2.bed -b LINE.bed | uniq | wc -l    # 4852
+
+bedtools intersect -a age_peaks_0.2.bed -b SINE.bed -wa | uniq | wc -l   # 3341
+bedtools intersect -a random_peaks_0.2.bed -b SINE.bed | uniq | wc -l    # 5225
+
+bedtools intersect -a age_peaks_0.2.bed -b LTR.bed -wa | uniq | wc -l    # 1179
+bedtools intersect -a random_peaks_0.2.bed -b LTR.bed | uniq | wc -l     # 3975
+
+## repeat element enrichment (cor>0.3)
+## conda env: plotnine (different env with different clustering results)
+import pandas as pd
+from sklearn.cluster import KMeans
+
+df = pd.read_table('correlation_of_EpiTraceAge_kp_kl.txt', header=0, names=['peak_id', 'cor_kp', 'cor_kl'])
+dat = df[['cor_kp', 'cor_kl']]
+kmeans = KMeans(n_clusters=4, random_state=0)
+kmeans.fit(dat)
+dat['cluster'] = kmeans.labels_   # 0:high_high  1:low_high  2:low_low  3:high_low
+dat['cluster'].value_counts()
+# 3    4975   high_low
+# 0    3263   high_high
+# 2    2485   low_low
+# 1    2272   low_high
+
+df['chrom'] = df['peak_id'].map(lambda x: x.split('-')[0])
+df['start'] = df['peak_id'].map(lambda x: x.split('-')[1])
+df['end'] = df['peak_id'].map(lambda x: x.split('-')[2])
+
+pct = df[dat['cluster']==3]
+pct = pct[pct['cor_kp']>0.3]
+pct[['chrom', 'start', 'end']].to_csv('pct_specific_peaks_0.3.bed', index=0, header=0, sep='\t')
+
+tal = df[dat['cluster']==1]
+tal = tal[tal['cor_kl']>0.3]
+tal[['chrom', 'start', 'end']].to_csv('tal_specific_peaks_0.3.bed', index=0, header=0, sep='\t')
+
+shared = df[dat['cluster']==0]
+shared = shared[(shared['cor_kp']>0.3) & (shared['cor_kl']>0.3)]
+shared[['chrom', 'start', 'end']].to_csv('shared_peaks_0.3.bed', index=0, header=0, sep='\t')
+
+## calculate enrichment
+cat pct_specific_peaks_0.3.bed tal_specific_peaks_0.3.bed shared_peaks_0.3.bed | grep "chr" | grep -v "chrY" | sort -k1,1 -k2,2n > age_peaks_0.3.bed   # 6579
+bedtools shuffle -i age_peaks_0.3.bed -g mm10.chrom.sizes > random_peaks_0.3.bed
+
+bedtools intersect -a age_peaks_0.3.bed -b LINE.bed -wa | uniq | wc -l   # 519
+bedtools intersect -a random_peaks_0.3.bed -b LINE.bed | uniq | wc -l    # 3320
+
+bedtools intersect -a age_peaks_0.3.bed -b SINE.bed -wa | uniq | wc -l   # 2366
+bedtools intersect -a random_peaks_0.3.bed -b SINE.bed | uniq | wc -l    # 3625
+
+bedtools intersect -a age_peaks_0.3.bed -b LTR.bed -wa | uniq | wc -l    # 856
+bedtools intersect -a random_peaks_0.3.bed -b LTR.bed | uniq | wc -l     # 2621
+
 
 ## calculate motif enrichment
 import pandas as pd
