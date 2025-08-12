@@ -1054,6 +1054,91 @@ bedtools intersect -a age_peaks_0.3.bed -b LTR.bed -wa | uniq | wc -l    # 856
 bedtools intersect -a random_peaks_0.3.bed -b LTR.bed | uniq | wc -l     # 2621
 
 
+############################################################ bedparse not work！！！############################################################
+## bp not peak count
+#pip install bedparse
+
+# wget -c https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/genes/mm10.refGene.gtf.gz  # may not work for bedparse
+
+# wget -c https://ftp.ensembl.org/pub/release-100/gtf/mus_musculus/Mus_musculus.GRCm38.100.chr.gtf.gz
+
+# bedparse gtf2bed Mus_musculus.GRCm38.100.chr.gtf | awk '{print "chr"$0}' > mm10.refGene.bed
+# grep chr mm10.refGene.bed | grep -v random | grep -v chrY | grep -v Un | grep -v chrMT | sort -k1,1 -k2,2n > mm10.refGene_filtered.bed
+
+# bedparse promoter mm10.refGene_filtered.bed | cut -f 1-3 | sort -k1,1 -k2,2n > promoter_raw.bed
+
+# bedparse 5pUTR mm10.refGene_filtered.bed | cut -f 1-3 > 5pUTR_raw.bed
+# bedparse 3pUTR mm10.refGene_filtered.bed | cut -f 1-3 > 3pUTR_raw.bed
+# bedparse cds mm10.refGene_filtered.bed | cut -f 1-3 > cds_raw.bed
+# cat 5pUTR_raw.bed 3pUTR_raw.bed cds_raw.bed | sort -k1,1 -k2,2n > exon_raw.bed
+
+# bedparse introns mm10.refGene_filtered.bed | cut -f 1-3 | sort -k1,1 -k2,2n > intron_raw.bed
+
+# bedtools merge -i promoter_raw.bed > promoter.bed
+# bedtools merge -i exon_raw.bed > exon.bed
+# bedtools merge -i intron_raw.bed > intron.bed
+
+# bedtools intersect -a age_peaks_0.3.bed -b promoter.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'  # 
+# bedtools intersect -a age_peaks_0.3.bed -b exon.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 
+# bedtools intersect -a age_peaks_0.3.bed -b intron.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'    # 
+# bedtools intersect -a age_peaks_0.3.bed -b LINE.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 
+# bedtools intersect -a age_peaks_0.3.bed -b SINE.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 
+# bedtools intersect -a age_peaks_0.3.bed -b LTR.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'       # 
+
+# awk '{print($3-$2)}' promoter.bed | awk '{sum+=$1} END {print sum}'         # 
+# awk '{print($3-$2)}' exon.bed | awk '{sum+=$1} END {print sum}'             # 
+# awk '{print($3-$2)}' intron.bed | awk '{sum+=$1} END {print sum}'           # 
+# awk '{print($3-$2)}' LINE.bed | awk '{sum+=$1} END {print sum}'             # 
+# awk '{print($3-$2)}' SINE.bed | awk '{sum+=$1} END {print sum}'             # 
+# awk '{print($3-$2)}' LTR.bed | awk '{sum+=$1} END {print sum}'              # 
+
+# awk '{sum+=$2} END {print sum}' mm10.chrom.sizes                            # 2633776672
+# awk '{print ($3-$2)}' age_peaks_0.3.bed | awk '{sum+=$1} END {print sum}'   # 5592749
+############################################################ bedparse not work！！！############################################################
+
+wget -c https://github.com/saketkc/gencode_regions/blob/master/data/mm10/exon.bed.gz
+wget -c https://github.com/saketkc/gencode_regions/blob/master/data/mm10/intron.bed.gz
+wget -c https://github.com/saketkc/gencode_regions/blob/master/data/mm10/gene.bed.gz
+
+zcat exon.bed.gz | sort -k1,1 -k2,2n | grep -v chrY | grep -v chrM | bedtools merge -i stdin > exon.bed
+zcat intron.bed.gz | sort -k1,1 -k2,2n | grep -v chrY | grep -v chrM | bedtools merge -i stdin > intron.bed
+zcat gene.bed.gz | sort -k1,1 -k2,2n | grep -v chrY | grep -v chrM |\
+                   awk '{if($6=="+") print($1 "\t" $2-1000 "\t" $2+1000);else print($1 "\t" $3-1000 "\t" $3+1000)}' |\
+                   sort -k1,1 -k2,2n | bedtools merge -i stdin > promoter.bed
+
+bedtools intersect -a age_peaks_0.3.bed -b promoter.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'  # 1436582
+bedtools intersect -a age_peaks_0.3.bed -b exon.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 923675
+bedtools intersect -a age_peaks_0.3.bed -b intron.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'    # 3085232
+bedtools intersect -a age_peaks_0.3.bed -b LINE.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 85344
+bedtools intersect -a age_peaks_0.3.bed -b SINE.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'      # 343030
+bedtools intersect -a age_peaks_0.3.bed -b LTR.bed | awk '{print($3-$2)}' | awk '{sum+=$1} END {print sum}'       # 209252
+
+awk '{print($3-$2)}' promoter.bed | awk '{sum+=$1} END {print sum}'         # 86664339
+awk '{print($3-$2)}' exon.bed | awk '{sum+=$1} END {print sum}'             # 108693479
+awk '{print($3-$2)}' intron.bed | awk '{sum+=$1} END {print sum}'           # 1066669294
+awk '{print($3-$2)}' LINE.bed | awk '{sum+=$1} END {print sum}'             # 562950937
+awk '{print($3-$2)}' SINE.bed | awk '{sum+=$1} END {print sum}'             # 215096154
+awk '{print($3-$2)}' LTR.bed | awk '{sum+=$1} END {print sum}'              # 331745501
+
+awk '{sum+=$2} END {print sum}' mm10.chrom.sizes                            # 2633776672
+awk '{print ($3-$2)}' age_peaks_0.3.bed | awk '{sum+=$1} END {print sum}'   # 5592749
+
+# 1436582	0.2569	86664339	 0.0329
+# 923675	0.1652	108693479  0.0413
+# 3085232	0.5516	1066669294 0.4050
+# 85344	  0.0153	562950937	 0.2137
+# 343030	0.0613	215096154	 0.0817
+# 209252	0.0374	331745501	 0.1260
+
+#################################################################################
+#################################################################################
+#################################################################################
+#################################################################################
+#################################################################################
+#################################################################################
+#################################################################################
+#################################################################################
+
 ## calculate motif enrichment
 import pandas as pd
 import snapatac2 as snap
