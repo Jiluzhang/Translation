@@ -1130,14 +1130,26 @@ awk '{print ($3-$2)}' age_peaks_0.3.bed | awk '{sum+=$1} END {print sum}'   # 55
 # 343030	0.0613	215096154	 0.0817
 # 209252	0.0374	331745501	 0.1260
 
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
-#################################################################################
+## plot bar
+from plotnine import *
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+dat = pd.DataFrame([0.2569, 0.1652, 0.5516, 0.0153, 0.0613, 0.0374,
+                    0.0329, 0.0413, 0.4050, 0.2137, 0.0817, 0.1260], 
+                    columns=['val'])
+dat['idx'] = ['Peak']*6 + ['Genome']*6
+dat['cls'] = ['promoter', 'exon', 'intron', 'LINE', 'SINE', 'LTR']*2
+dat['idx'] = pd.Categorical(dat['idx'], categories=['Peak', 'Genome'])
+dat['cls'] = pd.Categorical(dat['cls'], categories=['promoter', 'exon', 'intron', 'LINE', 'SINE', 'LTR'])
+p = ggplot(dat, aes(x='cls', y='val', fill='idx')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                              scale_y_continuous(limits=[0, 0.6], breaks=np.arange(0, 0.6+0.1, 0.1)) + theme_bw()
+p.save(filename='age_peaks_anno_ratio.pdf', dpi=600, height=4, width=6)
+
+
 
 ## calculate motif enrichment
 import pandas as pd
