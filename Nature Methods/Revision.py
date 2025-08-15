@@ -1099,6 +1099,193 @@ p.save(filename='track_attn_box_2.pdf', dpi=600, height=4, width=4)
 # PVALB                15
 
 
+#### cell type-specific attention score comparison
+import snapatac2 as snap
+import pandas as pd
+
+true = snap.read('atac_test.h5ad', backed=None)
+
+true_marker_peaks = snap.tl.marker_regions(true, groupby='cell_anno', pvalue=0.05)
+
+for ct in set(true.obs['cell_anno']):
+    df = pd.DataFrame(true_marker_peaks[ct])
+    df['chrom'] = df[0].map(lambda x: x.split(':')[0])
+    df['start'] = df[0].map(lambda x: x.split(':')[1].split('-')[0])
+    df['end'] = df[0].map(lambda x: x.split(':')[1].split('-')[1])
+    df.iloc[:, 1:].to_csv(ct+'_specific_peaks.bed', index=0, header=0, sep='\t')
+    print(ct, 'done')
+
+#### plot box (peak vs. non-peaks)
+from plotnine import *
+import scanpy as sc
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## Oligodendrocyte
+oli_ad = sc.read_h5ad('attn_oli_10_peaks.h5ad')
+oli_df = pd.read_table('Oligodendrocyte_specific_peaks.bed', header=None)
+oli_df['idx'] = oli_df[0]+':'+oli_df[1].astype('str')+'-'+oli_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':oli_ad[:, oli_ad.var.index.isin(oli_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':oli_ad[:, ~oli_ad.var.index.isin(oli_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                   scale_y_continuous(breaks=np.arange(0, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='oli_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 0.0
+
+## Astrocyte
+ast_ad = sc.read_h5ad('attn_ast_10_peaks.h5ad')
+ast_df = pd.read_table('Astrocyte_specific_peaks.bed', header=None)
+ast_df['idx'] = ast_df[0]+':'+ast_df[1].astype('str')+'-'+ast_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':ast_ad[:, ast_ad.var.index.isin(ast_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':ast_ad[:, ~ast_ad.var.index.isin(ast_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.2, 0.7)) + scale_y_continuous(breaks=np.arange(0.2, 0.7+0.1, 0.1)) + theme_bw()
+p.save(filename='ast_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 5.524734103423629e-10
+
+## OPC
+opc_ad = sc.read_h5ad('attn_opc_10_peaks.h5ad')
+opc_df = pd.read_table('OPC_specific_peaks.bed', header=None)
+opc_df['idx'] = opc_df[0]+':'+opc_df[1].astype('str')+'-'+opc_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':opc_ad[:, opc_ad.var.index.isin(opc_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':opc_ad[:, ~opc_ad.var.index.isin(opc_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.1, 0.8)) + scale_y_continuous(breaks=np.arange(0.1, 0.8+0.1, 0.1)) + theme_bw()
+p.save(filename='opc_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 2.964709308369812e-22
+
+## VIP
+vip_ad = sc.read_h5ad('attn_vip_10_peaks.h5ad')
+vip_df = pd.read_table('VIP_specific_peaks.bed', header=None)
+vip_df['idx'] = vip_df[0]+':'+vip_df[1].astype('str')+'-'+vip_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':vip_ad[:, vip_ad.var.index.isin(vip_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':vip_ad[:, ~vip_ad.var.index.isin(vip_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.1, 0.7)) + scale_y_continuous(breaks=np.arange(0.1, 0.7+0.1, 0.1)) + theme_bw()
+p.save(filename='vip_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 0.8875657752668615
+
+## Microglia
+mic_ad = sc.read_h5ad('attn_mic_10_peaks.h5ad')
+mic_df = pd.read_table('Microglia_specific_peaks.bed', header=None)
+mic_df['idx'] = mic_df[0]+':'+mic_df[1].astype('str')+'-'+mic_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':mic_ad[:, mic_ad.var.index.isin(mic_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':mic_ad[:, ~mic_ad.var.index.isin(mic_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.1, 0.9)) + scale_y_continuous(breaks=np.arange(0.1, 0.9+0.1, 0.1)) + theme_bw()
+p.save(filename='mic_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 1.049148121344762e-172
+
+## SST
+sst_ad = sc.read_h5ad('attn_sst_10_peaks.h5ad')
+sst_df = pd.read_table('SST_specific_peaks.bed', header=None)
+sst_df['idx'] = sst_df[0]+':'+sst_df[1].astype('str')+'-'+sst_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':sst_ad[:, sst_ad.var.index.isin(sst_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':sst_ad[:, ~sst_ad.var.index.isin(sst_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.0, 1.0)) + scale_y_continuous(breaks=np.arange(0.0, 1.0+0.1, 0.2)) + theme_bw()
+p.save(filename='sst_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 5.3448307841389797e-79
+
+## IT
+it_ad = sc.read_h5ad('attn_it_10_peaks.h5ad')
+it_df = pd.read_table('IT_specific_peaks.bed', header=None)
+it_df['idx'] = it_df[0]+':'+it_df[1].astype('str')+'-'+it_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':it_ad[:, it_ad.var.index.isin(it_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':it_ad[:, ~it_ad.var.index.isin(it_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.1, 0.7)) + scale_y_continuous(breaks=np.arange(0.1, 0.7+0.1, 0.1)) + theme_bw()
+p.save(filename='it_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 1.049148121344762e-172
+
+## PVALB
+pva_ad = sc.read_h5ad('attn_pva_10_peaks.h5ad')
+pva_df = pd.read_table('PVALB_specific_peaks.bed', header=None)
+pva_df['idx'] = pva_df[0]+':'+pva_df[1].astype('str')+'-'+pva_df[2].astype('str')
+
+peak_attn = pd.DataFrame({'idx':'peak', 'attn':pva_ad[:, pva_ad.var.index.isin(pva_df['idx'])].X.mean(axis=0)})
+peak_attn = peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+non_peak_attn = pd.DataFrame({'idx':'non_peak', 'attn':pva_ad[:, ~pva_ad.var.index.isin(pva_df['idx'])].X.mean(axis=0)})
+non_peak_attn = non_peak_attn.replace([np.inf, -np.inf], np.nan).dropna()
+dat = pd.concat([peak_attn, non_peak_attn])
+
+dat['idx'] = pd.Categorical(dat['idx'], categories=['peak', 'non_peak'])
+dat['attn'] = (dat['attn']-dat['attn'].min())/(dat['attn'].max()-dat['attn'].min()) 
+
+p = ggplot(dat, aes(x='idx', y='attn', fill='idx')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                      coord_cartesian(ylim=(0.0, 1.0)) + scale_y_continuous(breaks=np.arange(0.0, 1.0+0.1, 0.2)) + theme_bw()
+p.save(filename='pva_peak_non_peak_attn.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(dat[dat['idx']=='peak']['attn'], dat[dat['idx']=='non_peak']['attn'], alternative='greater')[1]  # 0.0
+
+
 ########################### pan-cancer ###########################
 ## cifm
 ## workdir: /fs/home/jiluzhang/Nature_methods/Figure_2/pan_cancer/cisformer
