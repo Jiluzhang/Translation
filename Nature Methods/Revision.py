@@ -1822,10 +1822,134 @@ p.save(filename='pan_cancer_pearson_bulk_tcell.pdf', dpi=600, height=4, width=6)
 ########################### aging kidney ###########################
 ## no ground truth !!!
 
+#### CRE-gene correlation
+#### Tumor B
+#### workdir: /fs/home/jiluzhang/Nature_methods/Revision/CRE_gene_correlation/tumor_b
+## T cell
+## Monocyte   
+## Normal B cell
+## Tumor B cell
+
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+plt.rcParams['pdf.fonttype'] = 42
+
+## top 100
+tcell = pd.read_csv('Tumor_B_T cell_100_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_100_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_100_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_100_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_100_box.pdf', dpi=600, height=4, width=4)
+
+## top 200
+tcell = pd.read_csv('Tumor_B_T cell_200_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_200_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_200_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_200_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_200_box.pdf', dpi=600, height=4, width=4)
+
+## top 500
+tcell = pd.read_csv('Tumor_B_T cell_500_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_500_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_500_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_500_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_500_box.pdf', dpi=600, height=4, width=4)
+
+## top 1000
+tcell = pd.read_csv('Tumor_B_T cell_1000_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_1000_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_1000_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_1000_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_1000_box.pdf', dpi=600, height=4, width=4)
+
+#### PBMC
+#### workdir: /fs/home/jiluzhang/Nature_methods/Revision/CRE_gene_correlation/pbmc
+## T cell
+## Monocyte   
+## Normal B cell
+## Tumor B cell
 
 
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
 
 
+#### calculate mean pearson correlation for every cell types with different cutoffs
+#### too many cases
+# ## 100
+# grep "High-confident" 'Tumor_B_T cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'           
+# grep "High-confident" 'Tumor_B_Monocyte_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'         
+# grep "High-confident" 'Tumor_B_Normal B cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'    
+# grep "High-confident" 'Tumor_B_Tumor B cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'     
+# grep "Random" 'Tumor_B_T cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'                   
+# grep "Random" 'Tumor_B_Monocyte_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'                 
+# grep "Random" 'Tumor_B_Normal B cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'            
+# grep "Random" 'Tumor_B_Tumor B cell_100_rawdata.csv' | cut -d "," -f 3 | awk '{sum+=$1}END{print sum/NR}'             
+# # 0.782448
+# # 0.738343
+# # 0.773002
+# # 0.845198
+# # 0.632245
+# # 0.49231
+# # 0.502014
+# # 0.536447
 
 
 
