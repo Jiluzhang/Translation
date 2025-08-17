@@ -1856,6 +1856,25 @@ p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplo
                                                                      scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='cutoff_100_box.pdf', dpi=600, height=4, width=4)
 
+## top 150
+tcell = pd.read_csv('Tumor_B_T cell_150_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_150_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_150_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_150_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_150_box.pdf', dpi=600, height=4, width=4)
+
 ## top 200
 tcell = pd.read_csv('Tumor_B_T cell_200_rawdata.csv', index_col=0)
 tcell['Cell_type'] = 'T_cell'
@@ -1874,6 +1893,25 @@ p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplo
                                                                      coord_cartesian(ylim=(-0.4, 1.0)) +\
                                                                      scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='cutoff_200_box.pdf', dpi=600, height=4, width=4)
+
+## top 300
+tcell = pd.read_csv('Tumor_B_T cell_300_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_300_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_300_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_300_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_300_box.pdf', dpi=600, height=4, width=4)
 
 ## top 500
 tcell = pd.read_csv('Tumor_B_T cell_500_rawdata.csv', index_col=0)
@@ -1913,22 +1951,49 @@ p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplo
                                                                      scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
 p.save(filename='cutoff_1000_box.pdf', dpi=600, height=4, width=4)
 
+## top 2000
+tcell = pd.read_csv('Tumor_B_T cell_2000_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_2000_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_2000_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_2000_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_2000_box.pdf', dpi=600, height=4, width=4)
+
+## top 5000
+tcell = pd.read_csv('Tumor_B_T cell_5000_rawdata.csv', index_col=0)
+tcell['Cell_type'] = 'T_cell'
+mono = pd.read_csv('Tumor_B_Monocyte_5000_rawdata.csv', index_col=0)
+mono['Cell_type'] = 'Monocyte'
+normal_b = pd.read_csv('Tumor_B_Normal B cell_5000_rawdata.csv', index_col=0)
+normal_b['Cell_type'] = 'Normal_B'
+tumor_b = pd.read_csv('Tumor_B_Tumor B cell_5000_rawdata.csv', index_col=0)
+tumor_b['Cell_type'] = 'Tumor_B'
+
+dat = pd.concat([tcell, mono, normal_b, tumor_b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['T_cell', 'Monocyte', 'Normal_B', 'Tumor_B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.4, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.4, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_5000_box.pdf', dpi=600, height=4, width=4)
+
 #### PBMC
 #### workdir: /fs/home/jiluzhang/Nature_methods/Revision/CRE_gene_correlation/pbmc
-## T cell
-## Monocyte   
-## Normal B cell
-## Tumor B cell
+#### The cell annotation is different from the RNA->ATAC used, not use!
 
 
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-########################################################################
-########################################################################
 
 
 #### calculate mean pearson correlation for every cell types with different cutoffs
