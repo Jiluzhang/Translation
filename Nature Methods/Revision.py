@@ -506,7 +506,8 @@ pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.620437324
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
-np.mean(pearsonr_cell_type_lst)  # 0.5932539555527117
+np.mean(pearsonr_cell_type_lst)    # 0.5932539555527117
+np.median(pearsonr_cell_type_lst)  # 0.5821321821611842
 
 ## track peak correlation
 true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
@@ -555,7 +556,9 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.657052554
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
-np.mean(pearsonr_cell_type_lst)  # 0.4650946842494681
+np.mean(pearsonr_cell_type_lst)    # 0.4650946842494681
+np.median(pearsonr_cell_type_lst)  # 0.4905585756122327
+
 
 ## track peak correlation
 true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
@@ -604,7 +607,8 @@ pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.645316506
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
-np.mean(pearsonr_cell_type_lst)  # 0.5464218177855465
+np.mean(pearsonr_cell_type_lst)    # 0.5464218177855465
+np.median(pearsonr_cell_type_lst)  # 0.6033067761089492
 
 ## track peak correlation
 true.var['chr'] = true.var['gene_ids'].map(lambda x: x.split(':')[0])
@@ -2015,6 +2019,52 @@ p.save(filename='cutoff_5000_box.pdf', dpi=600, height=4, width=4)
 # # 0.49231
 # # 0.502014
 # # 0.536447
+
+
+#### BCL ATAC signal
+## workdir: /fs/home/jiluzhang/Nature_methods/Revision/BCL_ATAC
+
+import scanpy as sc
+import numpy as np
+import pandas as pd
+
+atac = sc.read_h5ad('mapped_atac_tumor_B.h5ad')
+atac.var['chrom'] = atac.var.index.map(lambda x: x.split(':')[0])
+atac.var['start'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[0])
+atac.var['end'] = atac.var.index.map(lambda x: x.split(':')[1].split('-')[1])
+
+atac.obs.value_counts()
+# T cell           9068
+# Tumor B cell     3130
+# Monocyte         1720
+# Normal B cell     563
+# Other              85
+
+t_cell = pd.DataFrame({'chrom':atac.var['chrom'],
+                       'start':atac.var['start'],
+                       'end':atac.var['end'],
+                       'val':np.array(atac[atac.obs['cell_anno']=='T cell'].X.mean(axis=0))[0]})
+t_cell.to_csv('t_cell_atac_norm.bedgraph', sep='\t', header=False, index=False)
+
+tumor_b = pd.DataFrame({'chrom':atac.var['chrom'],
+                        'start':atac.var['start'],
+                        'end':atac.var['end'],
+                        'val':np.array(atac[atac.obs['cell_anno']=='Tumor B cell'].X.mean(axis=0))[0]})
+tumor_b.to_csv('tumor_b_atac_norm.bedgraph', sep='\t', header=False, index=False)
+
+mono = pd.DataFrame({'chrom':atac.var['chrom'],
+                     'start':atac.var['start'],
+                     'end':atac.var['end'],
+                     'val':np.array(atac[atac.obs['cell_anno']=='Monocyte'].X.mean(axis=0))[0]})
+mono.to_csv('mono_atac_norm.bedgraph', sep='\t', header=False, index=False)
+
+normal_b = pd.DataFrame({'chrom':atac.var['chrom'],
+                         'start':atac.var['start'],
+                         'end':atac.var['end'],
+                         'val':np.array(atac[atac.obs['cell_anno']=='Normal B cell'].X.mean(axis=0))[0]})
+normal_b.to_csv('normal_b_atac_norm.bedgraph', sep='\t', header=False, index=False)
+
+
 
 
 
