@@ -36,6 +36,9 @@ pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.853180488
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.8149, 0.7975, 0.8201, 0.8172, 0.7139,
+#  0.8172, 0.8250, 0.8231, 0.7884, 0.7848, 
+#  0.7370, 0.7947, 0.8025, 0.7862, 0.7569]
 np.mean(pearsonr_cell_type_lst)  # 0.7919644023632103
 
 ## scbt
@@ -74,6 +77,9 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.786243955
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.7783, 0.4409, 0.7327, 0.7033, 0.7734,
+#  0.7449, 0.7483, 0.7816, 0.7902, 0.6827,
+#  0.5272, 0.6180, 0.6385, 0.7731, 0.7258]
 np.mean(pearsonr_cell_type_lst)  # 0.6972478250141221
 
 
@@ -113,6 +119,9 @@ pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.778983148
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.7942, 0.4367, 0.7598, 0.6940, 0.7692,
+#  0.7746, 0.7681, 0.7827, 0.7915, 0.6888,
+#  0.5009, 0.6838, 0.6741, 0.7715, 0.7791]
 np.mean(pearsonr_cell_type_lst)  # 0.7112536234005006
 
 ## plot metrics
@@ -121,6 +130,7 @@ from plotnine import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import stats
 
 plt.rcParams['pdf.fonttype'] = 42
 
@@ -140,6 +150,23 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
 p.save(filename='s_1_pearson_bulk.pdf', dpi=600, height=4, width=6)
+
+## Pearson correlation with points
+dat = pd.DataFrame({'Method':['BABEL']*15+['scButterfly']*15+['Cisformer']*15,
+                    'val':[0.7942, 0.4367, 0.7598, 0.6940, 0.7692, 0.7746, 0.7681, 0.7827, 0.7915, 0.6888, 0.5009, 0.6838, 0.6741, 0.7715, 0.7791]+
+                          [0.7783, 0.4409, 0.7327, 0.7033, 0.7734, 0.7449, 0.7483, 0.7816, 0.7902, 0.6827, 0.5272, 0.6180, 0.6385, 0.7731, 0.7258]+
+                          [0.8149, 0.7975, 0.8201, 0.8172, 0.7139, 0.8172, 0.8250, 0.8231, 0.7884, 0.7848, 0.7370, 0.7947, 0.8025, 0.7862, 0.7569]})
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+dat_avg = dat.groupby('Method').agg('mean').reset_index()
+
+p = ggplot(dat_avg, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                               geom_point(data=dat, mapping=aes(x='Method', y='val'), position=position_jitterdodge(jitter_width=0.3), size=2) +\
+                                                               scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='s_1_pearson_bulk_cell_types.pdf', dpi=600, height=4, width=5)
+
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='BABEL']['val'], alternative='greater')[1]         # 0.0048478660322238305
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='scButterfly']['val'], alternative='greater')[1]   # 0.0009609833229012949
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.280, 0.547, 0.351,
