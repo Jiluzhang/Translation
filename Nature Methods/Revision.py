@@ -220,6 +220,7 @@ pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.827855089
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.8062, 0.7885, 0.7715, 0.6998, 0.7908]
 np.mean(pearsonr_cell_type_lst)  # 0.7713684174966176
 
 ## scbt
@@ -258,6 +259,7 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.812354814
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.7683, 0.7229, 0.4290, 0.5708, 0.7159]
 np.mean(pearsonr_cell_type_lst)  # 0.641408594146931
 
 ## babel
@@ -296,6 +298,7 @@ pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.803502036
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.7267, 0.7811, 0.6330, 0.5359, 0.6986]
 np.mean(pearsonr_cell_type_lst)  # 0.675065323930018
 
 ## plot metrics
@@ -323,6 +326,23 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
 p.save(filename='s_2_pearson_bulk.pdf', dpi=600, height=4, width=6)
+
+## Pearson correlation with points
+dat = pd.DataFrame({'Method':['BABEL']*5+['scButterfly']*5+['Cisformer']*5,
+                    'val':[0.7267, 0.7811, 0.6330, 0.5359, 0.6986]+
+                          [0.7683, 0.7229, 0.4290, 0.5708, 0.7159]+
+                          [0.8062, 0.7885, 0.7715, 0.6998, 0.7908]})
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+dat_avg = dat.groupby('Method').agg('mean').reset_index()
+
+p = ggplot(dat_avg, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                               geom_point(data=dat, mapping=aes(x='Method', y='val'), position=position_jitterdodge(jitter_width=0.3), size=2) +\
+                                                               scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='s_2_pearson_bulk_cell_types.pdf', dpi=600, height=4, width=5)
+
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='BABEL']['val'], alternative='greater')[1]         # 0.03520366665668405
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='scButterfly']['val'], alternative='greater')[1]   # 0.04094222287761267
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.256, 0.493, 0.305,
@@ -376,6 +396,11 @@ pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]   # 0.82955158
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.7604, 0.7825, 0.6394, 0.5825, 0.7681,
+#  0.7928, 0.7803, 0.7966, 0.7252, 0.8016,
+#  0.6663, 0.3589, 0.7360, 0.7293, 0.6745, 
+#  0.6802, 0.6446, 0.7843, 0.6884, 0.7930, 
+#  0.7278, 0.7432]
 np.mean(pearsonr_cell_type_lst)  # 0.7116379073214449
 
 ## scbt
@@ -414,6 +439,11 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]   # 0.76742006
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.6858, 0.6887, 0.5271, 0.5707, 0.6971,
+#  0.7161, 0.7029, 0.7239, 0.6661, 0.7070,
+#  0.5639, 0.1112, 0.6681, 0.5639, 0.6213,
+#  0.5936, 0.5307, 0.6964, 0.6414, 0.4184,
+#  0.6380, 0.3461]
 np.mean(pearsonr_cell_type_lst)  # 0.5944844011959521
 
 
@@ -453,6 +483,11 @@ pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]   # 0.76735195
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.6860, 0.7524, 0.6105, 0.5234, 0.7155,
+#  0.7266, 0.6983, 0.6813, 0.6616, 0.7599,
+#  0.5653, 0.2410, 0.6048, 0.6368, 0.6342,
+#  0.5956, 0.6161, 0.7007, 0.6179, 0.4296,
+#  0.6229, 0.2954]
 np.mean(pearsonr_cell_type_lst)  # 0.6079898707045145
 
 ## plot metrics
@@ -480,6 +515,26 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
 p.save(filename='s_3_pearson_bulk.pdf', dpi=600, height=4, width=6)
+
+## Pearson correlation with points
+dat = pd.DataFrame({'Method':['BABEL']*22+['scButterfly']*22+['Cisformer']*22,
+                    'val':[0.6860, 0.7524, 0.6105, 0.5234, 0.7155, 0.7266, 0.6983, 0.6813, 0.6616, 0.7599, 0.5653, 
+                           0.2410, 0.6048, 0.6368, 0.6342, 0.5956, 0.6161, 0.7007, 0.6179, 0.4296, 0.6229, 0.2954]+
+                          [0.6858, 0.6887, 0.5271, 0.5707, 0.6971, 0.7161, 0.7029, 0.7239, 0.6661, 0.7070, 0.5639,
+                           0.1112, 0.6681, 0.5639, 0.6213, 0.5936, 0.5307, 0.6964, 0.6414, 0.4184, 0.6380, 0.3461]+
+                          [0.7604, 0.7825, 0.6394, 0.5825, 0.7681, 0.7928, 0.7803, 0.7966, 0.7252, 0.8016, 0.6663,
+                           0.3589, 0.7360, 0.7293, 0.6745, 0.6802, 0.6446, 0.7843, 0.6884, 0.7930, 0.7278, 0.7432]})
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+dat_avg = dat.groupby('Method').agg('mean').reset_index()
+
+p = ggplot(dat_avg, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                               geom_point(data=dat, mapping=aes(x='Method', y='val'), position=position_jitterdodge(jitter_width=0.3), size=2) +\
+                                                               scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='s_3_pearson_bulk_cell_types.pdf', dpi=600, height=4, width=5)
+
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='BABEL']['val'], alternative='greater')[1]         # 0.002824650179179044
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='scButterfly']['val'], alternative='greater')[1]   # 0.001659649596422771
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.108, 0.522, 0.165,
@@ -533,6 +588,7 @@ pearsonr(true.X.toarray().sum(axis=0), cifm_X_0_1.sum(axis=0))[0]  # 0.620437324
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    cifm_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.6851, 0.5679, 0.5753, 0.6244, 0.5938, 0.5835, 0.5352, 0.5807]
 np.mean(pearsonr_cell_type_lst)    # 0.5932539555527117
 np.median(pearsonr_cell_type_lst)  # 0.5821321821611842
 
@@ -583,6 +639,7 @@ pearsonr(true.X.toarray().sum(axis=0), scbt_X_0_1.sum(axis=0))[0]  # 0.657052554
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    scbt_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.4425, 0.2086, 0.4784, 0.6652, 0.5027, 0.6134, 0.2394, 0.5706]
 np.mean(pearsonr_cell_type_lst)    # 0.4650946842494681
 np.median(pearsonr_cell_type_lst)  # 0.4905585756122327
 
@@ -634,6 +691,7 @@ pearsonr(true.X.toarray().sum(axis=0), babl_X_0_1.sum(axis=0))[0]  # 0.645316506
 
 pearsonr_cell_type_lst = [pearsonr(true[true.obs['cell_anno']==ct].X.toarray().sum(axis=0),
                                    babl_X_0_1[true.obs['cell_anno']==ct].sum(axis=0))[0] for ct in set(true.obs['cell_anno'].values)]
+# [0.1683, 0.6046, 0.6020, 0.6367, 0.6331, 0.6102, 0.5749, 0.5416]
 np.mean(pearsonr_cell_type_lst)    # 0.5464218177855465
 np.median(pearsonr_cell_type_lst)  # 0.6033067761089492
 
@@ -673,6 +731,24 @@ dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly'
 p = ggplot(dat, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
                                                            scale_y_continuous(limits=[0, 0.8], breaks=np.arange(0, 0.8+0.1, 0.2)) + theme_bw()
 p.save(filename='s_4_pearson_bulk.pdf', dpi=600, height=4, width=6)
+
+## Pearson correlation with points
+dat = pd.DataFrame({'Method':['BABEL']*8+['scButterfly']*8+['Cisformer']*8,
+                    'val':[0.1683, 0.6046, 0.6020, 0.6367, 0.6331, 0.6102, 0.5749, 0.5416]+
+                          [0.4425, 0.2086, 0.4784, 0.6652, 0.5027, 0.6134, 0.2394, 0.5706]+
+                          [0.6851, 0.5679, 0.5753, 0.6244, 0.5938, 0.5835, 0.5352, 0.5807]})
+dat['Method'] = pd.Categorical(dat['Method'], categories=['BABEL', 'scButterfly', 'Cisformer'])
+
+dat_avg = dat.groupby('Method').agg('mean').reset_index()
+
+p = ggplot(dat_avg, aes(x='Method', y='val', fill='Method')) + geom_bar(stat='identity', position=position_dodge(), width=0.75) + ylab('') +\
+                                                               geom_point(data=dat, mapping=aes(x='Method', y='val'), position=position_jitterdodge(jitter_width=0.3), size=2) +\
+                                                               scale_y_continuous(limits=[0, 0.9], breaks=np.arange(0, 0.9+0.1, 0.3)) + theme_bw()
+p.save(filename='s_4_pearson_bulk_cell_types.pdf', dpi=600, height=4, width=5)
+
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='BABEL']['val'], alternative='greater')[1]         # 0.2139032575139147
+stats.ttest_ind(dat[dat['Method']=='Cisformer']['val'], dat[dat['Method']=='scButterfly']['val'], alternative='greater')[1]   # 0.026533318683751722
+
 
 ## precision & recell & F1 score
 dat = pd.DataFrame([0.139, 0.410, 0.193,
@@ -2021,11 +2097,112 @@ p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplo
 p.save(filename='cutoff_5000_box.pdf', dpi=600, height=4, width=4)
 
 #### PBMC
-#### workdir: /fs/home/jiluzhang/Nature_methods/Revision/CRE_gene_correlation/pbmc
-#### The cell annotation is different from the RNA->ATAC used, not use!
+#### workdir: /fs/home/jiluzhang/Nature_methods/Revision/CRE_gene_correlation/tumor_b
+## CD8T
+## CD4T   
+## CD16Mono
+## NK
+## CD14Mono
+## B
 
+from plotnine import *
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
 
+plt.rcParams['pdf.fonttype'] = 42
 
+## top 100
+cd8t = pd.read_csv('PBMC_cs_CD8T_100_rawdata.csv', index_col=0)
+cd8t['Cell_type'] = 'CD8T'
+cd4t = pd.read_csv('PBMC_cs_CD4T_100_rawdata.csv', index_col=0)
+cd4t['Cell_type'] = 'CD4T'
+cd16mono = pd.read_csv('PBMC_cs_CD16Mono_100_rawdata.csv', index_col=0)
+cd16mono['Cell_type'] = 'CD16Mono'
+nk = pd.read_csv('PBMC_cs_NK_100_rawdata.csv', index_col=0)
+nk['Cell_type'] = 'NK'
+cd14mono = pd.read_csv('PBMC_cs_CD14Mono_100_rawdata.csv', index_col=0)
+cd14mono['Cell_type'] = 'CD14Mono'
+b = pd.read_csv('PBMC_cs_B_100_rawdata.csv', index_col=0)
+b['Cell_type'] = 'B'
+
+dat = pd.concat([cd8t, cd4t, cd16mono, nk, cd14mono, b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['CD4T', 'CD8T', 'CD14Mono', 'CD16Mono', 'NK', 'B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.8, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.8, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_100_box.pdf', dpi=600, height=4, width=4)
+
+## top 200
+cd8t = pd.read_csv('PBMC_cs_CD8T_200_rawdata.csv', index_col=0)
+cd8t['Cell_type'] = 'CD8T'
+cd4t = pd.read_csv('PBMC_cs_CD4T_200_rawdata.csv', index_col=0)
+cd4t['Cell_type'] = 'CD4T'
+cd16mono = pd.read_csv('PBMC_cs_CD16Mono_200_rawdata.csv', index_col=0)
+cd16mono['Cell_type'] = 'CD16Mono'
+nk = pd.read_csv('PBMC_cs_NK_200_rawdata.csv', index_col=0)
+nk['Cell_type'] = 'NK'
+cd14mono = pd.read_csv('PBMC_cs_CD14Mono_200_rawdata.csv', index_col=0)
+cd14mono['Cell_type'] = 'CD14Mono'
+b = pd.read_csv('PBMC_cs_B_200_rawdata.csv', index_col=0)
+b['Cell_type'] = 'B'
+
+dat = pd.concat([cd8t, cd4t, cd16mono, nk, cd14mono, b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['CD4T', 'CD8T', 'CD14Mono', 'CD16Mono', 'NK', 'B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.8, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.8, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_200_box.pdf', dpi=600, height=4, width=4)
+
+## top 500
+cd8t = pd.read_csv('PBMC_cs_CD8T_500_rawdata.csv', index_col=0)
+cd8t['Cell_type'] = 'CD8T'
+cd4t = pd.read_csv('PBMC_cs_CD4T_500_rawdata.csv', index_col=0)
+cd4t['Cell_type'] = 'CD4T'
+cd16mono = pd.read_csv('PBMC_cs_CD16Mono_500_rawdata.csv', index_col=0)
+cd16mono['Cell_type'] = 'CD16Mono'
+nk = pd.read_csv('PBMC_cs_NK_500_rawdata.csv', index_col=0)
+nk['Cell_type'] = 'NK'
+cd14mono = pd.read_csv('PBMC_cs_CD14Mono_500_rawdata.csv', index_col=0)
+cd14mono['Cell_type'] = 'CD14Mono'
+b = pd.read_csv('PBMC_cs_B_500_rawdata.csv', index_col=0)
+b['Cell_type'] = 'B'
+
+dat = pd.concat([cd8t, cd4t, cd16mono, nk, cd14mono, b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['CD4T', 'CD8T', 'CD14Mono', 'CD16Mono', 'NK', 'B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.8, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.8, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_500_box.pdf', dpi=600, height=4, width=4)
+
+## top 1000
+cd8t = pd.read_csv('PBMC_cs_CD8T_1000_rawdata.csv', index_col=0)
+cd8t['Cell_type'] = 'CD8T'
+cd4t = pd.read_csv('PBMC_cs_CD4T_1000_rawdata.csv', index_col=0)
+cd4t['Cell_type'] = 'CD4T'
+cd16mono = pd.read_csv('PBMC_cs_CD16Mono_1000_rawdata.csv', index_col=0)
+cd16mono['Cell_type'] = 'CD16Mono'
+nk = pd.read_csv('PBMC_cs_NK_1000_rawdata.csv', index_col=0)
+nk['Cell_type'] = 'NK'
+cd14mono = pd.read_csv('PBMC_cs_CD14Mono_1000_rawdata.csv', index_col=0)
+cd14mono['Cell_type'] = 'CD14Mono'
+b = pd.read_csv('PBMC_cs_B_1000_rawdata.csv', index_col=0)
+b['Cell_type'] = 'B'
+
+dat = pd.concat([cd8t, cd4t, cd16mono, nk, cd14mono, b])
+
+dat['Cell_type'] = pd.Categorical(dat['Cell_type'], categories=['CD4T', 'CD8T', 'CD14Mono', 'CD16Mono', 'NK', 'B'])
+
+p = ggplot(dat, aes(x='Cell_type', y='Correlation', fill='Group')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                                     coord_cartesian(ylim=(-0.8, 1.0)) +\
+                                                                     scale_y_continuous(breaks=np.arange(-0.8, 1+0.1, 0.2)) + theme_bw()
+p.save(filename='cutoff_1000_box.pdf', dpi=600, height=4, width=4)
 
 #### calculate mean pearson correlation for every cell types with different cutoffs
 #### too many cases
