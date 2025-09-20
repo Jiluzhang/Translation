@@ -5,6 +5,7 @@ conda create --name ACCESS_ATAC python=3.9
 conda install numpy
 conda install -c conda-forge pytorch-gpu
 pip install pyBigWig pyranges pysam pyfaidx
+pip install deeptools
 
 wget -c http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig
 
@@ -87,5 +88,45 @@ output_file = "chr1_region.bw"
 chromosome = "chr1"
 start_pos = 1000000
 end_pos = 2000000
+
+
+multiBigwigSummary bins -b chr1_regions_valid.bw test.bw -o raw_pred_signal.npz --outRawCounts raw_pred_signal.tab \
+                        -l raw pred -bs 10000 -p 8
+
+#################################################### all nan in the tab files ####################################################
+
+
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv('counts.tab', sep='\t', comment='#')
+pearson_corr, _ = stats.pearsonr(df['sample1'], df['sample2'])
+spearman_corr, _ = stats.spearmanr(df['sample1'], df['sample2'])
+print(f"Pearson R: {pearson_corr}")
+print(f"Spearman R: {spearman_corr}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 extract_region_to_bigwig(input_file, output_file, chromosome, start_pos, end_pos)
