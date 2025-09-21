@@ -17,10 +17,7 @@ scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/01.c
 # with open('nakedDNA_human.pickle', 'rb') as file:
 #     df = pickle.load(file)
 
-python ../train.py --bw_file human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed --ref_fasta hg38.fa \
-                   --k 128 --epochs 200 --out_dir . --out_name test --seed 0 --batch_size 512
 
-python ../predict.py --regions regions_valid.bed --ref_fasta hg38.fa --k 128 --model_path ./test.pth --chrom_size_file hg38.chrom.sizes --out_dir . --out_name test
 
 
 ## extract regions from bigwig files
@@ -90,20 +87,26 @@ start_pos = 1000000
 end_pos = 2000000
 
 
-multiBigwigSummary bins -b chr1_regions_valid.bw test.bw -o raw_pred_signal.npz --outRawCounts raw_pred_signal.tab \
-                        -l raw pred -bs 10000 -p 8
+python ../train.py --bw_file human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed --ref_fasta hg38.fa \
+                   --k 128 --epochs 100 --out_dir . --out_name epoch_100 --seed 0 --batch_size 512
 
-#################################################### all nan in the tab files ####################################################
+python ../predict.py --regions regions_valid.bed --ref_fasta hg38.fa --k 128 --model_path ./epoch_100.pth --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_100
+
+multiBigwigSummary bins -b epoch_100.bw chr1_regions_valid.bw -o epoch_100.npz --outRawCounts epoch_100.tab \
+                        -l pred raw -bs 10000 -p 8
+grep -v nan epoch_100.tab | sed 1d > epoch_100_nonan.tab
+rm epoch_100.tab
+
 
 
 import pandas as pd
 from scipy import stats
+import argparse
 
-df = pd.read_csv('counts.tab', sep='\t', comment='#')
-pearson_corr, _ = stats.pearsonr(df['sample1'], df['sample2'])
-spearman_corr, _ = stats.spearmanr(df['sample1'], df['sample2'])
+df = pd.read_csv('epoch_100_nonan.tab', sep='\t', header=None)
+df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
+pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
 print(f"Pearson R: {pearson_corr}")
-print(f"Spearman R: {spearman_corr}")
 
 
 
