@@ -85,16 +85,14 @@ def extract_region_to_bigwig(input_bw, output_bw, chromosome, start, end):
         return False
 
 # 使用示例
-input_file = "ecoli_nakedDNA.bw"
-output_file = "regions_test.bw"
-chromosome = "chr1"
-start_pos = 3000000
-end_pos = 4000000
-
 extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_train.bw', 
                          chromosome='NC_000913.3', start=1, end=3641652)
 extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_valid.bw', 
-                         chromosome='NC_000913.3', start=3641652, end=4641651)
+                         chromosome='NC_000913.3', start=3641652, end=4141651)
+extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_test.bw', 
+                         chromosome='NC_000913.3', start=4141652, end=4641651)
+extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_test_human.bw', 
+                         chromosome='chr21', start=1, end=46709983)
 ##############################################################################################################################
 
 ## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
@@ -102,30 +100,79 @@ extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_valid.
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
                                                              --ref_fasta genome.fa --k 128 --epochs 100 --out_dir . --out_name epoch_100 --seed 0 --batch_size 512
 
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_train.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_train
-multiBigwigSummary bins -b epoch_100_train.bw regions_train.bw -o epoch_100_train.npz --outRawCounts epoch_100_train.tab \
-                        -l pred raw -bs 1 -p 10  # ~2 min
-grep -v nan epoch_100_train.tab | sed 1d > epoch_100_train_nonan.tab
-rm epoch_100_train.tab
-
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
                                                                --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_valid
 multiBigwigSummary bins -b epoch_100_valid.bw regions_valid.bw -o epoch_100_valid.npz --outRawCounts epoch_100_valid.tab \
-                        -l pred raw -bs 1 -p 10  # ~2 min
+                        -l pred raw -bs 1 -p 10
 grep -v nan epoch_100_valid.tab | sed 1d > epoch_100_valid_nonan.tab
 rm epoch_100_valid.tab
 
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_test
+multiBigwigSummary bins -b epoch_100_test.bw regions_test.bw -o epoch_100_test.npz --outRawCounts epoch_100_test.tab \
+                        -l pred raw -bs 1 -p 10
+grep -v nan epoch_100_test.tab | sed 1d > epoch_100_test_nonan.tab
+rm epoch_100_test.tab
+
+## epoch=200
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 128 --epochs 200 --out_dir . --out_name epoch_200 --seed 0 --batch_size 512
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_valid
+multiBigwigSummary bins -b epoch_200_valid.bw regions_valid.bw -o epoch_200_valid.npz --outRawCounts epoch_200_valid.tab \
+                        -l pred raw -bs 1 -p 10  # ~2 min
+grep -v nan epoch_200_valid.tab | sed 1d > epoch_200_valid_nonan.tab
+rm epoch_200_valid.tab
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_test
+multiBigwigSummary bins -b epoch_200_test.bw regions_test.bw -o epoch_200_test.npz --outRawCounts epoch_200_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~2 min
+grep -v nan epoch_200_test.tab | sed 1d > epoch_200_test_nonan.tab
+rm epoch_200_test.tab
+
+## epoch=500
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 128 --epochs 500 --out_dir . --out_name epoch_500 --seed 0 --batch_size 512
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_500.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_500_valid
+multiBigwigSummary bins -b epoch_500_valid.bw regions_valid.bw -o epoch_500_valid.npz --outRawCounts epoch_500_valid.tab \
+                        -l pred raw -bs 1 -p 10
+grep -v nan epoch_500_valid.tab | sed 1d > epoch_500_valid_nonan.tab
+rm epoch_500_valid.tab
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_500.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_500_test
+multiBigwigSummary bins -b epoch_500_test.bw regions_test.bw -o epoch_500_test.npz --outRawCounts epoch_500_test.tab \
+                        -l pred raw -bs 1 -p 10
+grep -v nan epoch_500_test.tab | sed 1d > epoch_500_test_nonan.tab
+rm epoch_500_test.tab
+
+## human chrom chr21 test (chr21:46209983-46709983)
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta ../human/hg38.fa --k 128 --model_path ./epoch_500.pth \
+                                                               --chrom_size_file ../human/hg38.chrom.sizes --out_dir . --out_name epoch_500_test_human
+multiBigwigSummary bins -b epoch_500_test_human.bw regions_test_human.bw -o epoch_500_test_human.npz --outRawCounts epoch_500_test_human.tab \
+                        -l pred raw -bs 1 -p 10
+grep -v nan epoch_500_test_human.tab | sed 1d > epoch_500_test_human_nonan.tab
+rm epoch_500_test_human.tab
+
 ##############################################################################################################################
-## ../cal_cor --file epoch_100_train_nonan.tab    # 0.7100750860662395  0.680437738961396
-## ../cal_cor --file epoch_100_valid_nonan.tab    # 0.7082189028293715  0.6790170844020186
+## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
+## ../cal_cor --file epoch_100_test_nonan.tab           # 0.7082189028293715  0.6790170844020186
+## ../cal_cor --file epoch_200_valid_nonan.tab          # 0.7395414336137928  0.7112723570920626
+## ../cal_cor --file epoch_200_test_nonan.tab           # 0.7403168268301135  0.7110146291063021
+## ../cal_cor --file epoch_500_valid_nonan.tab          # 0.7416945008705992  0.7134883683857012
+## ../cal_cor --file epoch_500_test_nonan.tab           # 0.7417070864468944  0.7126470645540367
+## ../cal_cor --file epoch_500_test_human_nonan.tab     # 0.2263957077458701  0.22646666457620462
 
 #!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
 import pandas as pd
 from scipy import stats
 import argparse
 
-parser = argparse.ArgumentParser(description='Calculate Pearson correlation between prediction and ground truth')
+parser = argparse.ArgumentParser(description='Calculate correlation between prediction and ground truth')
 parser.add_argument('--file', type=str, help='tab file')
 
 args = parser.parse_args()
