@@ -16,6 +16,11 @@ scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/1
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/genome.fa \
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 
+##########################################################################################################################################################
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/01.cFOOT-seq/final_data/human/HepG2/rawdata/rep1/ordinary/HepG2_7.5U.bw
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
+##########################################################################################################################################################
+
 # import pickle
 
 # with open('nakedDNA_human.pickle', 'rb') as file:
