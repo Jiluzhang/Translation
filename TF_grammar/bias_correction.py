@@ -117,8 +117,8 @@ grep -v nan epoch_100_valid.tab | sed 1d > epoch_100_valid_nonan.tab
 rm epoch_100_valid.tab
 
 ##############################################################################################################################
-## ../cal_cor --file epoch_100_train_nonan.tab    # 0.7100750860662395
-## ../cal_cor --file epoch_100_valid_nonan.tab    # 0.7082189028293715
+## ../cal_cor --file epoch_100_train_nonan.tab    # 0.7100750860662395  0.680437738961396
+## ../cal_cor --file epoch_100_valid_nonan.tab    # 0.7082189028293715  0.6790170844020186
 
 #!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
 import pandas as pd
@@ -135,7 +135,9 @@ def main():
     df = pd.read_csv(tab_file, sep='\t', header=None)
     df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
     pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
+    spearman_corr, _ = stats.spearmanr(df['pred'], df['raw'])
     print(f"Pearson R: {pearson_corr}")
+    print(f"Spearman R: {spearman_corr}")
 
 if __name__ == "__main__":
     main()
