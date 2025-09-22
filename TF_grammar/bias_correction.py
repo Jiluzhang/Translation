@@ -10,16 +10,21 @@ pip install deeptools
 wget -c http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig
 
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/01.cFOOT-seq/final_data/human/HepG2_naked_DNA/rawdata/rep1/ordinary/nakedDNA.bw \
-             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human/human_nakedDNA.bw
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/105.JM110_gDNA_cFOOT_2/add/05.conversionProfile/ordinary/JM110_gDNA_0.5U.bw \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli/ecoli_nakedDNA.bw
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/genome.fa \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 
 # import pickle
 
 # with open('nakedDNA_human.pickle', 'rb') as file:
 #     df = pickle.load(file)
 
+## /share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct
+## /share/home/u21509/workspace/reference
 
-
-
+##############################################################################################################################
 ## extract regions from bigwig files
 import pyBigWig
 import os
@@ -80,35 +85,61 @@ def extract_region_to_bigwig(input_bw, output_bw, chromosome, start, end):
         return False
 
 # 使用示例
-input_file = "input.bw"
-output_file = "chr1_region.bw"
+input_file = "ecoli_nakedDNA.bw"
+output_file = "regions_test.bw"
 chromosome = "chr1"
-start_pos = 1000000
-end_pos = 2000000
+start_pos = 3000000
+end_pos = 4000000
 
+extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_train.bw', 
+                         chromosome='NC_000913.3', start=1, end=3641652)
+extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_valid.bw', 
+                         chromosome='NC_000913.3', start=3641652, end=4641651)
+##############################################################################################################################
 
-python ../train.py --bw_file human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed --ref_fasta hg38.fa \
-                   --k 128 --epochs 100 --out_dir . --out_name epoch_100 --seed 0 --batch_size 512
+## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
+## epoch=100
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 128 --epochs 100 --out_dir . --out_name epoch_100 --seed 0 --batch_size 512
 
-python ../predict.py --regions regions_valid.bed --ref_fasta hg38.fa --k 128 --model_path ./epoch_100.pth --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_100
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_train.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_train
+multiBigwigSummary bins -b epoch_100_train.bw regions_train.bw -o epoch_100_train.npz --outRawCounts epoch_100_train.tab \
+                        -l pred raw -bs 1 -p 10  # ~2 min
+grep -v nan epoch_100_train.tab | sed 1d > epoch_100_train_nonan.tab
+rm epoch_100_train.tab
 
-multiBigwigSummary bins -b epoch_100.bw chr1_regions_valid.bw -o epoch_100.npz --outRawCounts epoch_100.tab \
-                        -l pred raw -bs 10000 -p 8
-grep -v nan epoch_100.tab | sed 1d > epoch_100_nonan.tab
-rm epoch_100.tab
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_valid
+multiBigwigSummary bins -b epoch_100_valid.bw regions_valid.bw -o epoch_100_valid.npz --outRawCounts epoch_100_valid.tab \
+                        -l pred raw -bs 1 -p 10  # ~2 min
+grep -v nan epoch_100_valid.tab | sed 1d > epoch_100_valid_nonan.tab
+rm epoch_100_valid.tab
 
+##############################################################################################################################
+## ../cal_cor --file epoch_100_train_nonan.tab    # 0.7100750860662395
+## ../cal_cor --file epoch_100_valid_nonan.tab    # 0.7082189028293715
 
-
+#!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
 import pandas as pd
 from scipy import stats
 import argparse
 
-df = pd.read_csv('epoch_100_nonan.tab', sep='\t', header=None)
-df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
-pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
-print(f"Pearson R: {pearson_corr}")
+parser = argparse.ArgumentParser(description='Calculate Pearson correlation between prediction and ground truth')
+parser.add_argument('--file', type=str, help='tab file')
 
+args = parser.parse_args()
+tab_file = args.file
 
+def main():
+    df = pd.read_csv(tab_file, sep='\t', header=None)
+    df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
+    pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
+    print(f"Pearson R: {pearson_corr}")
+
+if __name__ == "__main__":
+    main()
+##############################################################################################################################
 
 
 
