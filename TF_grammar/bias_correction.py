@@ -168,6 +168,7 @@ rm epoch_500_test_human.tab
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta ../human/hg38.fa --k 128 --model_path ./epoch_500.pth \
                                                                --chrom_size_file ../human/hg38.chrom.sizes --out_dir . --out_name epoch_500_test_heg2  # ~6 min
 
+# np.divide -> np.subtract
 python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias epoch_500_test_heg2.bw \
                                                                                  --bed_file regions_test_human_2.bed --extend 0 --window 11 \
                                                                                  --pseudo_count 0.001 --out_dir . --out_name epoch_500_test_heg2_corrected \
@@ -175,7 +176,7 @@ python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py
 grep chr21 ctcf_raw.bed > ctcf_raw_chr21.bed 
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw \
                               -R ctcf_raw_chr21.bed -o raw_corrected.gz -a 100 -b 100 -bs 1
-plotProfile -m raw_corrected.gz --yMin 0 --yMax 1.5 --perGroup -out raw_corrected.pdf 
+plotProfile -m raw_corrected.gz --yMin 0 --yMax 20 --perGroup -out raw_corrected.pdf 
 ##############################################################################################################################
 ## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
 ## ../cal_cor --file epoch_100_test_nonan.tab           # 0.7082189028293715  0.6790170844020186
