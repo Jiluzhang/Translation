@@ -176,7 +176,8 @@ python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py
 grep chr21 ctcf_raw.bed > ctcf_raw_chr21.bed 
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw \
                               -R ctcf_raw_chr21.bed -o raw_corrected.gz -a 100 -b 100 -bs 1
-plotProfile -m raw_corrected.gz --yMin 0 --yMax 20 --perGroup -out raw_corrected.pdf 
+plotProfile -m raw_corrected.gz --yMin -1 --yMax 1 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
+
 ##############################################################################################################################
 ## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
 ## ../cal_cor --file epoch_100_test_nonan.tab           # 0.7082189028293715  0.6790170844020186
