@@ -6,9 +6,12 @@ conda install numpy
 conda install -c conda-forge pytorch-gpu
 pip install pyBigWig pyranges pysam pyfaidx
 pip install deeptools
+conda install bioconda::bedtools
+
 
 wget -c http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/wigToBigWig
 
+## files download
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/01.cFOOT-seq/final_data/human/HepG2_naked_DNA/rawdata/rep1/ordinary/nakedDNA.bw \
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human/human_nakedDNA.bw
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/105.JM110_gDNA_cFOOT_2/add/05.conversionProfile/ordinary/JM110_gDNA_0.5U.bw \
@@ -21,11 +24,8 @@ scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/atf3/atf3_raw.bed\
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
-
-# import pickle
-
-# with open('nakedDNA_human.pickle', 'rb') as file:
-#     df = pickle.load(file)
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/atf2/atf2_raw.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 
 ## /share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct
 ## /share/home/u21509/workspace/reference
@@ -100,6 +100,63 @@ extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_test.b
 extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_test_human.bw', 
                          chromosome='chr21', start=1, end=46709983)
 ##############################################################################################################################
+
+## human to human (/fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human)
+# correct_bias.py (line 107: np.divide -> np.subtract)
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias human_nakedDNA.bw \
+                                                                                 --bed_file regions_test.bed --extend 0 --window 101 \
+                                                                                 --pseudo_count 1 --out_dir . --out_name human_naked_dna_corrected \
+                                                                                 --chrom_size_file hg38.chrom.sizes  # ~5 min for chr21
+## CTCF
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/ctcf/ctcf.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' ctcf.bed | sort -k1,1 -k2,2n > ctcf_chr21_raw.bed
+bedtools merge -i ctcf_chr21_raw.bed > ctcf_chr21.bed  # 1346
+rm ctcf_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R ctcf_chr21.bed -o HepG2_7.5U_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m HepG2_7.5U_ctcf.gz --yMin 0.31 --yMax 0.41 -out HepG2_7.5U_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R ctcf_chr21.bed -o human_nakedDNA_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m human_nakedDNA_ctcf.gz --yMin 0.35 --yMax 0.45 -out human_nakedDNA_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R ctcf_chr21.bed -o human_naked_dna_corrected_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m human_naked_dna_corrected_ctcf.gz --yMin -0.05 --yMax 0.05 -out human_naked_dna_corrected_ctcf.pdf
+
+## ATF3
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/atf3/atf3.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' atf3.bed | sort -k1,1 -k2,2n > atf3_chr21_raw.bed
+bedtools merge -i atf3_chr21_raw.bed > atf3_chr21.bed  # 826
+rm atf3_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R atf3_chr21.bed -o HepG2_7.5U_atf3.gz -a 50 -b 50 -bs 1
+plotProfile -m HepG2_7.5U_atf3.gz --yMin 0.27 --yMax 0.37 -out HepG2_7.5U_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R atf3_chr21.bed -o human_nakedDNA_atf3.gz -a 50 -b 50 -bs 1
+plotProfile -m human_nakedDNA_atf3.gz --yMin 0.35 --yMax 0.45 -out human_nakedDNA_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R atf3_chr21.bed -o human_naked_dna_corrected_atf3.gz -a 50 -b 50 -bs 1
+plotProfile -m human_naked_dna_corrected_atf3.gz --yMin -0.025 --yMax 0.025 -out human_naked_dna_corrected_atf3.pdf
+
+## ELF4
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/elf4/elf4.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' elf4.bed | sort -k1,1 -k2,2n > elf4_chr21_raw.bed
+bedtools merge -i elf4_chr21_raw.bed > elf4_chr21.bed  # 410
+rm elf4_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R elf4_chr21.bed -o HepG2_7.5U_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m HepG2_7.5U_elf4.gz --yMin 0.27 --yMax 0.37 -out HepG2_7.5U_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R elf4_chr21.bed -o human_nakedDNA_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m human_nakedDNA_elf4.gz --yMin 0.33 --yMax 0.46 -out human_nakedDNA_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R elf4_chr21.bed -o human_naked_dna_corrected_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m human_naked_dna_corrected_elf4.gz --yMin -0.025 --yMax 0.035 -out human_naked_dna_corrected_elf4.pdf
+
+
+
 
 ## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 ## epoch=100
@@ -244,4 +301,3 @@ if __name__ == "__main__":
 
 
 
-extract_region_to_bigwig(input_file, output_file, chromosome, start_pos, end_pos)
