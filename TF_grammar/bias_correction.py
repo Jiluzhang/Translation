@@ -19,7 +19,8 @@ scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/01.c
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/ctcf/ctcf_raw.bed\
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
-
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/atf3/atf3_raw.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
 
 # import pickle
 
@@ -170,13 +171,24 @@ python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions
 
 # np.divide -> np.subtract
 python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias epoch_500_test_heg2.bw \
-                                                                                 --bed_file regions_test_human_2.bed --extend 0 --window 11 \
+                                                                                 --bed_file regions_test_human_2.bed --extend 0 --window 101 \
                                                                                  --pseudo_count 0.001 --out_dir . --out_name epoch_500_test_heg2_corrected \
                                                                                  --chrom_size_file ../human/hg38.chrom.sizes  # ~10.5 min
-grep chr21 ctcf_raw.bed > ctcf_raw_chr21.bed 
-computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw \
-                              -R ctcf_raw_chr21.bed -o raw_corrected.gz -a 100 -b 100 -bs 1
-plotProfile -m raw_corrected.gz --yMin -1 --yMax 1 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
+
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias human_nakedDNA.bw \
+                                                                                 --bed_file regions_test_human_2.bed --extend 0 --window 101 \
+                                                                                 --pseudo_count 0.001 --out_dir . --out_name epoch_500_test_heg2_corrected \
+                                                                                 --chrom_size_file ../human/hg38.chrom.sizes  # ~1min / 10Mb
+
+grep chr21 ctcf_raw.bed | awk '{if($2>30000000 && $3<40000000) print$0}' > ctcf_raw_chr21.bed
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw human_nakedDNA.bw \
+                              -R ctcf_raw_chr21.bed -o raw_corrected.gz -a 50 -b 50 -bs 1
+plotProfile -m raw_corrected.gz --yMin -0.2 --yMax 0.6 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
+
+grep chr21 atf3_raw.bed | awk '{if($2>30000000 && $3<40000000) print$0}' > atf3_raw_chr21.bed
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw human_nakedDNA.bw \
+                              -R atf3_raw.bed -o raw_corrected.gz -a 100 -b 100 -bs 5
+plotProfile -m raw_corrected.gz --yMin -0.2 --yMax 0.6 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
 
 ##############################################################################################################################
 ## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
