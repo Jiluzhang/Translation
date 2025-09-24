@@ -207,61 +207,42 @@ computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_c
 plotProfile -m human_naked_dna_corrected_elf4.gz --yMin -0.17 --yMax 0.12 -out human_naked_dna_corrected_elf4.pdf
 
 
+## ecoli to human
+## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_human
 
-## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli
-## epoch=100
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
-                                                             --ref_fasta genome.fa --k 128 --epochs 100 --out_dir . --out_name epoch_100 --seed 0 --batch_size 512
-
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_valid
-multiBigwigSummary bins -b epoch_100_valid.bw regions_valid.bw -o epoch_100_valid.npz --outRawCounts epoch_100_valid.tab \
-                        -l pred raw -bs 1 -p 10
-grep -v nan epoch_100_valid.tab | sed 1d > epoch_100_valid_nonan.tab
-rm epoch_100_valid.tab
-
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_100.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_100_test
-multiBigwigSummary bins -b epoch_100_test.bw regions_test.bw -o epoch_100_test.npz --outRawCounts epoch_100_test.tab \
-                        -l pred raw -bs 1 -p 10
-grep -v nan epoch_100_test.tab | sed 1d > epoch_100_test_nonan.tab
-rm epoch_100_test.tab
 
 ## epoch=200
+# train.py (line 18  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
-                                                             --ref_fasta genome.fa --k 128 --epochs 200 --out_dir . --out_name epoch_200 --seed 0 --batch_size 512
-
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_valid
-multiBigwigSummary bins -b epoch_200_valid.bw regions_valid.bw -o epoch_200_valid.npz --outRawCounts epoch_200_valid.tab \
-                        -l pred raw -bs 1 -p 10  # ~2 min
-grep -v nan epoch_200_valid.tab | sed 1d > epoch_200_valid_nonan.tab
-rm epoch_200_valid.tab
-
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200.pth \
+                                                             --ref_fasta genome.fa --k 128 --epochs 200 --out_dir . --out_name epoch_200_cnn --seed 0 --batch_size 512
+# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200_cnn.pth \
                                                                --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_test
 multiBigwigSummary bins -b epoch_200_test.bw regions_test.bw -o epoch_200_test.npz --outRawCounts epoch_200_test.tab \
                         -l pred raw -bs 1 -p 10  # ~2 min
 grep -v nan epoch_200_test.tab | sed 1d > epoch_200_test_nonan.tab
 rm epoch_200_test.tab
+../cal_cor --file epoch_200_test_nonan.tab          # 0.7403168268301135  0.7110146291063021
 
-## epoch=500
+
+############################################################################################################################################
+# train.py (line 18  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+# model.py (line 29: 'nn.Linear(928, 1024),' -> 'nn.Linear(int(32*((self.seq_len/2-2)/2-2)), 1024),')
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
-                                                             --ref_fasta genome.fa --k 128 --epochs 500 --out_dir . --out_name epoch_500 --seed 0 --batch_size 512
+                                                             --ref_fasta genome.fa --k 256 --epochs 200 --out_dir . --out_name epoch_200_k_256 --seed 0 --batch_size 512
+# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 256 --model_path ./epoch_200_k_256.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_k_256_test
+multiBigwigSummary bins -b epoch_200_k_256_test.bw regions_test.bw -o epoch_200_k_256_test.npz --outRawCounts epoch_200_k_256_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~2 min
+grep -v nan epoch_200_k_256_test.tab | sed 1d > epoch_200_k_256_test_nonan.tab
+rm epoch_200_k_256_test.tab
+../cal_cor --file epoch_200_k_256_test_nonan.tab          # 0.7403168268301135  0.7110146291063021
 
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_valid.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_500.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_500_valid
-multiBigwigSummary bins -b epoch_500_valid.bw regions_valid.bw -o epoch_500_valid.npz --outRawCounts epoch_500_valid.tab \
-                        -l pred raw -bs 1 -p 10
-grep -v nan epoch_500_valid.tab | sed 1d > epoch_500_valid_nonan.tab
-rm epoch_500_valid.tab
+############################################################################################################################################
 
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_500.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_500_test
-multiBigwigSummary bins -b epoch_500_test.bw regions_test.bw -o epoch_500_test.npz --outRawCounts epoch_500_test.tab \
-                        -l pred raw -bs 1 -p 10
-grep -v nan epoch_500_test.tab | sed 1d > epoch_500_test_nonan.tab
-rm epoch_500_test.tab
+
+
 
 ## human naked DNA chr21 test (chr21:46209983-46709983)
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta ../human/hg38.fa --k 128 --model_path ./epoch_500.pth \
@@ -299,12 +280,6 @@ plotProfile -m raw_corrected.gz --yMin -0.2 --yMax 0.6 --perGroup -out raw_corre
 
 ##############################################################################################################################
 ## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
-## ../cal_cor --file epoch_100_test_nonan.tab           # 0.7082189028293715  0.6790170844020186
-## ../cal_cor --file epoch_200_valid_nonan.tab          # 0.7395414336137928  0.7112723570920626
-## ../cal_cor --file epoch_200_test_nonan.tab           # 0.7403168268301135  0.7110146291063021
-## ../cal_cor --file epoch_500_valid_nonan.tab          # 0.7416945008705992  0.7134883683857012
-## ../cal_cor --file epoch_500_test_nonan.tab           # 0.7417070864468944  0.7126470645540367
-## ../cal_cor --file epoch_500_test_human_nonan.tab     # 0.2263957077458701  0.22646666457620462
 
 #!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
 import pandas as pd
