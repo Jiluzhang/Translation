@@ -92,14 +92,41 @@ def extract_region_to_bigwig(input_bw, output_bw, chromosome, start, end):
 
 # 使用示例
 extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_train.bw', 
-                         chromosome='NC_000913.3', start=1, end=3641652)
+                         chromosome='NC_000913.3', start=1, end=4581651)
 extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_valid.bw', 
-                         chromosome='NC_000913.3', start=3641652, end=4141651)
+                         chromosome='NC_000913.3', start=4581652, end=4611651)
 extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_test.bw', 
-                         chromosome='NC_000913.3', start=4141652, end=4641651)
+                         chromosome='NC_000913.3', start=4611652, end=4641651)
 extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_test_human.bw', 
-                         chromosome='chr21', start=1, end=46709983)
+                         chromosome='chr21', start=46679983, end=46709983)
 ##############################################################################################################################
+
+##############################################################################################################################
+## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
+
+#!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
+import pandas as pd
+from scipy import stats
+import argparse
+
+parser = argparse.ArgumentParser(description='Calculate correlation between prediction and ground truth')
+parser.add_argument('--file', type=str, help='tab file')
+
+args = parser.parse_args()
+tab_file = args.file
+
+def main():
+    df = pd.read_csv(tab_file, sep='\t', header=None)
+    df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
+    pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
+    spearman_corr, _ = stats.spearmanr(df['pred'], df['raw'])
+    print(f"Pearson R: {pearson_corr}")
+    print(f"Spearman R: {spearman_corr}")
+
+if __name__ == "__main__":
+    main()
+##############################################################################################################################
+
 
 ## human to human (/fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human)
 # correct_bias.py (line 107: np.divide -> np.subtract)
@@ -207,102 +234,136 @@ computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_c
 plotProfile -m human_naked_dna_corrected_elf4.gz --yMin -0.17 --yMax 0.12 -out human_naked_dna_corrected_elf4.pdf
 
 
-## ecoli to human
-## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_human
-
-
-## epoch=200
-# train.py (line 18  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
-                                                             --ref_fasta genome.fa --k 128 --epochs 200 --out_dir . --out_name epoch_200_cnn --seed 0 --batch_size 512
-# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200_cnn.pth \
-                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_test
-multiBigwigSummary bins -b epoch_200_test.bw regions_test.bw -o epoch_200_test.npz --outRawCounts epoch_200_test.tab \
-                        -l pred raw -bs 1 -p 10  # ~2 min
-grep -v nan epoch_200_test.tab | sed 1d > epoch_200_test_nonan.tab
-rm epoch_200_test.tab
-../cal_cor --file epoch_200_test_nonan.tab          # 0.7403168268301135  0.7110146291063021
-
 
 ############################################################################################################################################
+## ecoli to human
+## /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_human
 # train.py (line 18  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
 # model.py (line 29: 'nn.Linear(928, 1024),' -> 'nn.Linear(int(32*((self.seq_len/2-2)/2-2)), 1024),')
+# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+
+## k=32 (valid_loss: 0.00496)
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 32 --epochs 200 --out_dir . --out_name epoch_200_k_32 --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 32 --model_path ./epoch_200_k_32.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_k_32_test
+multiBigwigSummary bins -b epoch_200_k_32_test.bw regions_test.bw -o epoch_200_k_32_test.npz --outRawCounts epoch_200_k_32_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan epoch_200_k_32_test.tab | sed 1d > epoch_200_k_32_test_nonan.tab
+rm epoch_200_k_32_test.tab
+../cal_cor --file epoch_200_k_32_test_nonan.tab          # 0.7071614613301089  0.6771305801143438
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 32 --model_path ./epoch_200_k_32.pth \
+                                                               --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_200_k_32_test_human
+multiBigwigSummary bins -b epoch_200_k_32_test_human.bw regions_test_human.bw -o epoch_200_k_32_test_human.npz --outRawCounts epoch_200_k_32_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan epoch_200_k_32_test_human.tab | sed 1d > epoch_200_k_32_test_human_nonan.tab
+rm epoch_200_k_32_test_human.tab
+../cal_cor --file epoch_200_k_32_test_human_nonan.tab          # 0.374381308004477  0.3648879178344095
+
+## k=64 (valid_loss: 0.00488)
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 64 --epochs 200 --out_dir . --out_name epoch_200_k_64 --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 64 --model_path ./epoch_200_k_64.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_k_64_test
+multiBigwigSummary bins -b epoch_200_k_64_test.bw regions_test.bw -o epoch_200_k_64_test.npz --outRawCounts epoch_200_k_64_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan epoch_200_k_64_test.tab | sed 1d > epoch_200_k_64_test_nonan.tab
+rm epoch_200_k_64_test.tab
+../cal_cor --file epoch_200_k_64_test_nonan.tab          # 0.746015664021949  0.7183493816590069
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 64 --model_path ./epoch_200_k_64.pth \
+                                                               --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_200_k_64_test_human
+multiBigwigSummary bins -b epoch_200_k_64_test_human.bw regions_test_human.bw -o epoch_200_k_64_test_human.npz --outRawCounts epoch_200_k_64_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan epoch_200_k_64_test_human.tab | sed 1d > epoch_200_k_64_test_human_nonan.tab
+rm epoch_200_k_64_test_human.tab
+../cal_cor --file epoch_200_k_64_test_human_nonan.tab          # 0.3933705624395759  0.3808398389366913
+  
+## k=128 (valid_loss: 0.00582)
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k 128 --epochs 200 --out_dir . --out_name epoch_200_k_128 --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 128 --model_path ./epoch_200_k_128.pth \
+                                                               --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_k_128_test
+multiBigwigSummary bins -b epoch_200_k_128_test.bw regions_test.bw -o epoch_200_k_128_test.npz --outRawCounts epoch_200_k_128_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan epoch_200_k_128_test.tab | sed 1d > epoch_200_k_128_test_nonan.tab
+rm epoch_200_k_128_test.tab
+../cal_cor --file epoch_200_k_128_test_nonan.tab          # 0.7416587365621455  0.7147805662432811
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 128 --model_path ./epoch_200_k_128.pth \
+                                                               --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_200_k_128_test_human
+multiBigwigSummary bins -b epoch_200_k_128_test_human.bw regions_test_human.bw -o epoch_200_k_128_test_human.npz --outRawCounts epoch_200_k_128_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan epoch_200_k_128_test_human.tab | sed 1d > epoch_200_k_128_test_human_nonan.tab
+rm epoch_200_k_128_test_human.tab
+../cal_cor --file epoch_200_k_128_test_human_nonan.tab          # 0.3745718735095749  0.367340934181349
+
+## k=256 (valid_loss: 0.00839)
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
                                                              --ref_fasta genome.fa --k 256 --epochs 200 --out_dir . --out_name epoch_200_k_256 --seed 0 --batch_size 512
-# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k 256 --model_path ./epoch_200_k_256.pth \
                                                                --chrom_size_file chrom.sizes --out_dir . --out_name epoch_200_k_256_test
 multiBigwigSummary bins -b epoch_200_k_256_test.bw regions_test.bw -o epoch_200_k_256_test.npz --outRawCounts epoch_200_k_256_test.tab \
-                        -l pred raw -bs 1 -p 10  # ~2 min
+                        -l pred raw -bs 1 -p 10  # ~1 min
 grep -v nan epoch_200_k_256_test.tab | sed 1d > epoch_200_k_256_test_nonan.tab
 rm epoch_200_k_256_test.tab
-../cal_cor --file epoch_200_k_256_test_nonan.tab          # 0.7403168268301135  0.7110146291063021
+../cal_cor --file epoch_200_k_256_test_nonan.tab          # 0.6981378483939527  0.674795830345938
+
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 256 --model_path ./epoch_200_k_256.pth \
+                                                               --chrom_size_file hg38.chrom.sizes --out_dir . --out_name epoch_200_k_256_test_human
+multiBigwigSummary bins -b epoch_200_k_256_test_human.bw regions_test_human.bw -o epoch_200_k_256_test_human.npz --outRawCounts epoch_200_k_256_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan epoch_200_k_256_test_human.tab | sed 1d > epoch_200_k_256_test_human_nonan.tab
+rm epoch_200_k_256_test_human.tab
+../cal_cor --file epoch_200_k_256_test_human_nonan.tab          # 0.3289853953013008  0.32988449274807413
 
 ############################################################################################################################################
 
+## Peaks with motif (ecoli_to_human)
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta ../hg38.fa --k 64 --model_path ../k_64/epoch_200_k_64.pth \
+                                                               --chrom_size_file ../hg38.chrom.sizes --out_dir . --out_name epoch_200_k_64_test_human  # ~8.5 min
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias epoch_200_k_64_test_human.bw \
+                                                                                 --bed_file regions_test.bed --extend 0 --window 101 \
+                                                                                 --pseudo_count 1 --out_dir . --out_name ecoli_to_human_naked_dna_corrected \
+                                                                                 --chrom_size_file ../hg38.chrom.sizes  # ~5 min for chr21
+
+## CTCF
+# computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R ctcf_chr21.bed -o HepG2_7.5U_ctcf.gz -a 50 -b 50 -bs 1
+# plotProfile -m HepG2_7.5U_ctcf.gz --yMin 0.25 --yMax 0.55 -out HepG2_7.5U_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S epoch_200_k_64_test_human.bw -R ctcf_chr21.bed -o epoch_200_k_64_test_human_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m epoch_200_k_64_test_human_ctcf.gz --yMin 0.08 --yMax 0.37 -out epoch_200_k_64_test_human_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R ctcf_chr21.bed \
+                              -o ecoli_to_human_naked_dna_corrected_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m ecoli_to_human_naked_dna_corrected_ctcf.gz --yMin -0.18 --yMax 0.08 -out ecoli_to_human_naked_dna_corrected_ctcf.pdf
+
+## ATF3
+# computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R atf3_chr21.bed -o HepG2_7.5U_atf3.gz -a 50 -b 50 -bs 1
+# plotProfile -m HepG2_7.5U_atf3.gz --yMin 0.25 --yMax 0.55 -out HepG2_7.5U_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S epoch_200_k_64_test_human.bw -R atf3_chr21.bed -o epoch_200_k_64_test_human_atf3.gz -a 50 -b 50 -bs 2
+plotProfile -m epoch_200_k_64_test_human_atf3.gz --yMin 0.02 --yMax 0.18 -out epoch_200_k_64_test_human_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R atf3_chr21.bed \
+                              -o ecoli_to_human_naked_dna_corrected_atf3.gz -a 50 -b 50 -bs 2
+plotProfile -m ecoli_to_human_naked_dna_corrected_atf3.gz --yMin -0.07 --yMax 0.07 -out ecoli_to_human_naked_dna_corrected_atf3.pdf
+    
+## ELF4
+# computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R elf4_chr21.bed -o HepG2_7.5U_elf4.gz -a 50 -b 50 -bs 1
+# plotProfile -m HepG2_7.5U_elf4.gz --yMin 0.25 --yMax 0.55 -out HepG2_7.5U_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S epoch_200_k_64_test_human.bw -R elf4_chr21.bed -o epoch_200_k_64_test_human_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m epoch_200_k_64_test_human_elf4.gz --yMin 0.01 --yMax 0.39 -out epoch_200_k_64_test_human_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R elf4_chr21.bed \
+                              -o ecoli_to_human_naked_dna_corrected_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m ecoli_to_human_naked_dna_corrected_elf4.gz --yMin -0.19 --yMax 0.09 -out ecoli_to_human_naked_dna_corrected_elf4.pdf
 
 
 
-## human naked DNA chr21 test (chr21:46209983-46709983)
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta ../human/hg38.fa --k 128 --model_path ./epoch_500.pth \
-                                                               --chrom_size_file ../human/hg38.chrom.sizes --out_dir . --out_name epoch_500_test_human
-multiBigwigSummary bins -b epoch_500_test_human.bw regions_test_human.bw -o epoch_500_test_human.npz --outRawCounts epoch_500_test_human.tab \
-                        -l pred raw -bs 1 -p 10
-grep -v nan epoch_500_test_human.tab | sed 1d > epoch_500_test_human_nonan.tab
-rm epoch_500_test_human.tab
 
-## human HEG2 chr21 test (chr21:46209983-46709983)
-## predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '1')
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta ../human/hg38.fa --k 128 --model_path ./epoch_500.pth \
-                                                               --chrom_size_file ../human/hg38.chrom.sizes --out_dir . --out_name epoch_500_test_heg2  # ~6 min
-
-# np.divide -> np.subtract
-python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias epoch_500_test_heg2.bw \
-                                                                                 --bed_file regions_test_human_2.bed --extend 0 --window 101 \
-                                                                                 --pseudo_count 0.001 --out_dir . --out_name epoch_500_test_heg2_corrected \
-                                                                                 --chrom_size_file ../human/hg38.chrom.sizes  # ~10.5 min
-
-python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias human_nakedDNA.bw \
-                                                                                 --bed_file regions_test_human_2.bed --extend 0 --window 101 \
-                                                                                 --pseudo_count 0.001 --out_dir . --out_name epoch_500_test_heg2_corrected \
-                                                                                 --chrom_size_file ../human/hg38.chrom.sizes  # ~1min / 10Mb
-
-grep chr21 ctcf_raw.bed | awk '{if($2>30000000 && $3<40000000) print$0}' > ctcf_raw_chr21.bed
-computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw human_nakedDNA.bw \
-                              -R ctcf_raw_chr21.bed -o raw_corrected.gz -a 50 -b 50 -bs 1
-plotProfile -m raw_corrected.gz --yMin -0.2 --yMax 0.6 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
-
-grep chr21 atf3_raw.bed | awk '{if($2>30000000 && $3<40000000) print$0}' > atf3_raw_chr21.bed
-computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw epoch_500_test_heg2_corrected.norm.bw epoch_500_test_heg2_corrected.exp.bw human_nakedDNA.bw \
-                              -R atf3_raw.bed -o raw_corrected.gz -a 100 -b 100 -bs 5
-plotProfile -m raw_corrected.gz --yMin -0.2 --yMax 0.6 --perGroup -out raw_corrected.pdf  # the norm all equal to zero!!!
-
-##############################################################################################################################
-## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
-
-#!/fs/home/jiluzhang/softwares/miniconda3/envs/ACCESS_ATAC/bin/python
-import pandas as pd
-from scipy import stats
-import argparse
-
-parser = argparse.ArgumentParser(description='Calculate correlation between prediction and ground truth')
-parser.add_argument('--file', type=str, help='tab file')
-
-args = parser.parse_args()
-tab_file = args.file
-
-def main():
-    df = pd.read_csv(tab_file, sep='\t', header=None)
-    df.columns = ['chrom', 'start', 'end', 'pred', 'raw']
-    pearson_corr, _ = stats.pearsonr(df['pred'], df['raw'])
-    spearman_corr, _ = stats.spearmanr(df['pred'], df['raw'])
-    print(f"Pearson R: {pearson_corr}")
-    print(f"Spearman R: {spearman_corr}")
-
-if __name__ == "__main__":
-    main()
-##############################################################################################################################
 
 
 
