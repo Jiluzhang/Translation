@@ -107,6 +107,7 @@ python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py
                                                                                  --bed_file regions_test.bed --extend 0 --window 101 \
                                                                                  --pseudo_count 1 --out_dir . --out_name human_naked_dna_corrected \
                                                                                  --chrom_size_file hg38.chrom.sizes  # ~5 min for chr21
+## All peaks
 ## CTCF
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/ctcf/ctcf.bed\
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
@@ -155,6 +156,55 @@ plotProfile -m human_nakedDNA_elf4.gz --yMin 0.33 --yMax 0.46 -out human_nakedDN
 computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R elf4_chr21.bed -o human_naked_dna_corrected_elf4.gz -a 50 -b 50 -bs 1
 plotProfile -m human_naked_dna_corrected_elf4.gz --yMin -0.025 --yMax 0.035 -out human_naked_dna_corrected_elf4.pdf
 
+
+## Peaks with motif
+## CTCF
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/ctcf/ctcf_raw.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' ctcf_raw.bed | sort -k1,1 -k2,2n > ctcf_chr21_raw.bed
+bedtools merge -i ctcf_chr21_raw.bed > ctcf_chr21.bed  # 664
+rm ctcf_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R ctcf_chr21.bed -o HepG2_7.5U_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m HepG2_7.5U_ctcf.gz --yMin 0.25 --yMax 0.55 -out HepG2_7.5U_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R ctcf_chr21.bed -o human_nakedDNA_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m human_nakedDNA_ctcf.gz --yMin 0.33 --yMax 0.52 -out human_nakedDNA_ctcf.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R ctcf_chr21.bed -o human_naked_dna_corrected_ctcf.gz -a 50 -b 50 -bs 1
+plotProfile -m human_naked_dna_corrected_ctcf.gz --yMin -0.14 --yMax 0.09 -out human_naked_dna_corrected_ctcf.pdf
+
+## ATF3
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/atf3/atf3_raw.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' atf3_raw.bed | sort -k1,1 -k2,2n > atf3_chr21_raw.bed
+bedtools merge -i atf3_chr21_raw.bed > atf3_chr21.bed  # 24
+rm atf3_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R atf3_chr21.bed -o HepG2_7.5U_atf3.gz -a 50 -b 50 -bs 2  # bin_size=2
+plotProfile -m HepG2_7.5U_atf3.gz --yMin 0.08 --yMax 0.52 -out HepG2_7.5U_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R atf3_chr21.bed -o human_nakedDNA_atf3.gz -a 50 -b 50 -bs 2
+plotProfile -m human_nakedDNA_atf3.gz --yMin 0.18 --yMax 0.62 -out human_nakedDNA_atf3.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R atf3_chr21.bed -o human_naked_dna_corrected_atf3.gz -a 50 -b 50 -bs 2
+plotProfile -m human_naked_dna_corrected_atf3.gz --yMin -0.12 --yMax 0.12 -out human_naked_dna_corrected_atf3.pdf
+
+## ELF4
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/cor/elf4/elf4_raw.bed\
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human
+awk '{if($1=="chr21") print($1"\t"$2"\t"$3)}' elf4_raw.bed | sort -k1,1 -k2,2n > elf4_chr21_raw.bed
+bedtools merge -i elf4_chr21_raw.bed > elf4_chr21.bed  # 108
+rm elf4_chr21_raw.bed
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R elf4_chr21.bed -o HepG2_7.5U_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m HepG2_7.5U_elf4.gz --yMin 0.28 --yMax 0.52 -out HepG2_7.5U_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_nakedDNA.bw -R elf4_chr21.bed -o human_nakedDNA_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m human_nakedDNA_elf4.gz --yMin 0.28 --yMax 0.58 -out human_nakedDNA_elf4.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_naked_dna_corrected.norm.bw -R elf4_chr21.bed -o human_naked_dna_corrected_elf4.gz -a 50 -b 50 -bs 1
+plotProfile -m human_naked_dna_corrected_elf4.gz --yMin -0.17 --yMax 0.12 -out human_naked_dna_corrected_elf4.pdf
 
 
 
