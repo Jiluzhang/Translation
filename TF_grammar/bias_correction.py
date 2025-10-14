@@ -404,9 +404,38 @@ TOBIAS PlotAggregate --TFBS ctcf_chip_motif.bed ctcf_nochip_motif.bed --signals 
 TOBIAS Log2Table --logfiles test.log --outdir log2table_output
 
 
+#### Tune CNN parameters 
+# train.py (line 18  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+#          (add "parser.add_argument("--n_filters", type=int, default=32, help="Kernel count")")
+#          (add "parser.add_argument("--kernel_size", type=int, default=5, help="Kernel size")")
+#          ("model = BiasNet(seq_len=args.k)" -> "model = BiasNet(seq_len=args.k, n_filters=args.n_filters, kernel_size=args.kernel_size")
+# model.py (line 29: 'nn.Linear(928, 1024),' -> 'nn.Linear(self.n_filters*int((int((self.seq_len-self.kernel_size+1)/2)-self.kernel_size+1)/2), 1024),')
+# predict.py (line 15  os.environ["CUDA_VISIBLE_DEVICES"] = '2')
+#            (add "parser.add_argument("--n_filters", type=int, default=32, help="Kernel count")")
+#            (add "parser.add_argument("--kernel_size", type=int, default=5, help="Kernel size")")
+#            ("model = BiasNet(seq_len=args.k)" -> "model = BiasNet(seq_len=args.k, n_filters=args.n_filters, kernel_size=args.kernel_size)")
 
+# tune_para.sh
+for k in 64 128 256;do
+    for nf in 32 64 128;do
+        for ks in 3 5 7;do
+            python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                                         --ref_fasta genome.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                                         --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+            python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                                           --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file chrom.sizes \
+                                                                           --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+            multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                                    -l pred raw -bs 1 -p 10  # ~1 min
+            grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+            rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+            echo k=$k n_filters=$nf kernel_size=$ks
+            ../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+        done
+    done
+done
 
-
+grep n_filters -A 3 tune_para.log
 
 
 
