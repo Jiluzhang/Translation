@@ -362,15 +362,46 @@ computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_na
 plotProfile -m ecoli_to_human_naked_dna_corrected_elf4.gz --yMin -0.19 --yMax 0.09 -out ecoli_to_human_naked_dna_corrected_elf4.pdf
 
 
+#### TOBIAS installation
+conda create --name TOBIAS python=3.9
+#conda remove --name TOBIAS --all
+conda activate TOBIAS
+#conda install tobias -c bioconda  # speed is too slow
+pip install tobias -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
+/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack
+/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/
+/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/motif/bed/
 
+## CTCF
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/motif/bed/ctcf/ctcf.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/ctcf_motif.bed
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/ctcf/ctcf.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/ctcf_chip.bed
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/motif/bed/atf3/atf3.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/atf3_motif.bed
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/atf3/atf3.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/atf3_chip.bed
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/motif/bed/elf4/elf4.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/elf4_motif.bed
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/elf4/elf4.bed \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/elf4_chip.bed
 
+#### transfer all motif and chip files
+scp -P 10022 -r u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/pre_motif/motif/* \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/all_motif
+scp -P 10022 -r u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/Homo_sapiens/GRCh38/cell/HepG2/tf/chip/* \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/tf_info_hepg2/all_chip
 
+grep chr ctcf_motif.bed | grep -v chrY | grep -v chrM > ctcf_motif_chrom.bed
+grep chr ctcf_chip.bed | grep -v chrY | grep -v chrM > ctcf_chip_chrom.bed
 
+bedtools intersect -a ctcf_motif_chrom.bed -b ctcf_chip_chrom.bed -wa | uniq > ctcf_chip_motif.bed        # 67720
+bedtools intersect -a ctcf_motif_chrom.bed -b ctcf_chip_chrom.bed -wa -v | uniq > ctcf_nochip_motif.bed   # 891952
 
+TOBIAS PlotAggregate --TFBS ctcf_chip_motif.bed ctcf_nochip_motif.bed --signals ../human_naked_dna_corrected.norm.bw --output test.pdf > test.log
 
-
-
+TOBIAS Log2Table --logfiles test.log --outdir log2table_output
 
 
 
