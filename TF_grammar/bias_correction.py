@@ -435,7 +435,7 @@ for k in 64 128 256;do
     done
 done
 
-grep n_filters -A 3 tune_para.log
+# grep n_filters -A 3 tune_para.log
 
 ## k_64_nf_128_ks_5
 python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 64 --n_filters 128 --kernel_size 5 \
@@ -456,6 +456,62 @@ multiBigwigSummary bins -b k_128_nf_32_ks_5_test_human.bw regions_test_human.bw 
 grep -v nan k_128_nf_32_ks_5_test_human.tab | sed 1d > k_128_nf_32_ks_5_test_human_nonan.tab
 rm k_128_nf_32_ks_5_test_human.tab
 ../cal_cor --file k_128_nf_32_ks_5_test_human_nonan.tab          # 0.3745718735095749  0.367340934181349
+
+
+#### human to human
+## workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human_2
+scp -P 10022 -r u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/read_count_bw/human_nakedDNA.bw \
+                /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_2/human_nakedDNA_read_count.bw
+
+multiBigwigSummary bins -b human_nakedDNA_read_count.bw -o human_nakedDNA_read_count.npz --outRawCounts human_nakedDNA_read_count.tab -bs 1000 -p 10
+
+grep -w chr1 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr1_read_count_top4500.bed
+cat chr1_read_count_top4500.bed | sort -k1,1 -k2,2n > read_count_top4500.bed
+bedtools merge -i read_count_top4500.bed > regions_train.bed 
+grep -w chr1 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '5000p' | cut -f 1-3 > regions_valid.bed
+
+# grep -w chr1 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr1_read_count_top4500.bed
+# grep -w chr2 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr2_read_count_top4500.bed
+# cat chr1_read_count_top4500.bed chr2_read_count_top4500.bed | sort -k1,1 -k2,2n > read_count_top4500.bed
+# bedtools merge -i read_count_top4500.bed > regions_train.bed  
+# grep -w chr1 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '5000p' | cut -f 1-3 > regions_valid.bed
+
+# tune_para.sh
+for k in 64 128 256;do
+    for nf in 32 64 128;do
+        for ks in 3 5 7;do
+            python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                                         --ref_fasta hg38.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                                         --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+            python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta hg38.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                                           --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file hg38.chrom.sizes \
+                                                                           --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+            multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                                    -l pred raw -bs 1 -p 10  # ~1 min
+            grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+            rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+            echo k=$k n_filters=$nf kernel_size=$ks
+            ../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+        done
+    done
+done
+
+# grep n_filters -A 3 tune_para.log
+
+
+## performance in genomic regions with different coverage
+## workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/cov_high_mid_low
+
+multiBigwigSummary bins -b human_nakedDNA_read_count.bw -o human_nakedDNA_read_count.npz --outRawCounts human_nakedDNA_read_count.tab -bs 30000 -p 10
+grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | wc -l  # 1366
+grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '1p'    | cut -f1-3 > read_count_high.bed   # 96.46115709571356
+grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '500p'  | cut -f1-3 > read_count_mid.bed    # 8.342166882297104
+grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '1366p' | cut -f1-3 > read_count_low.bed    # 1.9083212291066085
+
+
+
+
+
 
 
 
