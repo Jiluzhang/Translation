@@ -99,6 +99,12 @@ extract_region_to_bigwig(input_bw='ecoli_nakedDNA.bw', output_bw='regions_test.b
                          chromosome='NC_000913.3', start=4611652, end=4641651)
 extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_test_human.bw', 
                          chromosome='chr21', start=46679983, end=46709983)
+extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_high.bw', 
+                         chromosome='chr21', start=8220000, end=8250000)
+extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_mid.bw', 
+                         chromosome='chr21', start=38640000, end=38670000)
+extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_low.bw', 
+                         chromosome='chr21', start=11040000, end=11070000)
 ##############################################################################################################################
 
 ##############################################################################################################################
@@ -496,7 +502,7 @@ for k in 64 128 256;do
     done
 done
 
-# grep n_filters -A 3 tune_para.log
+# grep n_filters -A 2 tune_para.log
 
 
 ## performance in genomic regions with different coverage
@@ -508,7 +514,20 @@ grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed
 grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '500p'  | cut -f1-3 > read_count_mid.bed    # 8.342166882297104
 grep -w chr21 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '1366p' | cut -f1-3 > read_count_low.bed    # 1.9083212291066085
 
-
+## eva_cov.sh
+for sp in ecoli human;do
+    for cov in high mid low;do
+        python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions read_count_$cov.bed --ref_fasta hg38.fa --k 64 --n_filters 128 --kernel_size 5 \
+                                                                       --model_path k_64_nf_128_ks_5_$sp.pth --chrom_size_file hg38.chrom.sizes \
+                                                                       --out_dir . --out_name k_64_nf_128_ks_5_$sp\_$cov
+        multiBigwigSummary bins -b k_64_nf_128_ks_5_$sp\_$cov.bw regions_$cov.bw -o k_64_nf_128_ks_5_$sp\_$cov.npz --outRawCounts k_64_nf_128_ks_5_$sp\_$cov.tab \
+                                -l pred raw -bs 1 -p 10  # ~1 min
+        grep -v nan k_64_nf_128_ks_5_$sp\_$cov.tab | sed 1d > k_64_nf_128_ks_5_$sp\_$cov\_nonan.tab
+        rm k_64_nf_128_ks_5_$sp\_$cov.tab
+        echo species=$sp coverage=$cov
+        ../cal_cor --file k_64_nf_128_ks_5_$sp\_$cov\_nonan.tab
+    done
+done
 
 
 
