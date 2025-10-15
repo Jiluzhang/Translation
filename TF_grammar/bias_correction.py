@@ -437,10 +437,25 @@ done
 
 grep n_filters -A 3 tune_para.log
 
+## k_64_nf_128_ks_5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 64 --n_filters 128 --kernel_size 5 \
+                                                               --model_path k_64_nf_128_ks_5.pth --chrom_size_file hg38.chrom.sizes --out_dir . \
+                                                               --out_name k_64_nf_128_ks_5_test_human
+multiBigwigSummary bins -b k_64_nf_128_ks_5_test_human.bw regions_test_human.bw -o k_64_nf_128_ks_5_test_human.npz --outRawCounts k_64_nf_128_ks_5_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan k_64_nf_128_ks_5_test_human.tab | sed 1d > k_64_nf_128_ks_5_test_human_nonan.tab
+rm k_64_nf_128_ks_5_test_human.tab
+../cal_cor --file k_64_nf_128_ks_5_test_human_nonan.tab          # 0.45088443465544914  0.44681165978359433
 
-
-
-
+## k_128_nf_32_ks_5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 128 --n_filters 32 --kernel_size 5 \
+                                                               --model_path k_128_nf_32_ks_5.pth --chrom_size_file hg38.chrom.sizes --out_dir . \
+                                                               --out_name k_128_nf_32_ks_5_test_human
+multiBigwigSummary bins -b k_128_nf_32_ks_5_test_human.bw regions_test_human.bw -o k_128_nf_32_ks_5_test_human.npz --outRawCounts k_128_nf_32_ks_5_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan k_128_nf_32_ks_5_test_human.tab | sed 1d > k_128_nf_32_ks_5_test_human_nonan.tab
+rm k_128_nf_32_ks_5_test_human.tab
+../cal_cor --file k_128_nf_32_ks_5_test_human_nonan.tab          # 0.3745718735095749  0.367340934181349
 
 
 
