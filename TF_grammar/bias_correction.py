@@ -471,6 +471,7 @@ scp -P 10022 -r u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/0
 
 multiBigwigSummary bins -b human_nakedDNA_read_count.bw -o human_nakedDNA_read_count.npz --outRawCounts human_nakedDNA_read_count.tab -bs 1000 -p 10
 
+## select top
 grep -w chr1 human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr1_read_count_top4500.bed
 cat chr1_read_count_top4500.bed | sort -k1,1 -k2,2n > read_count_top4500.bed
 bedtools merge -i read_count_top4500.bed > regions_train.bed 
@@ -503,6 +504,100 @@ for k in 64 128 256;do
 done
 
 # grep n_filters -A 2 tune_para.log
+
+multiBigwigSummary BED-file -b human_nakedDNA_read_count.bw -o human_nakedDNA_read_count_test.npz --BED regions_test.bed \
+                            --outRawCounts human_nakedDNA_read_count_test.tab -p 10  # 17.29859282193482
+multiBigwigSummary BED-file -b human_nakedDNA_read_count.bw -o human_nakedDNA_read_count_train.npz --BED regions_train.bed \
+                            --outRawCounts human_nakedDNA_read_count_train.tab -p 10
+awk '{sum+=$4; count++} END {print sum/count}' human_nakedDNA_read_count_train.tab  # 19.1869
+
+## more chromosomes
+# workdir: chr1_chr2
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr1_read_count_top4500.bed
+grep -w chr2 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr2_read_count_top4500.bed
+cat chr1_read_count_top4500.bed chr2_read_count_top4500.bed | sort -k1,1 -k2,2n > read_count_top4500.bed
+bedtools merge -i read_count_top4500.bed > regions_train.bed  
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '5000p' | cut -f 1-3 > regions_valid.bed
+
+k=64
+nf=128
+ks=5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ../human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                             --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regions_test.bed --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                               --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../hg38.chrom.sizes \
+                                                               --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+
+# workdir: chr1_chr2_chr3
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr1_read_count_top4500.bed
+grep -w chr2 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr2_read_count_top4500.bed
+grep -w chr3 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > chr3_read_count_top4500.bed
+cat chr1_read_count_top4500.bed chr2_read_count_top4500.bed chr3_read_count_top4500.bed | sort -k1,1 -k2,2n > read_count_top4500.bed
+bedtools merge -i read_count_top4500.bed > regions_train.bed  
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '5000p' | cut -f 1-3 > regions_valid.bed
+
+k=64
+nf=128
+ks=5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ../human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                             --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regions_test.bed --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                               --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../hg38.chrom.sizes \
+                                                               --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+echo k=$k n_filters=$nf kernel_size=$ks
+../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+
+
+## random
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | shuf | head -n 4500 | cut -f1-3 | sort -k1,1 -k2,2n > read_count_random4500.bed
+bedtools merge -i read_count_random4500.bed > regions_train.bed 
+grep -w chr1 ../human_nakedDNA_read_count.tab | grep -v nan | sort -k4,4 -nr | sed -n '5000p' | cut -f 1-3 > regions_valid.bed
+
+k=64
+nf=128
+ks=5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ../human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                             --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regions_test.bed --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                               --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../hg38.chrom.sizes \
+                                                               --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+
+k=128
+nf=32
+ks=5
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ../human_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
+                                                             --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regions_test.bed --ref_fasta ../hg38.fa --k $k --n_filters $nf --kernel_size $ks \
+                                                               --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../hg38.chrom.sizes \
+                                                               --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
+multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
+                        -l pred raw -bs 1 -p 10  # ~1 min
+grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+rm k_$k\_nf_$nf\_ks_$ks\_test.tab
+../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
+
+multiBigwigSummary BED-file -b ../human_nakedDNA_read_count.bw -o human_nakedDNA_read_count_train.npz --BED regions_train.bed \
+                            --outRawCounts human_nakedDNA_read_count_train.tab -p 10
+awk '{sum+=$4; count++} END {print sum/count}' human_nakedDNA_read_count_train.tab  # 19.1869
+
 
 
 ## performance in genomic regions with different coverage
