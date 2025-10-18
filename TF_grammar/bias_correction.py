@@ -453,11 +453,11 @@ python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regi
                                                                --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../chrom.sizes \
                                                                --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
 multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
-                        -l pred raw -bs 1 -p 10  # ~1 min
+                        -l pred raw -bs 1 -p 20  # ~1 min
 grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
 rm k_$k\_nf_$nf\_ks_$ks\_test.tab
 ../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
-# 0.7272521594112201  0.691485473944096
+# 0.8782812575977146  0.8620830748712928
 ########################################################################
 
 
