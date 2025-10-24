@@ -442,25 +442,6 @@ for k in 64 128 256;do
 done
 
 
-########################################################################
-k=64
-nf=128
-ks=5
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ../ecoli_nakedDNA.bw --train_regions ../regions_train.bed --valid_regions ../regions_valid.bed \
-                                                             --ref_fasta ../genome.fa --k $k --n_filters $nf --kernel_size $ks --epochs 200 --out_dir . \
-                                                             --out_name k_$k\_nf_$nf\_ks_$ks --seed 0 --batch_size 512
-python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions ../regions_test.bed --ref_fasta ../genome.fa --k $k --n_filters $nf --kernel_size $ks \
-                                                               --model_path ./k_$k\_nf_$nf\_ks_$ks.pth --chrom_size_file ../chrom.sizes \
-                                                               --out_dir . --out_name k_$k\_nf_$nf\_ks_$ks\_test
-multiBigwigSummary bins -b k_$k\_nf_$nf\_ks_$ks\_test.bw ../regions_test.bw -o k_$k\_nf_$nf\_ks_$ks\_test.npz --outRawCounts k_$k\_nf_$nf\_ks_$ks\_test.tab \
-                        -l pred raw -bs 1 -p 20  # ~1 min
-grep -v nan k_$k\_nf_$nf\_ks_$ks\_test.tab | sed 1d > k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
-rm k_$k\_nf_$nf\_ks_$ks\_test.tab
-../../cal_cor --file k_$k\_nf_$nf\_ks_$ks\_test_nonan.tab
-# 0.8782812575977146  0.8620830748712928
-########################################################################
-
-
 # grep n_filters -A 3 tune_para.log
 
 ## k_64_nf_128_ks_5
@@ -645,6 +626,37 @@ for sp in ecoli human;do
 done
 
 
+
+
+########################################################################
+## Ecoli -> Ecoli
+## workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_3
+k=64
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/train.py --bw_file ecoli_nakedDNA.bw --train_regions regions_train.bed --valid_regions regions_valid.bed \
+                                                             --ref_fasta genome.fa --k $k  --epochs 200 --out_dir . \
+                                                             --out_name k_$k --seed 0 --batch_size 512
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test.bed --ref_fasta genome.fa --k $k \
+                                                               --model_path k_$k\.pth --chrom_size_file chrom.sizes \
+                                                               --out_dir . --out_name k_$k\_test
+multiBigwigSummary bins -b k_$k\_test.bw regions_test.bw -o k_$k\_test.npz --outRawCounts k_$k\_test.tab -l pred raw -bs 1 -p 20
+grep -v nan k_$k\_test.tab | sed 1d > k_$k\_test_nonan.tab
+rm k_$k\_test.tab
+../cal_cor --file k_$k\_test_nonan.tab
+# Pearson R: 0.8809306932571868
+# Spearman R: 0.863951765993428
+
+## Ecoli -> Human
+## workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_human_3
+python /fs/home/jiluzhang/TF_grammar/cnn_bias_model/predict.py --regions regions_test_human.bed --ref_fasta hg38.fa --k 64 --model_path ../ecoli_3/k_64.pth \
+                                                               --chrom_size_file hg38.chrom.sizes --out_dir . --out_name k_64_test_human
+multiBigwigSummary bins -b k_64_test_human.bw regions_test_human.bw -o k_64_test_human.npz --outRawCounts k_64_test_human.tab \
+                        -l pred raw -bs 1 -p 10  # ~2.5 min
+grep -v nan k_64_test_human.tab | sed 1d > k_64_test_human_nonan.tab
+rm k_64_test_human.tab
+../cal_cor --file k_64_test_human_nonan.tab
+# Pearson R: 0.46387284007616847
+# Spearman R: 0.4627365918638933
+########################################################################
 
 
 
