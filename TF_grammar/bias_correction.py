@@ -708,3 +708,39 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     TOBIAS Log2Table --logfiles $tf\_ecoli_to_human.log --outdir $tf\_ecoli_to_human_log2table_output
     echo $tf ecoli_to_human done
 done
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_to_human_naked_dna_corrected.norm.bw --output $tf\_human_to_human.pdf > $tf\_human_to_human.log
+    TOBIAS Log2Table --logfiles $tf\_human_to_human.log --outdir $tf\_human_to_human_log2table_output
+    echo $tf human_to_human done
+done
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_raw_naked_dna_corrected.norm.bw --output $tf\_human_raw.pdf > $tf\_human_raw.log
+    TOBIAS Log2Table --logfiles $tf\_human_raw.log --outdir $tf\_human_raw_log2table_output
+    echo $tf human_to_raw done
+done
+
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
+    echo $tf >> tfs.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
+    echo $tf done
+done
+
+paste tfs.txt ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
+              human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
+              human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD.txt
+
+
+
+
+
+
+
+
