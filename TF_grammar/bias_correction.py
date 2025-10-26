@@ -704,6 +704,12 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
 done
 
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_7.5U.bw --output $tf\_raw.pdf > $tf\_raw.log
+    TOBIAS Log2Table --logfiles $tf\_raw.log --outdir $tf\_raw_log2table_output
+    echo $tf raw done
+done
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals ecoli_to_human_naked_dna_corrected.norm.bw --output $tf\_ecoli_to_human.pdf > $tf\_ecoli_to_human.log
     TOBIAS Log2Table --logfiles $tf\_ecoli_to_human.log --outdir $tf\_ecoli_to_human_log2table_output
     echo $tf ecoli_to_human done
@@ -724,6 +730,8 @@ done
 
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     echo $tf >> tfs.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
@@ -733,14 +741,46 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     echo $tf done
 done
 
-paste tfs.txt ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
+paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
+              ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
               human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
               human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD.txt
 
 
+import pandas as pd
+from plotnine import *
+from scipy import stats
 
+dat = pd.read_table('tfs_FPD.txt', header=None)
 
+df = pd.DataFrame({'alg':['raw']*20+['ecoli_to_human']*20+['human_to_human']*20+['human_raw']*20,
+                   'tf_chip':(['chip']*10+['nochip']*10)*4,
+                   'FPD':0})
+df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[1].values
+df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[2].values
+df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='chip'), 'FPD'] = dat[3].values
+df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='nochip'), 'FPD'] = dat[4].values
+df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'] = dat[5].values
+df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'] = dat[6].values
+df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[7].values
+df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[8].values
 
+df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw'])
+p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot()
+# p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+#                                                                    coord_cartesian(ylim=(0, 0.6)) +\
+#                                                                    scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.1)) +\
+#                                                                    geom_point(dat[dat['hlt']==1], color='red', size=1) + theme_bw()
+p.save(filename='tfs_FPD.pdf', dpi=600, height=4, width=4)
+
+stats.ttest_ind(df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]              # 0.0008794092668954713
+stats.ttest_ind(df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.023235128662939912      
+stats.ttest_ind(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.005195675522880481
+stats.ttest_ind(df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.009977898722845541
 
 
 
