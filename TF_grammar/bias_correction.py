@@ -806,10 +806,16 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa
     awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_FootTrack_log2table_output/aggregate_FPD.txt | sed -n '1p' >> FootTrack_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_FootTrack_log2table_output/aggregate_FPD.txt | sed -n '2p' >> FootTrack_nochip_FPD.txt
     echo $tf done
 done
+
+paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
+              ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
+              human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
+              human_raw_chip_FPD.txt human_raw_nochip_FPD.txt \
+              FootTrack_chip_FPD.txt FootTrack_nochip_FPD.txt  > tfs_FPD_20.txt
 
 import pandas as pd
 from plotnine import *
@@ -818,8 +824,8 @@ import numpy as np
 
 dat = pd.read_table('tfs_FPD_20.txt', header=None)
 
-df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40,
-                   'tf_chip':(['chip']*20+['nochip']*20)*4,
+df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40+['FootTrack']*40,
+                   'tf_chip':(['chip']*20+['nochip']*20)*5,
                    'FPD':0})
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[1].values
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[2].values
@@ -829,9 +835,11 @@ df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'] = dat[5].va
 df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'] = dat[6].values
 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[7].values
 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[8].values
+df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='chip'), 'FPD'] = dat[9].values
+df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='nochip'), 'FPD'] = dat[10].values
 
-df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw'])
-p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw', 'FootTrack'])
+p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=True, outlier_shape='') + xlab('') +\
                                                          coord_cartesian(ylim=(-0.08, 0.08)) +\
                                                          scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
                                                          theme_bw()+ theme(axis_text_x=element_text(angle=45, hjust=1))
@@ -846,6 +854,7 @@ stats.ttest_rel(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'F
                 df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0002339827175529051
 stats.ttest_rel(df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.0017942748421807659
-
+stats.ttest_rel(df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.000145318602947415
 
 
