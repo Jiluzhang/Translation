@@ -727,7 +727,6 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     echo $tf human_to_raw done
 done
 
-
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     echo $tf >> tfs.txt
     awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
@@ -747,14 +746,80 @@ paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
               human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD.txt
 
 
+
+for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    grep chr ../tf_info_hepg2/all_motif/$tf/$tf.bed | grep chr21 > $tf\_motif_chrom.bed
+    grep chr ../tf_info_hepg2/all_chip/$tf/$tf.bed  | grep chr21 > $tf\_chip_chrom.bed
+    bedtools intersect -a $tf\_motif_chrom.bed -b $tf\_chip_chrom.bed -wa | uniq > $tf\_chip_motif.bed        
+    bedtools intersect -a $tf\_motif_chrom.bed -b $tf\_chip_chrom.bed -wa -v | uniq > $tf\_nochip_motif.bed   
+    rm $tf\_motif_chrom.bed $tf\_chip_chrom.bed
+    echo $tf done
+done
+
+for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_7.5U.bw --output $tf\_raw.pdf > $tf\_raw.log
+    TOBIAS Log2Table --logfiles $tf\_raw.log --outdir $tf\_raw_log2table_output
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals ecoli_to_human_naked_dna_corrected.norm.bw --output $tf\_ecoli_to_human.pdf > $tf\_ecoli_to_human.log
+    TOBIAS Log2Table --logfiles $tf\_ecoli_to_human.log --outdir $tf\_ecoli_to_human_log2table_output
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_to_human_naked_dna_corrected.norm.bw --output $tf\_human_to_human.pdf > $tf\_human_to_human.log
+    TOBIAS Log2Table --logfiles $tf\_human_to_human.log --outdir $tf\_human_to_human_log2table_output
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_raw_naked_dna_corrected.norm.bw --output $tf\_human_raw.pdf > $tf\_human_raw.log
+    TOBIAS Log2Table --logfiles $tf\_human_raw.log --outdir $tf\_human_raw_log2table_output
+    echo $tf done
+done
+
+for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    echo $tf >> tfs.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
+    echo $tf done
+done
+
+paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
+              ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
+              human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
+              human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD_20.txt
+
+
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack/HepG2_corrected.bw \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_corrected.bw --output $tf\_FootTrack.pdf > $tf\_FootTrack.log
+    TOBIAS Log2Table --logfiles $tf\_FootTrack.log --outdir $tf\_FootTrack_log2table_output
+    echo $tf done
+done
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    echo $tf >> tfs.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
+    echo $tf done
+done
+
 import pandas as pd
 from plotnine import *
 from scipy import stats
+import numpy as np
 
-dat = pd.read_table('tfs_FPD.txt', header=None)
+dat = pd.read_table('tfs_FPD_20.txt', header=None)
 
-df = pd.DataFrame({'alg':['raw']*20+['ecoli_to_human']*20+['human_to_human']*20+['human_raw']*20,
-                   'tf_chip':(['chip']*10+['nochip']*10)*4,
+df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40,
+                   'tf_chip':(['chip']*20+['nochip']*20)*4,
                    'FPD':0})
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[1].values
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[2].values
@@ -766,21 +831,21 @@ df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[7].values
 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[8].values
 
 df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw'])
-p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot()
-# p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
-#                                                                    coord_cartesian(ylim=(0, 0.6)) +\
-#                                                                    scale_y_continuous(breaks=np.arange(0, 1.0+0.1, 0.1)) +\
-#                                                                    geom_point(dat[dat['hlt']==1], color='red', size=1) + theme_bw()
-p.save(filename='tfs_FPD.pdf', dpi=600, height=4, width=4)
+p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=False, outlier_shape='') + xlab('') +\
+                                                         coord_cartesian(ylim=(-0.08, 0.08)) +\
+                                                         scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
+                                                         theme_bw()+ theme(axis_text_x=element_text(angle=45, hjust=1))
+p.save(filename='tfs_FPD_20.pdf', dpi=600, height=4, width=4)
 
-stats.ttest_ind(df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]              # 0.0008794092668954713
-stats.ttest_ind(df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.023235128662939912      
-stats.ttest_ind(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.005195675522880481
-stats.ttest_ind(df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.009977898722845541
+## paired t test
+stats.ttest_rel(df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]              # 1.238310454214302e-06
+stats.ttest_rel(df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0011192045793338558      
+stats.ttest_rel(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0002339827175529051
+stats.ttest_rel(df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.0017942748421807659
 
 
 
