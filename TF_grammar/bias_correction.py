@@ -821,6 +821,9 @@ import pandas as pd
 from plotnine import *
 from scipy import stats
 import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
 
 dat = pd.read_table('tfs_FPD_20.txt', header=None)
 
@@ -839,7 +842,7 @@ df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='chip'), 'FPD'] = dat[9].values
 df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='nochip'), 'FPD'] = dat[10].values
 
 df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw', 'FootTrack'])
-p = ggplot(df, aes(x='alg', y='FPD', color='tf_chip')) + geom_boxplot(width=0.5, show_legend=True, outlier_shape='') + xlab('') +\
+p = ggplot(df, aes(x='alg', y='FPD', fill='tf_chip')) + geom_boxplot(width=0.5, show_legend=True, outlier_shape='') + xlab('') +\
                                                          coord_cartesian(ylim=(-0.08, 0.08)) +\
                                                          scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
                                                          theme_bw()+ theme(axis_text_x=element_text(angle=45, hjust=1))
