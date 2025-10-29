@@ -105,7 +105,12 @@ extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_mid.bw
                          chromosome='chr21', start=38640000, end=38670000)
 extract_region_to_bigwig(input_bw='human_nakedDNA.bw', output_bw='regions_low.bw', 
                          chromosome='chr21', start=11040000, end=11070000)
+extract_region_to_bigwig(input_bw='e_coli_nakedDNA_bias.bw', output_bw='regions_test_foottrack.bw', 
+                         chromosome='NC_000913.3', start=4141652, end=4641651)
+extract_region_to_bigwig(input_bw='human_nakedDNA_bias.bw', output_bw='regions_test_foottrack.bw', 
+                         chromosome='chr21', start=46679983, end=46709983)
 ##############################################################################################################################
+
 
 ##############################################################################################################################
 ## ../cal_cor --file epoch_100_valid_nonan.tab          # 0.7081576742099914  0.6798156516658299
@@ -632,6 +637,28 @@ rm k_$k\_test.tab
 ../cal_cor --file k_$k\_test_nonan.tab
 # Pearson R: 0.8809306932571868
 # Spearman R: 0.863951765993428
+
+## Ecoli -> Ecoli (FootTrack)
+# workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_ecoli_FootTrack
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack/e_coli_nakedDNA_bias.bw  .
+
+multiBigwigSummary bins -b regions_test_foottrack.bw regions_test.bw -o foottrack_test.npz --outRawCounts foottrack_test.tab -l pred raw -bs 1 -p 20
+grep -v nan foottrack_test.tab | sed 1d > foottrack_test_nonan.tab
+rm foottrack_test.tab
+../cal_cor --file foottrack_test_nonan.tab
+# Pearson R: 0.8084513336531923
+# Spearman R: 0.8020661514545108
+
+## Human -> Human (FootTrack)
+# workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/human_to_human_FootTrack
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack/human_nakedDNA_bias.bw  .
+
+multiBigwigSummary bins -b regions_test_foottrack.bw regions_test.bw -o foottrack_test.npz --outRawCounts foottrack_test.tab -l pred raw -bs 1 -p 20
+grep -v nan foottrack_test.tab | sed 1d > foottrack_test_nonan.tab
+rm foottrack_test.tab
+../cal_cor --file foottrack_test_nonan.tab
+# Pearson R: 0.45215121684560045
+# Spearman R: 0.4519843452626774
 ########################################################################
 
 
@@ -727,66 +754,6 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
     echo $tf human_to_raw done
 done
 
-for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1;do
-    echo $tf >> tfs.txt
-    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
-    echo $tf done
-done
-
-paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
-              ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
-              human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
-              human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD.txt
-
-
-
-for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
-    grep chr ../tf_info_hepg2/all_motif/$tf/$tf.bed | grep chr21 > $tf\_motif_chrom.bed
-    grep chr ../tf_info_hepg2/all_chip/$tf/$tf.bed  | grep chr21 > $tf\_chip_chrom.bed
-    bedtools intersect -a $tf\_motif_chrom.bed -b $tf\_chip_chrom.bed -wa | uniq > $tf\_chip_motif.bed        
-    bedtools intersect -a $tf\_motif_chrom.bed -b $tf\_chip_chrom.bed -wa -v | uniq > $tf\_nochip_motif.bed   
-    rm $tf\_motif_chrom.bed $tf\_chip_chrom.bed
-    echo $tf done
-done
-
-for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
-    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_7.5U.bw --output $tf\_raw.pdf > $tf\_raw.log
-    TOBIAS Log2Table --logfiles $tf\_raw.log --outdir $tf\_raw_log2table_output
-    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals ecoli_to_human_naked_dna_corrected.norm.bw --output $tf\_ecoli_to_human.pdf > $tf\_ecoli_to_human.log
-    TOBIAS Log2Table --logfiles $tf\_ecoli_to_human.log --outdir $tf\_ecoli_to_human_log2table_output
-    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_to_human_naked_dna_corrected.norm.bw --output $tf\_human_to_human.pdf > $tf\_human_to_human.log
-    TOBIAS Log2Table --logfiles $tf\_human_to_human.log --outdir $tf\_human_to_human_log2table_output
-    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals human_raw_naked_dna_corrected.norm.bw --output $tf\_human_raw.pdf > $tf\_human_raw.log
-    TOBIAS Log2Table --logfiles $tf\_human_raw.log --outdir $tf\_human_raw_log2table_output
-    echo $tf done
-done
-
-for tf in atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
-    echo $tf >> tfs.txt
-    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_to_human_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_to_human_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_to_human_nochip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_raw_chip_FPD.txt
-    awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
-    echo $tf done
-done
-
-paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
-              ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
-              human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
-              human_raw_chip_FPD.txt human_raw_nochip_FPD.txt > tfs_FPD_20.txt
-
-
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack/HepG2_corrected.bw \
              /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction
 
@@ -794,6 +761,15 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa
     TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_corrected.bw --output $tf\_FootTrack.pdf > $tf\_FootTrack.log
     TOBIAS Log2Table --logfiles $tf\_FootTrack.log --outdir $tf\_FootTrack_log2table_output
     echo $tf done
+done
+
+scp -P 10022 -r u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/01.bias_correct/FootTrack/HepG2_corrected_local.bw \
+             /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    TOBIAS PlotAggregate --TFBS $tf\_chip_motif.bed $tf\_nochip_motif.bed --signals HepG2_corrected_local.bw --output $tf\_human_foottrack_local.pdf > $tf\_human_foottrack_local.log
+    TOBIAS Log2Table --logfiles $tf\_human_foottrack_local.log --outdir $tf\_human_foottrack_local_log2table_output
+    echo $tf human_foottrack_local done
 done
 
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
@@ -808,6 +784,8 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa
     awk '{if($3==20) print$6}' $tf\_human_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_raw_nochip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_FootTrack_log2table_output/aggregate_FPD.txt | sed -n '1p' >> FootTrack_chip_FPD.txt
     awk '{if($3==20) print$6}' $tf\_FootTrack_log2table_output/aggregate_FPD.txt | sed -n '2p' >> FootTrack_nochip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_foottrack_local_log2table_output/aggregate_FPD.txt | sed -n '1p' >> human_foottrack_local_chip_FPD.txt
+    awk '{if($3==20) print$6}' $tf\_human_foottrack_local_log2table_output/aggregate_FPD.txt | sed -n '2p' >> human_foottrack_local_nochip_FPD.txt
     echo $tf done
 done
 
@@ -815,7 +793,9 @@ paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
               ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
               human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
               human_raw_chip_FPD.txt human_raw_nochip_FPD.txt \
-              FootTrack_chip_FPD.txt FootTrack_nochip_FPD.txt  > tfs_FPD_20.txt
+              FootTrack_chip_FPD.txt FootTrack_nochip_FPD.txt \
+              human_foottrack_local_chip_FPD.txt human_foottrack_local_nochip_FPD.txt > tfs_FPD.txt
+
 
 import pandas as pd
 from plotnine import *
@@ -825,10 +805,10 @@ import matplotlib.pyplot as plt
 
 plt.rcParams['pdf.fonttype'] = 42
 
-dat = pd.read_table('tfs_FPD_20.txt', header=None)
+dat = pd.read_table('tfs_FPD.txt', header=None)
 
-df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40+['FootTrack']*40,
-                   'tf_chip':(['chip']*20+['nochip']*20)*5,
+df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40+['FootTrack_global']*40+['FootTrack_local']*40,
+                   'tf_chip':(['chip']*20+['nochip']*20)*6,
                    'FPD':0})
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[1].values
 df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[2].values
@@ -838,10 +818,12 @@ df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'] = dat[5].va
 df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'] = dat[6].values
 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[7].values
 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[8].values
-df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='chip'), 'FPD'] = dat[9].values
-df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='nochip'), 'FPD'] = dat[10].values
+df.loc[(df['alg']=='FootTrack_global')&(df['tf_chip']=='chip'), 'FPD'] = dat[9].values
+df.loc[(df['alg']=='FootTrack_global')&(df['tf_chip']=='nochip'), 'FPD'] = dat[10].values
+df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='chip'), 'FPD'] = dat[11].values
+df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='nochip'), 'FPD'] = dat[12].values
 
-df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'ecoli_to_human', 'human_to_human', 'human_raw', 'FootTrack'])
+df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'human_raw', 'ecoli_to_human', 'human_to_human', 'FootTrack_global', 'FootTrack_local'])
 p = ggplot(df, aes(x='alg', y='FPD', fill='tf_chip')) + geom_boxplot(width=0.5, show_legend=True, outlier_shape='') + xlab('') +\
                                                          coord_cartesian(ylim=(-0.08, 0.08)) +\
                                                          scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
@@ -857,7 +839,52 @@ stats.ttest_rel(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'F
                 df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0002339827175529051
 stats.ttest_rel(df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='human_raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.0017942748421807659
-stats.ttest_rel(df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='FootTrack')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.000145318602947415
+stats.ttest_rel(df.loc[(df['alg']=='FootTrack_global')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='FootTrack_global')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.000145318602947415
+stats.ttest_rel(df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='chip'), 'FPD'], 
+                df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.0005022915052293431
 
 
+## KLF11
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R klf11_chip_motif.bed -o klf11_raw.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_raw.gz -out deeptools_plot/klf11_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_raw_naked_dna_corrected.norm.bw -R klf11_chip_motif.bed -o klf11_human_raw.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_human_raw.gz -out deeptools_plot/klf11_human_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R klf11_chip_motif.bed -o klf11_ecoli_to_human.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_ecoli_to_human.gz -out deeptools_plot/klf11_ecoli_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_to_human_naked_dna_corrected.norm.bw -R klf11_chip_motif.bed -o klf11_human_to_human.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_human_to_human.gz -out deeptools_plot/klf11_human_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected.bw -R klf11_chip_motif.bed -o klf11_foottrack_global.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_foottrack_global.gz -out deeptools_plot/klf11_foottrack_global.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected_local.bw -R klf11_chip_motif.bed -o klf11_foottrack_local.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_foottrack_local.gz -out deeptools_plot/klf11_foottrack_local.pdf
+
+
+for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+    computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R $tf\_chip_motif.bed -o $tf\_raw.gz -a 50 -b 50 -bs 1
+    plotProfile -m $tf\_raw.gz -out deeptools_plot/$tf\_raw.pdf
+    echo $tf done
+done
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R cebpa_chip_motif.bed -o cebpa_raw.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_raw.gz -out deeptools_plot/cebpa_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_raw_naked_dna_corrected.norm.bw -R cebpa_chip_motif.bed -o cebpa_human_raw.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_human_raw.gz -out deeptools_plot/cebpa_human_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R cebpa_chip_motif.bed -o cebpa_ecoli_to_human.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_ecoli_to_human.gz -out deeptools_plot/cebpa_ecoli_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_to_human_naked_dna_corrected.norm.bw -R cebpa_chip_motif.bed -o cebpa_human_to_human.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_human_to_human.gz -out deeptools_plot/cebpa_human_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected.bw -R cebpa_chip_motif.bed -o cebpa_foottrack_global.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_foottrack_global.gz -out deeptools_plot/cebpa_foottrack_global.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected_local.bw -R cebpa_chip_motif.bed -o cebpa_foottrack_local.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_foottrack_local.gz -out deeptools_plot/cebpa_foottrack_local.pdf
