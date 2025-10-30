@@ -109,6 +109,8 @@ extract_region_to_bigwig(input_bw='e_coli_nakedDNA_bias.bw', output_bw='regions_
                          chromosome='NC_000913.3', start=4141652, end=4641651)
 extract_region_to_bigwig(input_bw='human_nakedDNA_bias.bw', output_bw='regions_test_foottrack.bw', 
                          chromosome='chr21', start=46679983, end=46709983)
+extract_region_to_bigwig(input_bw='ecoli2human_global_bias.bw', output_bw='regions_test_foottrack.bw', 
+                         chromosome='chr21', start=46679983, end=46709983)
 ##############################################################################################################################
 
 
@@ -659,6 +661,22 @@ rm foottrack_test.tab
 ../cal_cor --file foottrack_test_nonan.tab
 # Pearson R: 0.45215121684560045
 # Spearman R: 0.4519843452626774
+
+## Ecoli -> Human (FootTrack)
+# workdir: /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/ecoli_to_human_FootTrack
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/01.FootTrack/ecoli2human/ecoli2human_global_bias.bw  .
+
+multiBigwigSummary bins -b regions_test_foottrack.bw regions_test.bw -o foottrack_test.npz --outRawCounts foottrack_test.tab -l pred raw -bs 1 -p 20
+grep -v nan foottrack_test.tab | sed 1d > foottrack_test_nonan.tab
+rm foottrack_test.tab
+../cal_cor --file foottrack_test_nonan.tab
+# Pearson R: 0.4426411979559225
+# Spearman R: 0.44962980440667144
+
+awk '{if($5!=0) print$0}' foottrack_test_nonan.tab > foottrack_test_nonan_nozero.tab
+../cal_cor --file foottrack_test_nonan_nozero.tab
+# Pearson R: 0.4374896536126813
+# Spearman R: 0.4440113883319979
 ########################################################################
 
 
@@ -871,6 +889,7 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa
     echo $tf done
 done
 
+## CEBPA
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R cebpa_chip_motif.bed -o cebpa_raw.gz -a 50 -b 50 -bs 2
 plotProfile -m cebpa_raw.gz -out deeptools_plot/cebpa_raw.pdf
 
@@ -888,3 +907,22 @@ plotProfile -m cebpa_foottrack_global.gz -out deeptools_plot/cebpa_foottrack_glo
 
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected_local.bw -R cebpa_chip_motif.bed -o cebpa_foottrack_local.gz -a 50 -b 50 -bs 2
 plotProfile -m cebpa_foottrack_local.gz -out deeptools_plot/cebpa_foottrack_local.pdf
+
+## CTCF
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw -R ctcf_chip_motif.bed -o ctcf_raw.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_raw.gz -out deeptools_plot/ctcf_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_raw_naked_dna_corrected.norm.bw -R ctcf_chip_motif.bed -o ctcf_human_raw.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_human_raw.gz -out deeptools_plot/ctcf_human_raw.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected.norm.bw -R ctcf_chip_motif.bed -o ctcf_ecoli_to_human.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_ecoli_to_human.gz -out deeptools_plot/ctcf_ecoli_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S human_to_human_naked_dna_corrected.norm.bw -R ctcf_chip_motif.bed -o ctcf_human_to_human.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_human_to_human.gz -out deeptools_plot/ctcf_human_to_human.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected.bw -R ctcf_chip_motif.bed -o ctcf_foottrack_global.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_foottrack_global.gz -out deeptools_plot/ctcf_foottrack_global.pdf
+
+computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected_local.bw -R ctcf_chip_motif.bed -o ctcf_foottrack_local.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_foottrack_local.gz -out deeptools_plot/ctcf_foottrack_local.pdf
