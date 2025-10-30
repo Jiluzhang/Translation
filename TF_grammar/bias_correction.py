@@ -926,3 +926,19 @@ plotProfile -m ctcf_foottrack_global.gz -out deeptools_plot/ctcf_foottrack_globa
 
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_corrected_local.bw -R ctcf_chip_motif.bed -o ctcf_foottrack_local.gz -a 50 -b 50 -bs 1
 plotProfile -m ctcf_foottrack_local.gz -out deeptools_plot/ctcf_foottrack_local.pdf
+
+
+
+###################################### PRINT ######################################
+## workdir: /fs/home/jiluzhang/TF_grammar/PRINT
+## https://github.com/buenrostrolab/PRINT
+## https://github.com/buenrostrolab/scPrinter
+
+wget -c https://codeload.github.com/buenrostrolab/PRINT/zip/cadfc55251fa57b006bd460d2d2e4d067e1c085b
+
+conda create --name PRINT python=3.9
+conda install numpy
+conda install -c conda-forge pytorch-gpu
+pip install pyBigWig pyranges pysam pyfaidx
+pip install deeptools
+conda install bioconda::bedtools
