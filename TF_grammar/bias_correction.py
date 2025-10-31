@@ -932,13 +932,45 @@ plotProfile -m ctcf_foottrack_local.gz -out deeptools_plot/ctcf_foottrack_local.
 ###################################### PRINT ######################################
 ## workdir: /fs/home/jiluzhang/TF_grammar/PRINT
 ## https://github.com/buenrostrolab/PRINT
-## https://github.com/buenrostrolab/scPrinter
+## https://github.com/buenrostrolab/scPrinter  # mainly for seq2PRINT
+## https://zenodo.org/records/15399859  # Zenodo
 
 wget -c https://codeload.github.com/buenrostrolab/PRINT/zip/cadfc55251fa57b006bd460d2d2e4d067e1c085b
 
 conda create --name PRINT python=3.9
-conda install numpy
-conda install -c conda-forge pytorch-gpu
-pip install pyBigWig pyranges pysam pyfaidx
-pip install deeptools
-conda install bioconda::bedtools
+conda install ipython h5py pandas tqdm matplotlib scipy keras tensorflow
+
+## download bias files
+## wget -c https://zenodo.org/records/15399859/files/obsBias.tsv?download=1
+
+## predictBias.py
+awk -v OFS="\t" 'NR>500 && NR<=1000 {$3=2} 1' obsBias.tsv > obsBias_1.tsv
+awk -v OFS="\t" 'NR>1000 && NR<=1500 {$3=3} 1' obsBias_1.tsv > obsBias_2.tsv
+awk -v OFS="\t" 'NR>1500 && NR<=2000 {$3=4} 1' obsBias_2.tsv > obsBias_3.tsv
+awk -v OFS="\t" 'NR>2000 && NR<=2500 {$3=5} 1' obsBias_3.tsv > obsBias_4.tsv
+awk -v OFS="\t" 'NR>2500 && NR<=3000 {$3=6} 1' obsBias_4.tsv | head -n 3000 > obsBias_new.tsv
+rm obsBias_[0-9]*.tsv
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
