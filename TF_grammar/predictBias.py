@@ -264,7 +264,7 @@ model = load_model(main_dir + "/Tn5_NN_model.h5")
 
 # Load sequences of regions
 print("Loading sequences of regions")
-region_seqs = pd.read_csv(data_dir + "/regionSeqs.txt", header = None)
+region_seqs = pd.read_csv(data_dir + "/regionSeqs.txt", header = None)  # sequences with same length
 region_seqs = np.transpose(region_seqs.values)[0]
 
 # Specify the radius of sequence context and the width of the region
@@ -288,8 +288,8 @@ os.system("mkdir " + data_dir + "/chunked_bias_pred")
 print("Predicting Tn5 bias for regions")
 for i in tqdm.tqdm(range(len(starts))):
 
-    if os.path.exists(data_dir + "/chunked_bias_pred/chunk_" + str(i) + ".pkl"):
-        continue
+    # if os.path.exists(data_dir + "/chunked_bias_pred/chunk_" + str(i) + ".pkl"):
+    #     continue
 
     print("Processing chunk No." + str(i) + " " + datetime.now().strftime("%H:%M:%S"))
     chunk_seqs = region_seqs[starts[i]:ends[i]]
