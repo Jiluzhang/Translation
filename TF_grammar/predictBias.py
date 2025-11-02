@@ -339,6 +339,55 @@ os.system("rm -r " + data_dir + "/chunked_bias_pred")
 
 
 
+# conda install bioconda::pyfaidx
+# pip install pybigwig
+
+import pyfaidx
+import pyBigWig
+import pandas as pd
+import math
+
+genome = pyfaidx.Fasta("ecoli.fa")
+bw = pyBigWig.open('ecoli_nakedDNA.bw')
+
+t = 0
+context_lst = []
+obsBias_all_lst = []
+BACInd_lst = []
+
+for i in range(50, len(genome['NC_000913.3'][:].seq)-50):
+    signal = bw.values('NC_000913.3', i, i+1)[0]
+    if not math.isnan(signal) and signal!=0:
+        context_lst.append(genome['NC_000913.3'][(i-50):(i+50+1)].seq)
+        obsBias_all_lst.append(signal)
+        BACInd_lst.append(int(i/10))
+        t += 1
+
+res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst})
+bw.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
