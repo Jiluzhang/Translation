@@ -47,7 +47,7 @@ chunk_size = args.chunk_size
 
 main_dir = '.'
 context_radius = 50
-n_jobs = 2
+n_jobs = 10
 data_dir = '.'
 
 
@@ -109,7 +109,7 @@ print("One-hot encoding of sequence contexts")
 seqs = bias_data.loc[:, "context"].values
 with mp.Pool(n_jobs) as pool:
    onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
-onehot_seqs = np.array(onehot_seqs)
+onehot_seqs = np.array(onehot_seqs)  # (2289693, 101, 4)
 
 # Transform target values to facilitate training
 target = bias_data.loc[:, "obsBias_all"].values
@@ -118,33 +118,40 @@ target = bias_data.loc[:, "obsBias_all"].values
 
 # Get the indices of all BAC regions
 mapped_regions = bias_data.loc[:, "BACInd"].values
-n_regions = len(np.unique(mapped_regions))
+# n_regions = len(np.unique(mapped_regions))
 
 # Divide all the BAC regions into training, validation and test
 # This way, data from each region only falls within one of these datasets
-print("Splitting all data into training/validation/test")
-np.random.seed(42)
-region_inds = np.unique(mapped_regions)
-np.random.shuffle(region_inds)
-training_region_inds = region_inds[:int(n_regions * 0.8)]
-val_region_inds = region_inds[int(n_regions * 0.8):int(n_regions * 0.9)]
-test_region_inds = region_inds[int(n_regions * 0.9):]
+# print("Splitting all data into training/validation/test")
+# np.random.seed(42)
+# region_inds = np.unique(mapped_regions)
+# np.random.shuffle(region_inds)
+# training_region_inds = region_inds[:int(n_regions * 0.8)]
+# val_region_inds = region_inds[int(n_regions * 0.8):int(n_regions * 0.9)]
+# test_region_inds = region_inds[int(n_regions * 0.9):]
 
 # Find the sequence indices of the corresponding regions
-training_inds = np.array([i for i in range(len(mapped_regions)) if \
-                 mapped_regions[i] in training_region_inds])
-val_inds = np.array([i for i in range(len(mapped_regions)) if \
-            mapped_regions[i] in val_region_inds])
-test_inds = np.array([i for i in range(len(mapped_regions)) if \
-             mapped_regions[i] in test_region_inds])
+# training_inds = np.array([i for i in range(len(mapped_regions)) if \
+#                  mapped_regions[i] in training_region_inds])
+# val_inds = np.array([i for i in range(len(mapped_regions)) if \
+#             mapped_regions[i] in val_region_inds])
+# test_inds = np.array([i for i in range(len(mapped_regions)) if \
+#              mapped_regions[i] in test_region_inds])
 
 # Split the encoded sequences and target values into training, validation and test
-training_data = onehot_seqs[training_inds]
-training_target = target[training_inds]
-val_data = onehot_seqs[val_inds]
-val_target = target[val_inds]
-test_data = onehot_seqs[test_inds]
-test_target = target[test_inds]
+# training_data = onehot_seqs[training_inds]
+# training_target = target[training_inds]
+# val_data = onehot_seqs[val_inds]
+# val_target = target[val_inds]
+# test_data = onehot_seqs[test_inds]
+# test_target = target[test_inds]
+
+training_data = onehot_seqs[mapped_regions==0]
+training_target = target[mapped_regions==0]
+val_data = onehot_seqs[mapped_regions==1]
+val_target = target[mapped_regions==1]
+test_data = onehot_seqs[mapped_regions==2]
+test_target = target[mapped_regions==2]
 
 # Up-sample intervals with scarce data. 
 # This is to make sure the training is not heavily influenced with sequences with certain ranges of biases
@@ -237,17 +244,17 @@ model = load_model(main_dir + "/Tn5_NN_model.h5")
 
 # Model evaluation on the test set
 print("Evaluating performance on the test set")
-plt_ind = np.random.choice(np.arange(len(test_data)), 10000)
+plt_ind = np.random.choice(np.arange(len(test_data)), 1000)
 test_pred = np.transpose(model.predict(test_data))[0]
-test_target_rev = np.power(10, (test_target - 0.5) * 2) - 0.01
-test_pred_rev = np.power(10, (test_pred - 0.5) * 2) - 0.01
+# test_target_rev = np.power(10, (test_target - 0.5) * 2) - 0.01
+# test_pred_rev = np.power(10, (test_pred - 0.5) * 2) - 0.01
 
 # Plot test results
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 plt.figure(figsize=(5, 5), dpi=300)
-plt.scatter(test_target[plt_ind], test_pred[plt_ind], s = 1)
-plt.xlim(0, 0.8)
-plt.ylim(0, 0.8)
+plt.scatter(test_target[plt_ind], test_pred[plt_ind], s=1)
+plt.xlim(0-0.01, 0.8+0.01)
+plt.ylim(0-0.01, 0.8+0.01)
 plt.xlabel("Target label")
 plt.ylabel("Target prediction")
 plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))
@@ -358,23 +365,21 @@ context_lst = []
 obsBias_all_lst = []
 BACInd_lst = []
 
-# for i in tqdm(range(50, len(genome['NC_000913.3'][:].seq)-50), ncols=80):
-#     signal = bw.values('NC_000913.3', i, i+1)[0]
-#     if not math.isnan(signal) and signal!=0:
-#         context_lst.append(genome['NC_000913.3'][(i-50):(i+50+1)].seq)
-#         obsBias_all_lst.append(signal)
-#         BACInd_lst.append(int(i/100000))
-#         t += 1
-
-for i in tqdm(range(50, 200000-50), ncols=80):
+for i in tqdm(range(50, len(genome['NC_000913.3'][:].seq)-50), ncols=80):
     signal = bw.values('NC_000913.3', i, i+1)[0]
     if not math.isnan(signal) and signal!=0:
         context_lst.append(genome['NC_000913.3'][(i-50):(i+50+1)].seq)
         obsBias_all_lst.append(signal)
-        BACInd_lst.append(int(i/10000))
+        ## 0:training  1:validation  2:testing
+        if i<=3641652:
+            BACInd_lst.append(0)
+        elif i<=4141651:
+            BACInd_lst.append(1)
+        else:
+            BACInd_lst.append(2)
         t += 1
 
-res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst})
+res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst})   # 2289693
 bw.close()
 res.to_csv('obsBias_cfoot.tsv', sep='\t', index=False)
 
