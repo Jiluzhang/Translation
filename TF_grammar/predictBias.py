@@ -102,7 +102,7 @@ def region_onehot_encode(region_seq, context_radius = 50):
 
 # Load ground truth Tn5 bias data
 print("Loading ground truth data")
-bias_data = pd.read_csv(main_dir + "/obsBias_new.tsv", sep = "\t")  # 'context' & 'obsBias_all' & 'BACInd'
+bias_data = pd.read_csv(main_dir + "/obsBias_cfoot.tsv", sep = "\t")  # 'context' & 'obsBias_all' & 'BACInd'
 
 # One-hot encoding of sequence contexts
 print("One-hot encoding of sequence contexts")
@@ -113,8 +113,8 @@ onehot_seqs = np.array(onehot_seqs)
 
 # Transform target values to facilitate training
 target = bias_data.loc[:, "obsBias_all"].values
-target = np.log10(target + 0.01)
-target = (target / 2) + 0.5
+# target = np.log10(target + 0.01)
+# target = (target / 2) + 0.5
 
 # Get the indices of all BAC regions
 mapped_regions = bias_data.loc[:, "BACInd"].values
@@ -201,7 +201,7 @@ patience = 0
 for n_epoch in range(100):
 
     # New training epoch
-    model.fit(training_data, training_target, batch_size=32, epochs = 1, 
+    model.fit(training_data, training_target, batch_size=128, epochs = 1, 
               validation_data=(val_data, val_target))  
 
     # Get MSE loss on the valdation set after current epoch
@@ -244,8 +244,10 @@ test_pred_rev = np.power(10, (test_pred - 0.5) * 2) - 0.01
 
 # Plot test results
 matplotlib.use('Agg')
-plt.figure(dpi = 100)
+plt.figure(figsize=(5, 5), dpi=300)
 plt.scatter(test_target[plt_ind], test_pred[plt_ind], s = 1)
+plt.xlim(0, 0.8)
+plt.ylim(0, 0.8)
 plt.xlabel("Target label")
 plt.ylabel("Target prediction")
 plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))
@@ -346,6 +348,7 @@ import pyfaidx
 import pyBigWig
 import pandas as pd
 import math
+from tqdm import * 
 
 genome = pyfaidx.Fasta("ecoli.fa")
 bw = pyBigWig.open('ecoli_nakedDNA.bw')
@@ -355,17 +358,25 @@ context_lst = []
 obsBias_all_lst = []
 BACInd_lst = []
 
-for i in range(50, len(genome['NC_000913.3'][:].seq)-50):
+# for i in tqdm(range(50, len(genome['NC_000913.3'][:].seq)-50), ncols=80):
+#     signal = bw.values('NC_000913.3', i, i+1)[0]
+#     if not math.isnan(signal) and signal!=0:
+#         context_lst.append(genome['NC_000913.3'][(i-50):(i+50+1)].seq)
+#         obsBias_all_lst.append(signal)
+#         BACInd_lst.append(int(i/100000))
+#         t += 1
+
+for i in tqdm(range(50, 200000-50), ncols=80):
     signal = bw.values('NC_000913.3', i, i+1)[0]
     if not math.isnan(signal) and signal!=0:
         context_lst.append(genome['NC_000913.3'][(i-50):(i+50+1)].seq)
         obsBias_all_lst.append(signal)
-        BACInd_lst.append(int(i/10))
+        BACInd_lst.append(int(i/10000))
         t += 1
 
 res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst})
 bw.close()
-
+res.to_csv('obsBias_cfoot.tsv', sep='\t', index=False)
 
 
 
