@@ -155,31 +155,31 @@ test_target = target[mapped_regions==2]
 
 # Up-sample intervals with scarce data. 
 # This is to make sure the training is not heavily influenced with sequences with certain ranges of biases
-print("Up-sampling training data")
-n_bins = 5
-bin_width = (max(training_target) - min(training_target)) / n_bins
-bin_starts = np.arange(n_bins) * bin_width + min(training_target)
-bin_ends = np.arange(1, n_bins + 1) * bin_width + min(training_target)
-bin_inds = [(training_target > bin_starts[i]) & (training_target < bin_ends[i]) 
-        for i in range(n_bins)]
-bin_n = [sum(bin_ind) for bin_ind in bin_inds]
-training_inds = np.concatenate([np.random.choice(training_inds[bin_inds[i]], max(bin_n), replace = True)
-                               for i in range(n_bins)])
-np.random.shuffle(training_inds)
-training_data = onehot_seqs[training_inds]
-training_target = target[training_inds]
+# print("Up-sampling training data")
+# n_bins = 5
+# bin_width = (max(training_target) - min(training_target)) / n_bins
+# bin_starts = np.arange(n_bins) * bin_width + min(training_target)
+# bin_ends = np.arange(1, n_bins + 1) * bin_width + min(training_target)
+# bin_inds = [(training_target > bin_starts[i]) & (training_target < bin_ends[i]) 
+#         for i in range(n_bins)]
+# bin_n = [sum(bin_ind) for bin_ind in bin_inds]
+# training_inds = np.concatenate([np.random.choice(training_inds[bin_inds[i]], max(bin_n), replace = True)
+#                                for i in range(n_bins)])
+# np.random.shuffle(training_inds)
+# training_data = onehot_seqs[training_inds]
+# training_target = target[training_inds]
 
 # Data augmentation by taking the reverse complement sequence
-training_reverse_complement = np.flip(np.flip(training_data, axis = 1), axis = 2)
-training_data = np.concatenate([training_data, training_reverse_complement])
-training_target = np.concatenate([training_target, training_target])
-np.shape(training_data)
+# training_reverse_complement = np.flip(np.flip(training_data, axis = 1), axis = 2)
+# training_data = np.concatenate([training_data, training_reverse_complement])
+# training_target = np.concatenate([training_target, training_target])
+# np.shape(training_data)
 
 # Randomly shuffle augmented data
-inds = np.arange(np.shape(training_data)[0])
-np.random.shuffle(inds)
-training_data = training_data[inds]
-training_target = training_target[inds]
+# inds = np.arange(np.shape(training_data)[0])
+# np.random.shuffle(inds)
+# training_data = training_data[inds]
+# training_target = training_target[inds]
 
 #################################
 # Model definition and training #
@@ -244,7 +244,7 @@ model = load_model(main_dir + "/Tn5_NN_model.h5")
 
 # Model evaluation on the test set
 print("Evaluating performance on the test set")
-plt_ind = np.random.choice(np.arange(len(test_data)), 1000)
+plt_ind = np.random.choice(np.arange(len(test_data)), 10000)
 test_pred = np.transpose(model.predict(test_data))[0]
 # test_target_rev = np.power(10, (test_target - 0.5) * 2) - 0.01
 # test_pred_rev = np.power(10, (test_pred - 0.5) * 2) - 0.01
@@ -261,7 +261,19 @@ plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0])
 print("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))
 plt.savefig(main_dir + "/model_testing.pdf")
 
+## extract regions from bigwig files
+import pyBigWig
 
+bw = pyBigWig.open("regions_test_pred.bw", "w")
+
+chroms = {"NC_000913.3": 4641652}
+bw.addHeader(list(chroms.items()))
+test_pred_trans = test_pred.astype(np.float64)
+bw.addEntries(chroms=['NC_000913.3']*((bias_data['BACInd']==2).sum()),
+              starts=list(bias_data[bias_data['BACInd']==2]['start'].values),
+              ends=list(bias_data[bias_data['BACInd']==2]['end'].values),
+              values=list(test_pred_trans))
+bw.close()
 
 
 ###############################################
@@ -364,6 +376,7 @@ t = 0
 context_lst = []
 obsBias_all_lst = []
 BACInd_lst = []
+start_lst = []
 
 for i in tqdm(range(50, len(genome['NC_000913.3'][:].seq)-50), ncols=80):
     signal = bw.values('NC_000913.3', i, i+1)[0]
@@ -377,18 +390,37 @@ for i in tqdm(range(50, len(genome['NC_000913.3'][:].seq)-50), ncols=80):
             BACInd_lst.append(1)
         else:
             BACInd_lst.append(2)
+        start_lst.append(i)
         t += 1
 
-res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst})   # 2289693
 bw.close()
+
+res = pd.DataFrame({'context':context_lst, 'obsBias_all':obsBias_all_lst, 'BACInd':BACInd_lst,
+                    'chrom':'NC_000913.3', 'start':start_lst})   # 2289693
+res['end'] = res['start']+1
 res.to_csv('obsBias_cfoot.tsv', sep='\t', index=False)
 
 
+## extract regions from bigwig files
+import pyBigWig
+import os
+
+bw = pyBigWig.open("test.bw", "w")
+
+chroms = {"NC_000913.3": 4641652}
+bw.addHeader(list(chroms.items()))
+
+bw.addEntries(chroms=list(res['chrom'].values),
+              starts=list(res['start'].values),
+              ends=list(res['end'].values),
+              values=list(res['obsBias_all'].values))
+bw.close()
 
 
-
-
-
+multiBigwigSummary bins -b regions_test_pred.bw regions_test.bw -o test.npz --outRawCounts test.tab -l pred raw -bs 1 -p 20
+grep -v nan test.tab | sed 1d > test_nonan.tab
+rm test.tab
+/fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/cal_cor --file test_nonan.tab
 
 
 
