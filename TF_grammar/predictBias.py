@@ -1,6 +1,5 @@
-############################ convert bigwig to csv ############################
-## python bw2csv.py  # ~4 min
-
+################## ecoli to ecoli ##################
+#### convert bigwig to csv
 import pyfaidx
 import pyBigWig
 import pandas as pd
@@ -36,12 +35,11 @@ bw.close()
 res = pd.DataFrame({'context':context_lst, 'obsBias':obsBias_lst, 'idx':idx_lst,
                     'chrom':'NC_000913.3', 'start':start_lst})   # 2289693
 res['end'] = res['start']+1
-res.to_csv('obsBias_cfoot.tsv', sep='\t', index=False)
-########################################################################################
+res.to_csv('obsBias_ecoli.tsv', sep='\t', index=False)
 
 
-######################################################## train CNN model ########################################################
-## python train.py
+#### train CNN model 
+# sometimes predicted values not less than 0.1: overfitting
 import os
 import sys
 import h5py
@@ -66,11 +64,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
                                            [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
 
-##############################################
-# functions used #
-##############################################
-
-# One-hot encoding of a DNA sequence.
 def onehot_encode(seq):
     mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
     bases = [base for base in seq]
@@ -78,47 +71,18 @@ def onehot_encode(seq):
     onehot = np.zeros((len(bases), 4))
     onehot[np.arange(len(bases)), base_inds] = 1
     return onehot
-
-# Running one-hot encoding along the sequence of a genomic region
-def region_onehot_encode(region_seq, context_radius=50):
-    
-    # Calculate length of every local sub-sequence
-    context_len = 2 * context_radius + 1
-    
-    # If region width is L, then region_seq should be a string of length L + 2 * context_len
-    region_width = len(region_seq) - 2 * context_radius
-    
-    if "N" in region_seq:
-        return np.zeros((region_width, 4))
-    else:
-        # First encode the whole region sequence 
-        # This prevents repetitive computing for overlapping sub-sequences
-        region_onehot = np.array(onehot_encode(region_seq))
-        
-        # Retrieve encoded sub-sequences by subsetting the larger encoded matrix
-        region_onehot = np.array([region_onehot[i : (i + context_len), :] for i in range(region_width)])
-        
-        return region_onehot
-    
-##############################################
-# Prepare training, validation and test data #
-##############################################
-
+ 
 # Load ground truth Tn5 bias data
-print("Loading ground truth data")
-bias_data = pd.read_csv('obsBias_cfoot.tsv', sep='\t')  # 'context' & 'obsBias' & 'idx' & 'chrom' & 'start' & 'end'
+bias_data = pd.read_csv('obsBias_ecoli.tsv', sep='\t')  # 'context' & 'obsBias' & 'idx' & 'chrom' & 'start' & 'end'
 
 # One-hot encoding of sequence contexts
-print("One-hot encoding of sequence contexts")
 seqs = bias_data.loc[:, "context"].values
 with mp.Pool(10) as pool:
    onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))  # ~2 min
 onehot_seqs = np.array(onehot_seqs)  # (2289693, 101, 4)
 
-# Get target values
+# get bias and idx
 target = bias_data.loc[:, "obsBias"].values
-
-# Get the indices of all regions
 idx = bias_data.loc[:, "idx"].values
 
 # Split the encoded sequences and target values into training (0), validation (1) and test (1)
@@ -129,25 +93,18 @@ val_target = target[idx==1]
 test_data = onehot_seqs[idx==2]
 test_target = target[idx==2]
 
-
-#################################
-# Model definition and training #
-#################################
-
 # Model definition
-print("Training Tn5 bias model")
-inputs = Input(shape = (np.shape(test_data[0])))
-conv_1 = Conv1D(32, 5, padding = 'same', activation = 'relu', strides = 1)(inputs)
+inputs = Input(shape=(np.shape(test_data[0])))
+conv_1 = Conv1D(32, 5, padding='same', activation='relu', strides=1)(inputs)
 maxpool_1 = MaxPooling1D()(conv_1)
-conv_2 = Conv1D(32, 5, padding = 'same', activation = 'relu', strides = 1)(maxpool_1)
+conv_2 = Conv1D(32, 5, padding='same', activation='relu', strides=1)(maxpool_1)
 maxpool_2 = MaxPooling1D()(conv_2)
-conv_3 = Conv1D(32, 5, padding = 'same', activation = 'relu', strides = 1)(maxpool_2)
+conv_3 = Conv1D(32, 5, padding='same', activation='relu', strides=1)(maxpool_2)
 maxpool_3 = MaxPooling1D()(conv_3)
 flat = Flatten()(maxpool_3)
-fc = Dense(32, activation = "relu")(flat)
-out = Dense(1, activation = "linear")(fc)
+fc = Dense(32, activation="relu")(flat)
+out = Dense(1, activation="linear")(fc)
 model = Model(inputs=inputs, outputs=out)  
-model.summary()
 model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
 
 # Model training
@@ -155,7 +112,7 @@ mse = tf.keras.losses.MeanSquaredError()
 min_loss = np.inf
 patience = 0
 for n_epoch in range(100):
-
+    
     # New training epoch
     model.fit(training_data, training_target, batch_size=256, epochs=1, 
               validation_data=(val_data, val_target))  
@@ -176,14 +133,11 @@ for n_epoch in range(100):
     else:
         min_loss = mse_loss
         patience = 0
-        print('save model')
-        model.save('Tn5_NN_model.h5')
-#####################################################################################################################
+        print('save model for epoch '+str(n_epoch))
+        model.save('Tn5_NN_model_epoch_'+str(n_epoch)+'.h5')
 
 
-######################################################## CNN model evaluation ########################################################
-## python test.py
-
+#### model evaluation
 import os
 import tensorflow as tf
 
@@ -202,11 +156,6 @@ import pyBigWig
 
 plt.rcParams['pdf.fonttype'] = 42
 
-##############################################
-# functions used #
-##############################################
-
-# One-hot encoding of a DNA sequence.
 def onehot_encode(seq):
     mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
     bases = [base for base in seq]
@@ -215,31 +164,9 @@ def onehot_encode(seq):
     onehot[np.arange(len(bases)), base_inds] = 1
     return onehot
 
-# Running one-hot encoding along the sequence of a genomic region
-def region_onehot_encode(region_seq, context_radius=50):
-    
-    # Calculate length of every local sub-sequence
-    context_len = 2 * context_radius + 1
-    
-    # If region width is L, then region_seq should be a string of length L + 2 * context_len
-    region_width = len(region_seq) - 2 * context_radius
-    
-    if "N" in region_seq:
-        return np.zeros((region_width, 4))
-    else:
-        # First encode the whole region sequence 
-        # This prevents repetitive computing for overlapping sub-sequences
-        region_onehot = np.array(onehot_encode(region_seq))
-        
-        # Retrieve encoded sub-sequences by subsetting the larger encoded matrix
-        region_onehot = np.array([region_onehot[i : (i + context_len), :] for i in range(region_width)])
-        
-        return region_onehot
-
-bias_data = pd.read_csv('obsBias_cfoot.tsv', sep='\t')
+bias_data = pd.read_csv('obsBias_ecoli.tsv', sep='\t')
 bias_test = bias_data[bias_data['idx']==2]
 
-print("One-hot encoding of sequence contexts")
 seqs = bias_test.loc[:, "context"].values
 with mp.Pool(10) as pool:
    onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
@@ -249,11 +176,10 @@ test_target = bias_test.loc[:, "obsBias"].values
 test_data = onehot_seqs
 
 # Load last Tn5 bias model, which should be the currently best model
-model = load_model('Tn5_NN_model.h5')
+model = load_model('Tn5_NN_model_epoch_15.h5')
 
 # Model evaluation on the test set
-print("Evaluating performance on the test set")
-plt_ind = np.random.choice(np.arange(len(test_data)), 1000)
+plt_ind = np.random.choice(np.arange(len(test_data)), 10000)
 test_pred = np.transpose(model.predict(test_data))[0]
 
 # Plot test results
@@ -263,116 +189,206 @@ plt.xlim(0-0.01, 0.8+0.01)
 plt.ylim(0-0.01, 0.8+0.01)
 plt.xlabel("Target label")
 plt.ylabel("Target prediction")
-plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))
-plt.savefig('testing_correlation.pdf')
-print('Plot correlation plot done')
+plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))   # 0.917956254958737
+plt.savefig('testing_correlation_epoch_15.pdf')
 
-## extract regions from bigwig files
+# Extract regions from bigwig files
 bw = pyBigWig.open("regions_test_pred.bw", "w")
 chroms = {"NC_000913.3": 4641652}
 bw.addHeader(list(chroms.items()))
-test_pred_trans = test_pred.astype(np.float64)
+test_pred_trans = test_pred.astype(np.float64)  # avoid the bug
 bw.addEntries(chroms=['NC_000913.3']*(bias_test.shape[0]),
               starts=list(bias_test['start'].values),
               ends=list(bias_test['end'].values),
               values=list(test_pred_trans))
 bw.close()
-print('Output bigwig file done')
-#######################################################################################################################################
 
 
-#### !!!!!!!!!!!!! prediction 0.1  &  install deeptools on PRINT env !!!!!!!!!!!!!
-
-
-multiBigwigSummary bins -b regions_test_pred.bw regions_test.bw -o test.npz --outRawCounts test.tab -l pred raw -bs 1 -p 20
-grep -v nan test.tab | sed 1d > test_nonan.tab
-rm test.tab
-/fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/cal_cor --file test_nonan.tab
+# multiBigwigSummary bins -b regions_test_pred.bw regions_test.bw -o test.npz --outRawCounts test.tab -l pred raw -bs 1 -p 20
+# grep -v nan test.tab | sed 1d > test_nonan.tab
+# rm test.tab
+# /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/cal_cor --file test_nonan.tab
 
 
 
+########## Ecoli to human ##########
+#### bigwig to tsv
+import pyfaidx
+import pyBigWig
+import pandas as pd
+import math
+from tqdm import * 
 
-###############################################
-# Use the model to predict Tn5 bias for regions #
-###############################################
-    
-# Load Tn5 bias model
-model = load_model(main_dir + "/Tn5_NN_model.h5")
+genome = pyfaidx.Fasta("hg38.fa")
+bw = pyBigWig.open('human_nakedDNA.bw')
 
-# Load sequences of regions
-print("Loading sequences of regions")
-region_seqs = pd.read_csv(data_dir + "/regionSeqs.txt", header = None)  # sequences with same length
-region_seqs = np.transpose(region_seqs.values)[0]
+t = 0
+context_lst = []
+obsBias_lst = []
+idx_lst = []
+start_lst = []
 
-# Specify the radius of sequence context and the width of the region
-context_len = 2 * context_radius + 1
-region_width = len(region_seqs[0]) - 2 * context_radius
+for i in tqdm(range(46679982, 46709983), ncols=80):
+    signal = bw.values('chr21', i, i+1)[0]
+    if not math.isnan(signal) and signal!=0:
+        context_lst.append(genome['chr21'][(i-50):(i+50+1)].seq)
+        obsBias_lst.append(signal)
+        start_lst.append(i)
+        t += 1
 
-# To reduce memory usage, we chunk the region list in to smaller chunks
-starts = np.arange(len(region_seqs), step = chunk_size)
-if len(starts) > 1:
-    starts = starts[:(len(starts) - 1)]
-    ends = starts + chunk_size
-    ends[len(ends) - 1] = len(region_seqs) + 1
-else:
-    starts = [0]
-    ends = [len(region_seqs) + 1]
+bw.close()
 
-# Create folder for storing intermediate results for each chunk
-os.system("mkdir " + data_dir + "/chunked_bias_pred")
+res = pd.DataFrame({'context':context_lst, 'obsBias':obsBias_lst,
+                    'chrom':'chr21', 'start':start_lst})   # 7183
+res['end'] = res['start']+1
+res['idx'] = 2
+res = res[['context', 'obsBias', 'idx', 'chrom', 'start', 'end']]
+res.to_csv('obsBias_human_test.tsv', sep='\t', index=False)
 
-# Go through all chunks and predict Tn5 bias
-print("Predicting Tn5 bias for regions")
-for i in tqdm.tqdm(range(len(starts))):
 
-    # if os.path.exists(data_dir + "/chunked_bias_pred/chunk_" + str(i) + ".pkl"):
-    #     continue
+#### test using human naked dna
+import os
+import tensorflow as tf
 
-    print("Processing chunk No." + str(i) + " " + datetime.now().strftime("%H:%M:%S"))
-    chunk_seqs = region_seqs[starts[i]:ends[i]]
-    
-    # Encode sequences in the current chunk into matrices using one-hot encoding
-    print("Encoding sequence contexts")
-    with mp.Pool(2) as pool:
-       chunk_onehot = list(tqdm.tqdm(pool.imap(region_onehot_encode, chunk_seqs), total = len(chunk_seqs)))
-    
-    # Use neural network to predict bias
-    # For sequences containing "N", the encoded matrix will be a empty zero matrix,
-    # in such cases we assign 1s as bias values
-    print("Predicting bias")
-    pred_bias = np.array([np.transpose(model.predict(chunk_onehot[j]))[0] \
-                          if (np.sum(chunk_onehot[j]) > 1) else np.ones(region_width) \
-                          for j in tqdm.tqdm(range(len(chunk_onehot)), total = chunk_size)])
-    
-    # Reverse transform the predicted values to the original scale
-    pred_bias = np.power(10, (pred_bias - 0.5) * 2) - 0.01
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
+                                           [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
 
-    # Save intermediate result
-    with open(data_dir + "/chunked_bias_pred/chunk_" + str(i) + ".pkl", "wb") as f:
-        pickle.dump(pred_bias, f)
+from keras.models import load_model
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
+import tqdm
+import matplotlib.pyplot as plt
+import scipy.stats as ss
+import pyBigWig
 
-# Integrate results from all chunks
-pred_bias_all = None
-for i in tqdm.tqdm(range(len(starts))):
+plt.rcParams['pdf.fonttype'] = 42
 
-    # Load intermediate result
-    with open(data_dir + "/chunked_bias_pred/chunk_" + str(i) + ".pkl", "rb") as f:
-        pred_bias = pickle.load(f)
+def onehot_encode(seq):
+    mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
+    bases = [base for base in seq]
+    base_inds = mapping[bases]
+    onehot = np.zeros((len(bases), 4))
+    onehot[np.arange(len(bases)), base_inds] = 1
+    return onehot
 
-    # Reverse transform the predicted values to the original scale
-    if pred_bias_all is None:
-        pred_bias_all = pred_bias
+bias_data = pd.read_csv('obsBias_human_test.tsv', sep='\t')   # 7183
+bias_test = bias_data[bias_data['idx']==2]
+bias_test['context'] = [s.upper() for s in bias_test['context']]  # lower to upper
+bias_test = bias_test[~bias_test['context'].str.contains('N')]   # remove seqs with 'N'
+
+seqs = bias_test.loc[:, "context"].values
+with mp.Pool(10) as pool:
+   onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
+onehot_seqs = np.array(onehot_seqs)  # (7177, 101, 4)
+
+test_target = bias_test.loc[:, "obsBias"].values
+test_data = onehot_seqs
+
+# Load last Tn5 bias model, which should be the currently best model
+model = load_model('../ecoli_to_ecoli/Tn5_NN_model_epoch_15.h5')
+
+# Model evaluation on the test set
+plt_ind = np.random.choice(np.arange(len(test_data)), 7177)
+test_pred = np.transpose(model.predict(test_data))[0]
+
+# Plot test results
+plt.figure(figsize=(5, 5), dpi=100)
+plt.scatter(test_target[plt_ind], test_pred[plt_ind], s=1)
+plt.xlim(0-0.01, 0.8+0.01)
+plt.ylim(0-0.01, 0.8+0.01)
+plt.xlabel("Target label")
+plt.ylabel("Target prediction")
+plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))   # 0.9188055561249172
+plt.savefig('testing_correlation_ecoli_to_human.pdf')
+
+## extract regions from bigwig files
+bw = pyBigWig.open("regions_test_ecoli_to_human_pred.bw", "w")
+chroms = {"chr21": 46709983}
+bw.addHeader(list(chroms.items()))
+test_pred_trans = test_pred.astype(np.float64)  # avoid the bug
+bw.addEntries(chroms=['chr21']*(bias_test.shape[0]),
+              starts=list(bias_test['start'].values),
+              ends=list(bias_test['end'].values),
+              values=list(test_pred_trans))
+bw.close()
+
+
+#### get human chr21 seq
+import pyfaidx
+import pandas as pd
+from tqdm import * 
+
+genome = pyfaidx.Fasta("hg38.fa")
+
+context_lst = []
+start_lst = []
+
+for i in tqdm(range(50, 46709983-50), ncols=80):
+    context = genome['chr21'][(i-50):(i+50+1)].seq.upper()
+    if not 'N' in context:
+        context_lst.append(context)
+        start_lst.append(i)  # 4.5 min
+
+res = pd.DataFrame({'context':context_lst, 'start':start_lst})   # 40083519
+res.to_csv('human_chr21_seq.tsv', sep='\t', index=False)
+
+
+#### predict human chr21 bias
+## python predict_chr21.py
+import os
+import tensorflow as tf
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
+                                           [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
+
+from keras.models import load_model
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
+import tqdm
+import matplotlib.pyplot as plt
+import scipy.stats as ss
+import pyBigWig
+import math
+
+def onehot_encode(seq):
+    mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
+    bases = [base for base in seq]
+    base_inds = mapping[bases]
+    onehot = np.zeros((len(bases), 4))
+    onehot[np.arange(len(bases)), base_inds] = 1
+    return onehot
+
+seq_data = pd.read_csv('human_chr21_seq.tsv', sep='\t')   # 40083519
+
+model = load_model('../ecoli_to_ecoli/Tn5_NN_model_epoch_15.h5')
+
+chunk_size = math.ceil(seq_data.shape[0]/1000000)
+for i in tqdm.tqdm(range(chunk_size), ncols=80):
+    seqs = seq_data.loc[:, "context"].values[(i*1000000):(i*1000000+1000000)]
+    with mp.Pool(10) as pool:
+        onehot_seqs = np.array(pool.map(onehot_encode, seqs))   # onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
+    if i==0:
+        pred = np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]
     else:
-        pred_bias_all = np.concatenate([pred_bias_all, pred_bias])
+        pred = np.concatenate([pred, np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]])
 
-# Write results of the current batch to file
-output_path = data_dir + "/predBias.h5"
-hf = h5py.File(output_path, 'w')
-hf.create_dataset("predBias", data = pred_bias_all)
-hf.close()
+bw = pyBigWig.open("pred_chr21.bw", "w")
+chroms = {"chr21": 46709983}
+bw.addHeader(list(chroms.items()))
+pred_trans = pred.astype(np.float64)  # avoid the bug
+bw.addEntries(chroms=['chr21']*(seq_data.shape[0]),
+              starts=list(seq_data['start'].values),
+              ends=list(seq_data['start'].values+1),
+              values=list(pred_trans))
+bw.close()
 
-# Remove intermediate files
-os.system("rm -r " + data_dir + "/chunked_bias_pred")
+
+
+
 
 
 
