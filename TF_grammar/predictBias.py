@@ -327,16 +327,16 @@ start_lst = []
 
 for i in tqdm(range(50, 46709983-50), ncols=80):
     context = genome['chr21'][(i-50):(i+50+1)].seq.upper()
-    if not 'N' in context:
+    if (not 'N' in context) and (context[50] in ['G', 'C']):  # select G/C
         context_lst.append(context)
         start_lst.append(i)  # 4.5 min
 
-res = pd.DataFrame({'context':context_lst, 'start':start_lst})   # 40083519
-res.to_csv('human_chr21_seq.tsv', sep='\t', index=False)
+res = pd.DataFrame({'context':context_lst, 'start':start_lst})   # 16409390
+res.to_csv('human_chr21_seq_GC.tsv', sep='\t', index=False)
 
 
-#### predict human chr21 bias
-## python predict_chr21.py
+#### predict human chr21 bias (for G/C)  15 min
+## python predict_chr21_GC.py
 import os
 import tensorflow as tf
 
@@ -362,7 +362,7 @@ def onehot_encode(seq):
     onehot[np.arange(len(bases)), base_inds] = 1
     return onehot
 
-seq_data = pd.read_csv('human_chr21_seq.tsv', sep='\t')   # 40083519
+seq_data = pd.read_csv('human_chr21_seq_GC.tsv', sep='\t')   # 40083519
 
 model = load_model('../ecoli_to_ecoli/Tn5_NN_model_epoch_15.h5')
 
@@ -376,7 +376,7 @@ for i in tqdm.tqdm(range(chunk_size), ncols=80):
     else:
         pred = np.concatenate([pred, np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]])
 
-bw = pyBigWig.open("pred_chr21.bw", "w")
+bw = pyBigWig.open("pred_chr21_GC.bw", "w")
 chroms = {"chr21": 46709983}
 bw.addHeader(list(chroms.items()))
 pred_trans = pred.astype(np.float64)  # avoid the bug
@@ -387,25 +387,50 @@ bw.addEntries(chroms=['chr21']*(seq_data.shape[0]),
 bw.close()
 
 
+# ## select G/C from bw file
+# import pyBigWig
+# import pyfaidx
+# from tqdm import tqdm
+
+# genome = pyfaidx.Fasta('hg38.fa')
+
+# with pyBigWig.open('pred_chr21.bw') as bw:
+#     chroms = bw.chroms()
+    
+#     with pyBigWig.open('pred_chr21_corrected.bw', "w") as out_bw:
+#         out_bw.addHeader(list(chroms.items()))
+        
+#         for chrom, length in chroms.items():
+#             intervals = bw.intervals(chrom)    
+#             new_intervals = []
+#             for start, end, value in tqdm(intervals, ncols=80):
+#                 seq = genome[chrom][start:end].seq.upper()
+#                 if seq in ['G', 'C']:
+#                     new_intervals.append((start, end, value))
+            
+#             starts = [x[0] for x in new_intervals]
+#             ends = [x[1] for x in new_intervals]
+#             values = [x[2] for x in new_intervals]
+#             out_bw.addEntries([chrom] * len(starts), starts, ends=ends, values=values)
 
 
-
-python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias pred_chr21.bw \
+#### Bias correction
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias pred_chr21_GC.bw \
                                                                                  --bed_file regions_test.bed --extend 0 --window 101 \
-                                                                                 --pseudo_count 1 --out_dir . --out_name ecoli_to_human_naked_dna_corrected \
+                                                                                 --pseudo_count 1 --out_dir . --out_name ecoli_to_human_naked_dna_corrected_GC_NA \
                                                                                  --chrom_size_file hg38.chrom.sizes
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
     TOBIAS PlotAggregate --TFBS /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/$tf\_chip_motif.bed \
                                 /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/$tf\_nochip_motif.bed \
-                         --signals ecoli_to_human_naked_dna_corrected.norm.bw --output $tf\_ecoli_to_human_print.pdf > $tf\_ecoli_to_human_print.log
-    TOBIAS Log2Table --logfiles $tf\_ecoli_to_human_print.log --outdir $tf\_ecoli_to_human_print_log2table_output
+                         --signals ecoli_to_human_naked_dna_corrected_GC_NA.norm.bw --output $tf\_ecoli_to_human_print_GC_NA.pdf > $tf\_ecoli_to_human_print_GC_NA.log
+    TOBIAS Log2Table --logfiles $tf\_ecoli_to_human_print_GC_NA.log --outdir $tf\_ecoli_to_human_print_GC_NA_log2table_output
     echo $tf ecoli_to_human_print done
 done
 
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
     echo $tf >> tfs.txt
-    awk '{if($3==20) print$6}' ./$tf\_ecoli_to_human_print_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_print_chip_FPD.txt
-    awk '{if($3==20) print$6}' ./$tf\_ecoli_to_human_print_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_print_nochip_FPD.txt
+    awk '{if($3==20) print$6}' ./$tf\_ecoli_to_human_print_GC_NA_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_print_GC_NA_chip_FPD.txt
+    awk '{if($3==20) print$6}' ./$tf\_ecoli_to_human_print_GC_NA_log2table_output/aggregate_FPD.txt | sed -n '2p' >> ecoli_to_human_print_GC_NA_nochip_FPD.txt
     awk '{if($3==20) print$6}' /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/$tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '1p' >> raw_chip_FPD.txt
     awk '{if($3==20) print$6}' /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/$tf\_raw_log2table_output/aggregate_FPD.txt | sed -n '2p' >> raw_nochip_FPD.txt
     awk '{if($3==20) print$6}' /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/$tf\_ecoli_to_human_log2table_output/aggregate_FPD.txt | sed -n '1p' >> ecoli_to_human_chip_FPD.txt
@@ -422,12 +447,12 @@ for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa
 done
 
 paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
-              ecoli_to_human_print_chip_FPD.txt ecoli_to_human_print_nochip_FPD.txt \
+              ecoli_to_human_print_GC_NA_chip_FPD.txt ecoli_to_human_print_GC_NA_nochip_FPD.txt \
               ecoli_to_human_chip_FPD.txt ecoli_to_human_nochip_FPD.txt \
               human_to_human_chip_FPD.txt human_to_human_nochip_FPD.txt \
               human_raw_chip_FPD.txt human_raw_nochip_FPD.txt \
               FootTrack_chip_FPD.txt FootTrack_nochip_FPD.txt \
-              human_foottrack_local_chip_FPD.txt human_foottrack_local_nochip_FPD.txt > tfs_FPD.txt
+              human_foottrack_local_chip_FPD.txt human_foottrack_local_nochip_FPD.txt > tfs_FPD_GC_NA.txt
 
 
 import pandas as pd
@@ -438,7 +463,7 @@ import matplotlib.pyplot as plt
 
 plt.rcParams['pdf.fonttype'] = 42
 
-dat = pd.read_table('tfs_FPD.txt', header=None)
+dat = pd.read_table('tfs_FPD_GC_NA.txt', header=None)
 
 df = pd.DataFrame({'alg':['raw']*40+['ecoli_to_human_print']*40+['ecoli_to_human']*40+['human_to_human']*40+['human_raw']*40+['FootTrack_global']*40+['FootTrack_local']*40,
                    'tf_chip':(['chip']*20+['nochip']*20)*7,
@@ -464,13 +489,13 @@ p = ggplot(df, aes(x='alg', y='FPD', fill='tf_chip')) + geom_boxplot(width=0.5, 
                                                          coord_cartesian(ylim=(-0.08, 0.08)) +\
                                                          scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
                                                          theme_bw()+ theme(axis_text_x=element_text(angle=45, hjust=1))
-p.save(filename='tfs_FPD_20.pdf', dpi=600, height=4, width=4)
+p.save(filename='tfs_FPD_GC_NA_20.pdf', dpi=600, height=4, width=4)
 
 ## paired t test
 stats.ttest_rel(df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]                   # 1.238310454214302e-06
 stats.ttest_rel(df.loc[(df['alg']=='ecoli_to_human_print')&(df['tf_chip']=='chip'), 'FPD'], 
-                df.loc[(df['alg']=='ecoli_to_human_print')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 1.2881651721867478e-05
+                df.loc[(df['alg']=='ecoli_to_human_print')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0007637641145011214
 stats.ttest_rel(df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='ecoli_to_human')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0011192045793338558      
 stats.ttest_rel(df.loc[(df['alg']=='human_to_human')&(df['tf_chip']=='chip'), 'FPD'], 
@@ -482,9 +507,122 @@ stats.ttest_rel(df.loc[(df['alg']=='FootTrack_global')&(df['tf_chip']=='chip'), 
 stats.ttest_rel(df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='FootTrack_local')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]        # 0.0005022915052293431
 
+#### Plot TF footprint
+## KLF11
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected_GC_NA.norm.bw \
+                              -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/klf11_chip_motif.bed \
+                              -o klf11_ecoli_to_human_print_GC_NA.gz -a 50 -b 50 -bs 1
+plotProfile -m klf11_ecoli_to_human_print_GC_NA.gz -out deeptools_plot/klf11_ecoli_to_human_print_GC_NA.pdf
+
+## CEBPA
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected_GC_NA.norm.bw \
+                              -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
+                              -o cebpa_ecoli_to_human_print_GC_NA.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_ecoli_to_human_print_GC_NA.gz -out deeptools_plot/cebpa_ecoli_to_human_print_GC_NA.pdf
+
+## CTCF
+computeMatrix reference-point --referencePoint center -p 10 -S ecoli_to_human_naked_dna_corrected_GC_NA.norm.bw \
+                              -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/ctcf_chip_motif.bed \
+                              -o ctcf_ecoli_to_human_print_GC_NA.gz -a 50 -b 50 -bs 1
+plotProfile -m ctcf_ecoli_to_human_print_GC_NA.gz -out deeptools_plot/ctcf_ecoli_to_human_print_GC_NA.pdf
 
 
 
+#### get chrM sequence
+## training: 1-14569
+## validation: 14570-15569
+## testing: 15569-16569
+
+import pyfaidx
+import pyBigWig
+import pandas as pd
+import math
+from tqdm import * 
+
+genome = pyfaidx.Fasta("hg38.fa")
+bw = pyBigWig.open('K562_ATAC_cFOOT_3w_cell_100Tn5_10U_methylation.bw')
+
+context_lst = []
+obsBias_lst = []
+idx_lst = []
+start_lst = []
+
+for i in tqdm(range(50, len(genome['chrM'][:].seq)-50), ncols=80):
+    seq = genome['chrM'][(i-50):(i+50+1)].seq.upper()
+    signal = bw.values('chrM', i, i+1)[0]
+    if (not math.isnan(signal)) and (signal!=0) and ('N' not in seq):
+        context_lst.append(seq)
+        obsBias_lst.append(signal)
+        ## 0:training  1:validation  2:testing
+        if i<=14569:
+            idx_lst.append(0)
+        elif i<=15569:
+            idx_lst.append(1)
+        else:
+            idx_lst.append(2)
+        start_lst.append(i)
+
+bw.close()
+
+res = pd.DataFrame({'context':context_lst, 'obsBias':obsBias_lst, 'idx':idx_lst,
+                    'chrom':'chrM', 'start':start_lst})
+res['end'] = res['start']+1
+res.to_csv('obsBias_chrM.tsv', sep='\t', index=False)  # 7245
+
+#### predict human testing chrM bias 
+import os
+import tensorflow as tf
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
+                                           [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
+
+from keras.models import load_model
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
+import tqdm
+import matplotlib.pyplot as plt
+import scipy.stats as ss
+import pyBigWig
+import math
+
+def onehot_encode(seq):
+    mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
+    bases = [base for base in seq]
+    base_inds = mapping[bases]
+    onehot = np.zeros((len(bases), 4))
+    onehot[np.arange(len(bases)), base_inds] = 1
+    return onehot
+
+chrm_dat = pd.read_csv('obsBias_chrM.tsv', sep='\t') 
+test_dat = chrm_dat[chrm_dat['idx']==2]
+model = load_model('../ecoli_to_ecoli/Tn5_NN_model_epoch_15.h5')
+
+seqs = test_dat.loc[:, "context"].values
+onehot_seqs = np.array(list(map(onehot_encode, seqs)))
+test_target = test_dat['obsBias'].values
+test_pred = np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]
+
+bw = pyBigWig.open("pred_chrM_test_PRINT_no_finetune.bw", "w")
+chroms = {"chrM": 16569}
+bw.addHeader(list(chroms.items()))
+pred_trans = test_pred.astype(np.float64)  # avoid the bug
+bw.addEntries(chroms=['chrM']*(test_dat.shape[0]),
+              starts=list(test_dat['start'].values),
+              ends=list(test_dat['start'].values+1),
+              values=list(pred_trans))
+bw.close()
+
+# Plot test results
+plt.figure(figsize=(5, 5), dpi=100)
+plt.scatter(test_target, test_pred, s=1)
+plt.xlim(0-0.01, 0.8+0.01)
+plt.ylim(0-0.01, 0.8+0.01)
+plt.xlabel("Target label")
+plt.ylabel("Target prediction")
+plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))   # 0.26343426393752606
+plt.savefig('testing_correlation_chrM_PRINT_no_finetune.pdf')
 
 
 
