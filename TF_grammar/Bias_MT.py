@@ -757,3 +757,59 @@ plt.ylabel("Target prediction")
 plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))   # 0.8402885251401522
 plt.savefig('test_correlation_ecoli_chrM_random.pdf')
 
+
+#### correct bias using ecoli_chrM fine-tune model (for chr21)  15 min
+import os
+import tensorflow as tf
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
+                                           [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
+
+from keras.models import load_model
+import numpy as np
+import pandas as pd
+import multiprocessing as mp
+import tqdm
+import matplotlib.pyplot as plt
+import scipy.stats as ss
+import pyBigWig
+import math
+
+def onehot_encode(seq):
+    mapping = pd.Series(index=["A", "C", "G", "T"], data=[0, 1, 2, 3])
+    bases = [base for base in seq]
+    base_inds = mapping[bases]
+    onehot = np.zeros((len(bases), 4))
+    onehot[np.arange(len(bases)), base_inds] = 1
+    return onehot
+
+seq_data = pd.read_csv('human_chr21_seq_GC.tsv', sep='\t')   # 16409390
+
+model = load_model('./Tn5_NN_model_ecoli_chrM_random.h5')
+
+chunk_size = math.ceil(seq_data.shape[0]/1000000)
+for i in tqdm.tqdm(range(chunk_size), ncols=80):
+    seqs = seq_data.loc[:, "context"].values[(i*1000000):(i*1000000+1000000)]
+    with mp.Pool(10) as pool:
+        onehot_seqs = np.array(pool.map(onehot_encode, seqs))   # onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
+    if i==0:
+        pred = np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]
+    else:
+        pred = np.concatenate([pred, np.transpose(model.predict(onehot_seqs, batch_size=128, verbose=0))[0]])
+
+bw = pyBigWig.open("ecoli_chrM_pred_bias.bw", "w")
+chroms = {"chr21": 46709983}
+bw.addHeader(list(chroms.items()))
+pred_trans = pred.astype(np.float64)  # avoid the bug
+bw.addEntries(chroms=['chr21']*(seq_data.shape[0]),
+              starts=list(seq_data['start'].values),
+              ends=list(seq_data['start'].values+1),
+              values=list(pred_trans))
+bw.close()
+
+## correct bias (10 min)
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias ecoli_chrM_pred_bias.bw \
+                                                                                 --bed_file regions_test.bed --extend 0 --window 101 \
+                                                                                 --pseudo_count 1 --out_dir . --out_name ecoli_chrM_print \
+                                                                                 --chrom_size_file hg38.chrom.sizes
