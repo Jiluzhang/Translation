@@ -1,3 +1,12 @@
+import pandas as pd
+import numpy as np
+
+dat = pd.read_table('ctcf_print_ft.gz', skiprows=1, header=None).iloc[:, 6:]
+dat.iloc[:, 40:60].mean(axis=0).mean().item()
+dat.iloc[:, np.r_[0:40, 60:100]].mean(axis=0).mean().item()
+
+
+
 ## workdir: /fs/home/jiluzhang/TF_grammar/PRINT/cfoot/bias_correction_benchmark
 #### Bias correction
 for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
@@ -117,19 +126,19 @@ plotProfile -m klf11_print_ft.gz -out deeptools_plot/klf11_print_ft.pdf
 ## CEBPA
 computeMatrix reference-point --referencePoint center -p 10 -S HepG2_7.5U.bw \
                               -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
-                              -o cebpa_raw.gz -a 50 -b 50 -bs 1
+                              -o cebpa_raw.gz -a 50 -b 50 -bs 2
 computeMatrix reference-point --referencePoint center -p 10 -S human_footrack.bw \
                               -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
-                              -o cebpa_footrack.gz -a 50 -b 50 -bs 1
+                              -o cebpa_footrack.gz -a 50 -b 50 -bs 2
 computeMatrix reference-point --referencePoint center -p 10 -S ecoli_access_atac.norm.bw \
                               -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
-                              -o cebpa_access_atac.gz -a 50 -b 50 -bs 1
+                              -o cebpa_access_atac.gz -a 50 -b 50 -bs 2
 computeMatrix reference-point --referencePoint center -p 10 -S ecoli_print.norm.bw \
                               -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
-                              -o cebpa_print_noft.gz -a 50 -b 50 -bs 1
+                              -o cebpa_print_noft.gz -a 50 -b 50 -bs 2
 computeMatrix reference-point --referencePoint center -p 10 -S ecoli_chrM_print.norm.bw \
                               -R /fs/home/jiluzhang/TF_grammar/cnn_bias_model/data/bias_correction/cebpa_chip_motif.bed \
-                              -o cebpa_print_ft.gz -a 50 -b 50 -bs 1
+                              -o cebpa_print_ft.gz -a 50 -b 50 -bs 2
 plotProfile -m cebpa_raw.gz -out deeptools_plot/cebpa_raw.pdf
 plotProfile -m cebpa_footrack.gz -out deeptools_plot/cebpa_footrack.pdf
 plotProfile -m cebpa_access_atac.gz -out deeptools_plot/cebpa_access_atac.pdf
