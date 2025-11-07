@@ -1,10 +1,11 @@
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
 
-dat = pd.read_table('ctcf_print_ft.gz', skiprows=1, header=None).iloc[:, 6:]
-dat.iloc[:, 40:60].mean(axis=0).mean().item()
-dat.iloc[:, np.r_[0:40, 60:100]].mean(axis=0).mean().item()
+# dat = pd.read_table('../ctcf_print_ft.gz', skiprows=1, header=None).iloc[:, 6:]
+# [dat.iloc[:, 45:55].mean(axis=0).mean().item(), dat.iloc[:, np.r_[0:45, 55:100]].mean(axis=0).mean().item()]
 
+# dat = pd.read_table('../ctcf_print_noft.gz', skiprows=1, header=None).iloc[:, 6:]
+# [dat.iloc[:, 45:55].mean(axis=0).mean().item(), dat.iloc[:, np.r_[0:45, 55:100]].mean(axis=0).mean().item()]
 
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/PRINT/cfoot/bias_correction_benchmark
@@ -98,6 +99,74 @@ stats.ttest_rel(df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='chip'), 'FPD']
                 df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.0007637641145011214
 stats.ttest_rel(df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='chip'), 'FPD'], 
                 df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]     # 0.0027624589109376493
+
+
+## footprint width=motif lenght
+# for tf in ctcf atf3 elf4 myc nfib pbx3 sox13 tcf7 tead3 yy1 atf7 cebpa elk4 foxa1 gata2 hoxa5 irf3 klf11 nfyc rara;do
+#     echo $tf >> tfs.txt
+#     grep chip_motif ../$tf\_raw_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> raw_chip_FPD.txt
+#     grep nochip_motif ../$tf\_raw_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> raw_nochip_FPD.txt
+#     grep chip_motif ../$tf\_footrack_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> footrack_chip_FPD.txt
+#     grep nochip_motif ../$tf\_footrack_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> footrack_nochip_FPD.txt
+#     grep chip_motif ../$tf\_access_atac_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> access_atac_chip_FPD.txt
+#     grep nochip_motif ../$tf\_access_atac_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> access_atac_nochip_FPD.txt
+#     grep chip_motif ../$tf\_print_noft_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> print_noft_chip_FPD.txt
+#     grep nochip_motif ../$tf\_print_noft_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> print_noft_nochip_FPD.txt
+#     grep chip_motif ../$tf\_print_ft_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> print_ft_chip_FPD.txt
+#     grep nochip_motif ../$tf\_print_ft_log2table_output/aggregate_FPD.txt | head -n 1 | awk '{print$6}' >> print_ft_nochip_FPD.txt
+#     echo $tf done
+# done
+
+# paste tfs.txt raw_chip_FPD.txt raw_nochip_FPD.txt \
+#               footrack_chip_FPD.txt footrack_nochip_FPD.txt \
+#               access_atac_chip_FPD.txt access_atac_nochip_FPD.txt \
+#               print_noft_chip_FPD.txt print_noft_nochip_FPD.txt \
+#               print_ft_chip_FPD.txt print_ft_nochip_FPD.txt > tfs_FPD.txt
+
+
+# import pandas as pd
+# from plotnine import *
+# from scipy import stats
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# plt.rcParams['pdf.fonttype'] = 42
+
+# dat = pd.read_table('tfs_FPD.txt', header=None)
+
+# df = pd.DataFrame({'alg':['raw']*40+['footrack']*40+['access_atac']*40+['print_noft']*40+['print_ft']*40,
+#                    'tf_chip':(['chip']*20+['nochip']*20)*5,
+#                    'FPD':0})
+
+# df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'] = dat[1].values
+# df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'] = dat[2].values
+# df.loc[(df['alg']=='footrack')&(df['tf_chip']=='chip'), 'FPD'] = dat[3].values
+# df.loc[(df['alg']=='footrack')&(df['tf_chip']=='nochip'), 'FPD'] = dat[4].values
+# df.loc[(df['alg']=='access_atac')&(df['tf_chip']=='chip'), 'FPD'] = dat[5].values
+# df.loc[(df['alg']=='access_atac')&(df['tf_chip']=='nochip'), 'FPD'] = dat[6].values
+# df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='chip'), 'FPD'] = dat[7].values
+# df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='nochip'), 'FPD'] = dat[8].values
+# df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='chip'), 'FPD'] = dat[9].values
+# df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='nochip'), 'FPD'] = dat[10].values
+
+# df['alg'] = pd.Categorical(df['alg'], categories=['raw', 'footrack', 'access_atac', 'print_noft', 'print_ft'])
+# p = ggplot(df, aes(x='alg', y='FPD', fill='tf_chip')) + geom_boxplot(width=0.5, show_legend=True, outlier_shape='') + xlab('') +\
+#                                                         coord_cartesian(ylim=(-0.08, 0.08)) +\
+#                                                         scale_y_continuous(breaks=np.arange(-0.08, 0.08+0.02, 0.04)) +\
+#                                                         theme_bw()+ theme(axis_text_x=element_text(angle=45, hjust=1))
+# p.save(filename='tfs_FPD_20.pdf', dpi=600, height=4, width=4)
+
+# ## paired t test
+# stats.ttest_rel(df.loc[(df['alg']=='raw')&(df['tf_chip']=='chip'), 'FPD'], 
+#                 df.loc[(df['alg']=='raw')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]          # 9.341739731206926e-07
+# stats.ttest_rel(df.loc[(df['alg']=='footrack')&(df['tf_chip']=='chip'), 'FPD'], 
+#                 df.loc[(df['alg']=='footrack')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]     # 0.0011960241179037572
+# stats.ttest_rel(df.loc[(df['alg']=='access_atac')&(df['tf_chip']=='chip'), 'FPD'], 
+#                 df.loc[(df['alg']=='access_atac')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]  # 0.0015954335415008813
+# stats.ttest_rel(df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='chip'), 'FPD'], 
+#                 df.loc[(df['alg']=='print_noft')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]   # 0.001200690751976006
+# stats.ttest_rel(df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='chip'), 'FPD'], 
+#                 df.loc[(df['alg']=='print_ft')&(df['tf_chip']=='nochip'), 'FPD'], alternative='less')[1]     # 0.007372477944269592
 
 
 #### Plot TF footprint
