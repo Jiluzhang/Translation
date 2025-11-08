@@ -2,6 +2,8 @@
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/human_nakedDNA/HepG2_gDNA_0.75U_conversion.bw .
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/HepG2/HepG2_7.5U_conversion.bw .
 scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/02.chrM/03.methratio/K562_ATAC_cFOOT_3w_cell_100Tn5_10U_methylation.bw .
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/HepG2_cFOOT-ATAC/05.conversionProfile/ordinary/cFOOT_ATAC_chrM_conversion.bw .
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/intermediate_process/01.bias_correct/HepG2_ATAC-cFOOT/HepG2_Tn5100_SsdA5_ATAC_chrM_conversion.bw .
 
 #### get chrM bias for different samples
 import pyfaidx
@@ -37,6 +39,8 @@ def get_chrM_bias(bw='HepG2_7.5U_conversion.bw'):
 get_chrM_bias(bw='HepG2_gDNA_0.75U_conversion.bw').to_csv('obsBias_chrM_human_naked_DNA_cfoot.tsv', sep='\t', index=False)                 # 7249
 get_chrM_bias(bw='HepG2_7.5U_conversion.bw').to_csv('obsBias_chrM_HepG2_cfoot.tsv', sep='\t', index=False)                                 # 7251
 get_chrM_bias(bw='K562_ATAC_cFOOT_3w_cell_100Tn5_10U_methylation.bw').to_csv('obsBias_chrM_k562_atac_cfoot.tsv', sep='\t', index=False)    # 7247
+get_chrM_bias(bw='cFOOT_ATAC_chrM_conversion.bw').to_csv('obsBias_chrM_HepG2_cfoot_atac.tsv', sep='\t', index=False)                       # 7252
+get_chrM_bias(bw='HepG2_Tn5100_SsdA5_ATAC_chrM_conversion.bw').to_csv('obsBias_chrM_HepG2_atac_cfoot.tsv', sep='\t', index=False)          # 7253
 
 
 #### predict human testing chrM bias 
@@ -100,6 +104,8 @@ def out_pred_bw_plot(sample='obsBias_chrM_HepG2_cfoot.tsv'):
 out_pred_bw_plot(sample='obsBias_chrM_human_naked_DNA_cfoot.tsv')
 out_pred_bw_plot(sample='obsBias_chrM_HepG2_cfoot.tsv')
 out_pred_bw_plot(sample='obsBias_chrM_k562_atac_cfoot.tsv')
+out_pred_bw_plot(sample='obsBias_chrM_HepG2_cfoot_atac.tsv')
+out_pred_bw_plot(sample='obsBias_chrM_HepG2_atac_cfoot.tsv')
 
 
 ############ split chrM based on position ############
