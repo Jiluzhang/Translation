@@ -956,21 +956,11 @@ rm obsBias_[0-9]*.tsv
 
 
 
+######### Human raw #########
+python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py --bw_raw HepG2_7.5U.bw --bw_bias human_nakedDNA.bw \
+                                                                                 --bed_file regions_test.bed --extend 0 --window 101 \
+                                                                                 --pseudo_count 1 --out_dir . --out_name human_raw_naked_dna_corrected_NA \
+                                                                                 --chrom_size_file hg38.chrom.sizes
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+computeMatrix reference-point --referencePoint center -p 10 -S human_raw_naked_dna_corrected_NA.norm.bw -R cebpa_chip_motif.bed -o cebpa_human_raw_NA.gz -a 50 -b 50 -bs 2
+plotProfile -m cebpa_human_raw_NA.gz -out cebpa_human_raw_NA.pdf   # false positive due to setting NA to 0
