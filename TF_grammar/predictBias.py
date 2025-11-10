@@ -141,7 +141,7 @@ for n_epoch in range(100):
 import os
 import tensorflow as tf
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 tf.config.set_logical_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0], 
                                            [tf.config.LogicalDeviceConfiguration(memory_limit=40960)])
 
@@ -191,6 +191,8 @@ plt.xlabel("Target label")
 plt.ylabel("Target prediction")
 plt.title("Pearson correlation = " + str(ss.pearsonr(test_target, test_pred)[0]))   # 0.917956254958737
 plt.savefig('testing_correlation_epoch_15.pdf')
+
+str(ss.spearmanr(test_target, test_pred)[0])  # 0.9050833299544007
 
 # Extract regions from bigwig files
 bw = pyBigWig.open("regions_test_pred.bw", "w")
@@ -560,10 +562,3 @@ plotProfile -m ctcf_ecoli_to_human_print_GC_NA.gz -out deeptools_plot/ctcf_ecoli
 # np.random.shuffle(inds)
 # training_data = training_data[inds]
 # training_target = training_target[inds]
-
-
-
-
-
-
-
