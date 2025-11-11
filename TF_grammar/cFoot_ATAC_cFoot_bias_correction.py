@@ -489,4 +489,3 @@ python /fs/home/jiluzhang/TF_grammar/ACCESS-ATAC/bias_correction/correct_bias.py
                                                                                  --bed_file regions_test.bed --extend 0 --window 101 \
                                                                                  --pseudo_count 1 --out_dir . --out_name cfoot_atac_print_ft_corrected \
                                                                                  --chrom_size_file hg38.chrom.sizes
-
