@@ -1,3 +1,30 @@
+## workdir: /fs/home/jiluzhang/TF_grammar/PRINT/cfoot_atac_cfoot/pipeline
+
+#### get human genome seqs (G/C)
+## python extract_seqs.py
+import pyfaidx
+import pandas as pd
+from tqdm import *
+
+genome = pyfaidx.Fasta("hg38.fa")
+chrom_sizes = pd.read_table('hg38.chrom.sizes', header=None)
+
+# 2 min for chr1
+for chrom in ['chr'+str(i) for i in list(range(1, 23))]:
+    context_chrom = genome[chrom][:].seq.upper()  # read seqs into memory to speed up
+    chrom_len = chrom_sizes[chrom_sizes[0]==chrom][1].item()
+    context_lst = []
+    start_lst = []
+    for i in tqdm(range(50, chrom_len-50), ncols=100, desc='processing '+chrom):
+        context = context_chrom[(i-50):(i+50+1)]
+        if (context[50] in ['G', 'C']) and (not 'N' in context):  # select G/C & delete N
+            context_lst.append(context)
+            start_lst.append(i)
+    
+    res = pd.DataFrame({'context':context_lst, 'start':start_lst})
+    res.to_csv('human_'+chrom+'_seqs.tsv', sep='\t', index=False)  # time consuming
+
+
 #### predict bias using PRINT
 import os
 import tensorflow as tf
@@ -24,25 +51,23 @@ def onehot_encode(seq):
     onehot[np.arange(len(bases)), base_inds] = 1
     return onehot
 
-seq_data = pd.read_csv('human_chr21_seq_GC.tsv', sep='\t')   # 16409390
+seq_data = pd.read_csv('human_chr1_seqs.tsv', sep='\t')   # 
 
 model = load_model('/fs/home/jiluzhang/TF_grammar/PRINT/cfoot/ecoli_to_ecoli/Tn5_NN_model_epoch_15.h5')
 
-# os.makedirs('chunked_files', exist_ok=True)
-
 chunk_size = math.ceil(seq_data.shape[0]/10000)
-bw = pyBigWig.open('pred_chr21.bw', 'w')
-chroms = {"chr21": 46709983}
+bw = pyBigWig.open('pred_chr1.bw', 'w')
+chroms = {"chr1": 46709983}
 bw.addHeader(list(chroms.items()))
 
 for i in tqdm.tqdm(range(chunk_size), ncols=80):
     seqs = seq_data.loc[:, "context"].values[(i*10000):(i*10000+10000)]
     with mp.Pool(10) as pool:
-        onehot_seqs = np.array(pool.map(onehot_encode, seqs))   # onehot_seqs = list(tqdm.tqdm(pool.imap(onehot_encode, seqs), total=len(seqs)))
-    pred = model.predict(onehot_seqs, batch_size=64, verbose=0).flatten()  #pred = np.transpose(model.predict(onehot_seqs, batch_size=64, verbose=0))[0]
+        onehot_seqs = np.array(pool.map(onehot_encode, seqs))
+    pred = model.predict(onehot_seqs, batch_size=64, verbose=0).flatten()
 
     pred_trans = pred.astype(np.float64)  # avoid the bug
-    bw.addEntries(chroms=['chr21']*(seqs.shape[0]),
+    bw.addEntries(chroms=['chr1']*(seqs.shape[0]),
                   starts=list(seq_data['start'][(i*10000):(i*10000+10000)].values),
                   ends=list(seq_data['start'][(i*10000):(i*10000+10000)].values+1),
                   values=list(pred_trans))
