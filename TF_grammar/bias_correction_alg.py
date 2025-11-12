@@ -64,13 +64,9 @@ for chrom in ['chr'+str(i) for i in list(range(1, 23))]:
         bw.close()
 
 
-
-
-
-
-
-
 #### merge bw file for different chromosomes
+from tqdm import tqdm
+
 all_chroms = {}
 all_data = {}
 
