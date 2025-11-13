@@ -66,6 +66,7 @@ for chrom in ['chr'+str(i) for i in list(range(1, 23))]:
 
 #### merge bw file for different chromosomes
 ## bigWigMerge & bedGraphToBigWig maybe an alternative choose
+## the way of two-by-two may speed up
 ## python merge_bw.py
 from tqdm import tqdm
 import pyBigWig
@@ -93,8 +94,32 @@ bw_out.close()
 
 
 ## bias correction
-python correct_bias.py --bw_raw human_nakedDNA.bw --bw_bias pred.bw \
-                       --bed_file regions_test.bed --extend 0 --window 101 --out_dir . \
-                       --out_name tmp --chrom_size_file hg38.chrom.sizes
+python correct_bias.py --bw_raw human_nakedDNA.bw --bw_bias pred_all_chroms.bw --extend 0 --window 101 --out_dir . --chrom_size_file hg38.chrom.sizes
+
+
+## python merge_corrected_bw.py
+from tqdm import tqdm
+import pyBigWig
+import pandas as pd
+
+chrom_sizes = pd.read_table('hg38.chrom.sizes', header=None)
+chrom_sizes = chrom_sizes[chrom_sizes[0].isin(['chr'+str(i) for i in range(1, 23)])]
+
+bw_out = pyBigWig.open('bias_corrected_all_chroms.bw', "w")
+bw_out.addHeader([tuple(i) for i in chrom_sizes.values.tolist()])
+
+for i in tqdm(range(1, 23), ncols=80):
+    bw = pyBigWig.open('bias_corrected_chr'+str(i)+'.bw')
+    chroms = bw.chroms()
+    chrom = list(chroms.keys())[0]
+    chrom_len = list(chroms.values())[0]
+    intervals = bw.intervals(chrom)
+    bw_out.addEntries([chrom]*len(intervals), 
+                      starts=[interval[0] for interval in intervals], 
+                      ends=[interval[1] for interval in intervals], 
+                      values=[interval[2] for interval in intervals])
+    bw.close()
+
+bw_out.close()
 
 
