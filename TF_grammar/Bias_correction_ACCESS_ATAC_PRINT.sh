@@ -35,5 +35,6 @@ rm bias_corrected_chr*.bw
 python gen_tsv.py  # ~3.5 min
 
 ## train model
+python train.py
 
-  
+
