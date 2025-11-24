@@ -51,3 +51,11 @@ python correct_bias.py --bw_raw human_nakedDNA.bw --bw_bias pred_all_chroms.bw -
 
 ## merge bias corrected files
 python merge_corrected_bw.py
+
+
+############# FPD #############
+## calculate & concat FPD values
+./cal_fpd
+
+## plot FPD value comparison
+python plot_fpd.py      
