@@ -31,10 +31,23 @@ rm bias_corrected_chr*.bw
 
 
 ############## PRINT ##############
-## generate tsv file (seq & signal)
+## generate tsv file (seq & signal for ecoli)
 python gen_tsv.py  # ~3.5 min
 
 ## train model
 python train.py
 
+## evaulate model
+python evaluate.py
 
+## predict bias for human (chromosome seperately)
+python predict.py
+
+## merge prediction files
+python merge_bw.py
+
+## correct bias
+python correct_bias.py --bw_raw human_nakedDNA.bw --bw_bias pred_all_chroms.bw --extend 0 --window 101 --out_dir . --chrom_size_file hg38.chrom.sizes
+
+## merge bias corrected files
+python merge_corrected_bw.py
