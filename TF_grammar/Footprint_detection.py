@@ -35,21 +35,20 @@ gzip PBMC_bulk_ATAC_tutorial_Bcell_0_frags_chr21.tsv
 zcat PBMC_bulk_ATAC_tutorial_Bcell_1_frags.tsv.gz | awk '{if($1=="chr21" && $2>10000000 && $2<20000000) print $0}' > PBMC_bulk_ATAC_tutorial_Bcell_1_frags_chr21.tsv
 gzip PBMC_bulk_ATAC_tutorial_Bcell_1_frags_chr21.tsv
 
-import os
 import pandas as pd
 import scprinter as scp
 
 main_dir = '/fs/home/jiluzhang/TF_grammar/scPrinter/test'
-work_dir = '/fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print'
+work_dir = '/fs/home/jiluzhang/TF_grammar/scPrinter/test'
 frag_files = ['PBMC_bulk_ATAC_tutorial_Bcell_0_frags_chr21.tsv.gz',
               'PBMC_bulk_ATAC_tutorial_Bcell_1_frags_chr21.tsv.gz']
 samples = ['Bcell_0', 'Bcell_1']
 
 ## preprocessing
 printer = scp.pp.import_fragments(path_to_frags=frag_files, barcodes=[None]*len(frag_files),
-                                  savename=os.path.join(work_dir, 'PBMC_bulkATAC_scprinter.h5ad'),
+                                  savename='PBMC_bulkATAC_scprinter.h5ad',
                                   genome=scp.genome.hg38, min_num_fragments=1000, min_tsse=7,
-                                  sorted_by_barcode=False, low_memory=False, n_jobs=10)
+                                  sorted_by_barcode=False, low_memory=False, n_jobs=20)
 
 ## Call peaks, this set of peaks are recommended to train seq2PRINT model
 scp.pp.call_peaks(printer=printer, frag_file=frag_files, cell_grouping=[None],
@@ -72,21 +71,22 @@ for sample in samples:
                                           genome=printer.genome, fold=fold, overwrite_bigwig=False,
                                           model_name='PBMC_bulkATAC_'+sample,
                                           additional_config={"notes":"v3", "tags":["PBMC_bulkATAC", sample, f"fold{fold}"]},
-                                          path_swap=(work_dir, ''), config_save_path=f'{work_dir}/configs/PBMC_bulkATAC_{sample}_fold{fold}.JSON')
+                                          path_swap=('.', ''), 
+                                          config_save_path=f'./PBMC_bulkATAC_{sample}_fold{fold}.JSON')
     model_configs.append(model_config)
 
 for sample in samples:
-    scp.tl.launch_seq2print(model_config_path=f'{work_dir}/configs/PBMC_bulkATAC_{sample}_fold{fold}.JSON',
-                            temp_dir=f'{work_dir}/temp', model_dir=f'{work_dir}/model', data_dir=work_dir,
+    scp.tl.launch_seq2print(model_config_path=f'PBMC_bulkATAC_{sample}_fold{fold}.JSON',
+                            temp_dir='./temp', model_dir='./model', data_dir='.',
                             gpus=0, wandb_project='scPrinter_seq_PBMC_bulkATAC',
                             verbose=False, launch=False)
 
 CUDA_VISIBLE_DEVICES=0 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py \
-                                       --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
-                                       --temp_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/temp \
-                                       --model_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/model \
-                                       --data_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print \
-                                       --project scPrinter_seq_PBMC_bulkATAC --enable_wandb
+                              --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
+                              --temp_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/temp \
+                              --model_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/model \
+                              --data_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print \
+                              --project scPrinter_seq_PBMC_bulkATAC --enable_wandb
 
 
 [urlOpen] Couldn't open /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/PBMC_bulkATAC_scprinter_supp/Bcell_0.bw for reading
