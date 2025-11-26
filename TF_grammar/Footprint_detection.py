@@ -48,7 +48,7 @@ samples = ['Bcell_0', 'Bcell_1']
 printer = scp.pp.import_fragments(path_to_frags=frag_files, barcodes=[None]*len(frag_files),
                                   savename='PBMC_bulkATAC_scprinter.h5ad',
                                   genome=scp.genome.hg38, min_num_fragments=1000, min_tsse=7,
-                                  sorted_by_barcode=False, low_memory=False, n_jobs=20)
+                                  sorted_by_barcode=False, low_memory=False, n_jobs=10)
 
 ## Call peaks, this set of peaks are recommended to train seq2PRINT model
 scp.pp.call_peaks(printer=printer, frag_file=frag_files, cell_grouping=[None],
@@ -68,7 +68,7 @@ for sample in samples:
     fold=0
     model_config = scp.tl.seq_model_config(printer, region_path='seq2print_cleaned_narrowPeak.bed',
                                           cell_grouping=[sample], group_names=sample,
-                                          genome=printer.genome, fold=fold, overwrite_bigwig=False,
+                                          genome=printer.genome, fold=fold, overwrite_bigwig=True,
                                           model_name='PBMC_bulkATAC_'+sample,
                                           additional_config={"notes":"v3", "tags":["PBMC_bulkATAC", sample, f"fold{fold}"]},
                                           path_swap=('.', ''), 
@@ -81,16 +81,25 @@ for sample in samples:
                             gpus=0, wandb_project='scPrinter_seq_PBMC_bulkATAC',
                             verbose=False, launch=False)
 
-CUDA_VISIBLE_DEVICES=0 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py \
-                              --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
-                              --temp_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/temp \
-                              --model_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/model \
-                              --data_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print \
-                              --project scPrinter_seq_PBMC_bulkATAC --enable_wandb
+
+import h5py
+import numpy as np
+raw = h5py.File('hg38_bias_v2_raw.h5', 'r')
+with h5py.File('hg38_bias_v2.h5', 'w') as f_out:
+    f_out.create_dataset('chr21', data=np.concatenate([raw['chrI'][:]]*100))
 
 
-[urlOpen] Couldn't open /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/PBMC_bulkATAC_scprinter_supp/Bcell_0.bw for reading
-[urlOpen] Couldn't open /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/PBMC_bulkATAC_scprinter_supp/Bcell_0.bw for reading
+
+CUDA_VISIBLE_DEVICES=3 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py \
+                              --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/PBMC_bulkATAC_Bcell_0_fold0.JSON \
+                              --temp_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/temp \
+                              --model_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/model \
+                              --data_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test \
+                              --project scPrinter_seq_PBMC_bulkATAC_Bcell_0 --enable_wandb
+
+## scripts to generate dispersion model
+# https://github.com/buenrostrolab/PRINT/blob/cadfc55251fa57b006bd460d2d2e4d067e1c085b/analyses/BAC/getBackgroundDispersion.R
+# https://github.com/buenrostrolab/PRINT/blob/cadfc55251fa57b006bd460d2d2e4d067e1c085b/analyses/BAC/dispersionModel.ipynb
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
