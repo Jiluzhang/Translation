@@ -1,14 +1,24 @@
-## A computational pipeline for spatial mechano-transcriptomics (Nature Methods)
+#### A computational pipeline for spatial mechano-transcriptomics (Nature Methods)
 ## Data: https://doi.org/10.5281/zenodo.13975707
 ## Code: https://doi.org/10.5281/zenodo.13975227
+## Github: https://github.com/Computational-Morphogenomics-Group/TensionMap
 
 # wget -c https://zenodo.org/records/13975228/files/Code_Hallou_He_et%20al_BioRxiv_Aug_2023.zip?download=1
 # conda create --name TensionMap python=3.9
 # conda install ipython scipy matplotlib scikit-image
 # pip install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy==1.23.0
 # conda install pandas scikit-learn
+# conda install conda-forge::nlopt
 
-## Run TensionMap to infer cell pressure, cell junction tensions and cellular stress tensor
+#### Run TensionMap to infer cell pressure, cell junction tensions and cellular stress tensor
+# segment.py (line 262: 'for nv in obj.V_df.at[v, 'nverts']:'  ->  'for nv in np.atleast_1d(obj.V_df.at[v, 'nverts']):')
+# VMSI.py (line 198: 'self.vertices['fourfold'] = [(np.shape(nverts)[0] != 3) for nverts in self.vertices['nverts']]'
+#                 -> 'self.vertices['fourfold'] = [(np.shape(np.atleast_1d(nverts))[0] != 3) for nverts in self.vertices['nverts']]')
+#         (line 297: 'if (np.shape(self.vertices['nverts'][v])[0] > 3  and not (0 in self.vertices['ncells'][v])):'
+#                 -> 'if (np.shape(np.atleast_1d(self.vertices['nverts'][v]))[0] > 3  and not (0 in self.vertices['ncells'][v])):')
+#         (line 1345: 'stress_ellipse = patches.Ellipse(centroid, eigval[0], eigval[1], theta, fill=False, color='red', lw=3)'
+#                 ->  'stress_ellipse = patches.Ellipse(xy=centroid, width=eigval[0], height=eigval[1], angle=theta, fill=False, color='red', lw=3)')
+
 import sys
 import scipy.stats
 # Change path to location of TensionMap directory
@@ -20,27 +30,87 @@ import matplotlib.pyplot as plt
 import skimage
 import pandas as pd
 
-mask_raw = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/test/test.png', as_gray=True)  # 4096*4232
+# img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/test/test.tiff')  # 935*1098
+# vmsi_model = run_VMSI(img)
 
-mask = mask_raw[:500, :500]
+img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/test/reproduce_data/dataset3/segmentation_final.tif')  # 4096*4232
+
+mask = img[1500:2000, 1500:2000]
+plt.imshow(mask)
+plt.savefig('raw.pdf')
+plt.close()
 
 ## convert segmentation mask to boundary mask
 mask = mask.astype(int)
 mask = skimage.segmentation.find_boundaries(mask, mode='subpixel')
+# subpixel: return a doubled image, with pixels *between* the original pixels marked as boundary where appropriate.
+plt.imshow(mask)
+plt.savefig('boundaries.pdf')
+plt.close()
 
 ## process mask and detect holes in tissue
 mask = 1-mask
-mask = skimage.measure.label(mask)
+mask = skimage.measure.label(mask)  # label connected regions
 holes_mask = np.zeros_like(mask)
-areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=mask, properties=('label', 'area')))
-thresh = np.mean(areas['area'].tolist())*2
+areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=mask, properties=('label', 'area')))  # comput image properties
+thresh = np.mean(areas['area'].tolist())*3  # holes are defined as tissue regions with area greater than 2x the mean cell area
 for area in areas.iterrows():
     if area[1]['area'] > thresh:
         holes_mask[mask==area[1]['label']] = 1
+# Holes denoted by value 1
+# Segmented cells and boundaries denoted by value 0
 
 plt.imshow(mask)
-plt.savefig('test.pdf')
+plt.savefig('mask.pdf')
 plt.close()
+
+plt.imshow(holes_mask)
+plt.savefig('holes_mask.pdf')
+plt.close()
+
+## Perform force inference on mask
+model = run_VMSI(mask, is_labelled=True, holes_mask=holes_mask, tile=False, verbose=False)
+
+model.plot(['pressure'], mask, size=10, file='pressure.pdf')
+model.plot(['tension'], line_thickness=15, size=10, file='tension.pdf')
+model.plot(['stress', 'cap'], mask, size=10, file='stress.pdf')
+
+results, neighbours = model.output_results(neighbours=True)
+results.to_csv('results.txt', sep='\t')
+
+
+
+#### CytoSPACE (Nature Biotechnology: High-resolution alignment of single-cell and spatial transcriptomes with CytoSPACE)
+## github: https://github.com/digitalcytometry/cytospace
+
+# wget -c https://codeload.github.com/digitalcytometry/cytospace/zip/refs/heads/main
+# conda create --name cytospace python=3.9
+# conda activate cytospace
+# pip install .
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple scanpy
+# conda install -c conda-forge datatable
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple ortools==9.3.10497
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple lapjv==1.3.14
+
+cytospace --single-cell \
+          --scRNA-path HumanColonCancerPatient2_scRNA_expressions_cytospace.tsv \
+          --cell-type-path HumanColonCancerPatient2_scRNA_annotations_cytospace.tsv \
+          --st-path HumanColonCancerPatient2_ST_expressions_cytospace.tsv \
+          --coordinates-path HumanColonCancerPatient2_ST_coordinates_cytospace.tsv \
+          --st-cell-type-path HumanColonCancerPatient2_ST_celltypes_cytospace.tsv \
+          --output-folder cytospace_results_crc \
+          --solver-method lap_CSPR \
+          --number-of-selected-sub-spots 10000 \
+          --number-of-processors 5
+
+
+
+
+
+
+
+
+
 
 
 
