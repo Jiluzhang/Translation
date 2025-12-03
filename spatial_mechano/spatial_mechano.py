@@ -104,15 +104,63 @@ cytospace --single-cell \
           --number-of-processors 5
 
 
+#### prepare input data for cytospace
+import pandas as pd
+import scanpy as sc
 
+## st gex data
+gex = pd.read_csv('R1_R77_4C4_single_cell_raw_counts.csv')
+gex = gex.T
+gex.columns = ['cell_'+str(i) for i in gex.iloc[0, ]]
+gex = gex.iloc[1:]
+gex.index.name = 'GENES'
 
+## st pos data
+pos = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
+pos = pos[pos['status']=='ok']
+pos['SpotID'] = ['cell_'+str(i) for i in pos['cell_id']]
+pos.rename(columns={'global_x':'X', 'global_y':'Y'}, inplace=True)
+pos = pos[['SpotID', 'X', 'Y']]
+pos.index = pos['SpotID'].values
 
+## st cell type data
+adata = sc.read_h5ad('overall_merfish.h5ad')
+r77_4c4_adata = adata[adata.obs['sample_id']=='R77_4C4'].copy()  # 72962 × 238
+ct = pd.DataFrame({'SpotID':['cell_'+i.split('-')[0] for i in r77_4c4_adata.obs.index],
+                   'CellType':r77_4c4_adata.obs['populations'].values})
+ct.to_csv('st_ct.tsv', sep='\t', index=False)
 
+# some cells are filtered 
+gex.loc[:, ct['SpotID'].values].to_csv('st_gex.tsv', sep='\t')
+pos.loc[ct['SpotID']].to_csv('st_pos.tsv', sep='\t', index=False)
 
-
-
-
-
+# BEC: blood endothelial cell
+# EPDC: epicardium-derived progenitor cell
+# Epicardial: epicardial cell
+# LEC: lymphatic endothelial cell
+# Neuronal: neuronal cell
+# Pericyte: pericyte
+# VEC: valve endocardial cell
+# VIC: valvular interstitial cell
+# VSMC: vascular smooth muscle cells
+# WBC: white blood cell
+# aCM-LA: atrial cardiomyocyte (left atria)
+# aCM-RA: atrial cardiomyocyte (right atria)
+# aEndocardial: atria endocardial cell
+# aFibro: atria firoblast
+# adFibro: adventitial fibroblast
+# ncCM-AVC-like: atrioventricular canal/node cardiomyocyte
+# ncCM-IFT-like: inflow tract/pacemaker cardiomyocyte
+# vCM-His-Purkinje: His-Purkinje ventricular cardiomyocyte 
+# vCM-LV-AV: ventricular cardiomyocyte left ventricle atrioventricular
+# vCM-LV-Compact: ventricular cardiomyocyte left ventricle compact
+# vCM-LV-Trabecular: ventricular cardiomyocyte left ventricle trabecular
+# vCM-Proliferating: ventricular cardiomyocyte proliferating
+# vCM-RV-AV: ventricular cardiomyocyte right ventricle atrioventricular
+# vCM-RV-Compact: ventricular cardiomyocyte right ventricle compact
+# vCM-RV-Trabecular: ventricular cardiomyocyte right ventricle trabecular
+# vEndocardial: ventricular endocardial cell
+# vFibro: ventricular firoblast
 
 
 
