@@ -103,7 +103,7 @@ cytospace --single-cell \
           --number-of-selected-sub-spots 10000 \
           --number-of-processors 5
 
-
+## st data source: https://datadryad.org/dataset/doi:10.5061/dryad.w0vt4b8vp#readme
 #### prepare input data for cytospace
 import pandas as pd
 import scanpy as sc
@@ -163,5 +163,81 @@ pos.loc[ct['SpotID']].to_csv('st_pos.tsv', sep='\t', index=False)
 # vFibro: ventricular firoblast
 
 
+#### multiome dataset
+## Targeting immune–fibroblast cell communication in heart failure (Nature, 2024)
+## GSE270788
+
+import scanpy as sc
+import pandas as pd
+
+adata = sc.read_10x_h5('GSM8352048_MA5_filtered_feature_bc_matrix.h5', gex_only=False)
+## atac
+atac = adata[:, adata.var['feature_types']=='Peaks'].copy()             # 2197 × 88895
+atac.write('atac.h5ad')
+
+## rna
+rna = adata[:, adata.var['feature_types']=='Gene Expression'].copy()    # 2197 × 36601
+gex = pd.DataFrame(rna.X.toarray().T)
+gex.index = rna.var.index.values
+gex.columns = ['s1_'+i for i in rna.obs.index.values]
+gex.index.name = 'GENES'
+
+## meta
+meta = pd.read_csv('GSE270788_metadata.csv.gz')
+ma5 = meta[meta['sample']=='MA5']
+ma5 = ma5[['barcode', 'cell.type']]
+ma5.columns = ['Cell IDs', 'CellType']
+ma5.to_csv('scrna_ct.tsv', index=False, sep='\t')
+
+gex.loc[:, ma5['barcode'].values].to_csv('scrna_gex.tsv', sep='\t')  # select cells with annotations
+
+# Adipocyte
+# Cardiomyocyte
+# Endocardium
+# Endothelium
+# Fibroblast
+# Glia
+# Lymphatic
+# Mast
+# Myeloid
+# Pericyte
+# TNKCells
+
+#### unify cell annotation
+import pandas as pd
+
+## scrna cell type
+scrna_ct = pd.read_table('scrna_ct.tsv')
+scrna_ct['CellType'] = scrna_ct['CellType'].replace({'Adipocyte':'Epicardium', 'Cardiomyocyte':'Cardiomyocyte', 'Endocardium':'Endocardium',
+                                                     'Endothelium':'Endothelium', 'Fibroblast':'Fibroblast', 'Glia':'Neuron',
+                                                     'Lymphatic':'Immune', 'Mast':'Immune', 'Myeloid':'Immune',
+                                                     'Pericyte':'Pericyte', 'TNKCells':'Immune'})
+scrna_ct.to_csv('scrna_ct_aligned.tsv', index=False, sep='\t')
+
+## st cell type
+st_ct = pd.read_table('st_ct.tsv')
+st_ct['CellType'] = st_ct['CellType'].replace({'BEC':'Endothelium', 'EPDC':'Epicardium', 'Epicardial':'Epicardium',
+                                               'LEC':'Endothelium', 'Neuronal':'Neuron', 'Pericyte':'Pericyte',
+                                               'VEC':'Endocardium', 'VIC':'Endocardium', 'VSMC':'Endothelium', 'WBC':'Immune',
+                                               'aCM-LA':'Cardiomyocyte', 'aCM-RA':'Cardiomyocyte', 'aEndocardial':'Endocardium',
+                                               'aFibro':'Fibroblast', 'adFibro':'Fibroblast', 'ncCM-AVC-like':'Cardiomyocyte',
+                                               'ncCM-IFT-like':'Cardiomyocyte', 'vCM-His-Purkinje':'Cardiomyocyte',
+                                               'vCM-LV-AV':'Cardiomyocyte', 'vCM-LV-Compact':'Cardiomyocyte',
+                                               'vCM-LV-Trabecular':'Cardiomyocyte', 'vCM-Proliferating':'Cardiomyocyte',
+                                               'vCM-RV-AV':'Cardiomyocyte', 'vCM-RV-Compact':'Cardiomyocyte',
+                                               'vCM-RV-Trabecular':'Cardiomyocyte', 'vEndocardial':'Endocardium', 'vFibro':'Fibroblast',})
+st_ct.to_csv('st_ct_aligned.tsv', index=False, sep='\t')
+
+
+cytospace --single-cell \
+          --scRNA-path scrna_gex.tsv \
+          --cell-type-path scrna_ct_aligned.tsv \
+          --st-path st_gex.tsv \
+          --coordinates-path st_pos.tsv \
+          --st-cell-type-path st_ct_aligned.tsv \
+          --output-folder cytospace_results_crc \
+          --solver-method lap_CSPR \
+          --number-of-selected-sub-spots 10000 \
+          --number-of-processors 5
 
 
