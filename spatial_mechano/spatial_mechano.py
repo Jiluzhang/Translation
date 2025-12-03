@@ -229,6 +229,7 @@ st_ct['CellType'] = st_ct['CellType'].replace({'BEC':'Endothelium', 'EPDC':'Epic
 st_ct.to_csv('st_ct_aligned.tsv', index=False, sep='\t')
 
 
+# scRNA cells: 735  &  st cells: 72963
 cytospace --single-cell \
           --scRNA-path scrna_gex.tsv \
           --cell-type-path scrna_ct_aligned.tsv \
@@ -238,6 +239,6 @@ cytospace --single-cell \
           --output-folder cytospace_results_crc \
           --solver-method lap_CSPR \
           --number-of-selected-sub-spots 10000 \
-          --number-of-processors 5
+          --number-of-processors 5   # ~15 min
 
 
