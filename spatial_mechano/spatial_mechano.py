@@ -33,7 +33,7 @@ import pandas as pd
 # img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/test/test.tiff')  # 935*1098
 # vmsi_model = run_VMSI(img)
 
-img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/test/reproduce_data/dataset3/segmentation_final.tif')  # 4096*4232
+img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/TensionMap_test/reproduce_data/dataset3/segmentation_final.tif')  # 4096*4232
 
 mask = img[1500:2000, 1500:2000]
 plt.imshow(mask)
@@ -161,6 +161,34 @@ pos.loc[ct['SpotID']].to_csv('st_pos.tsv', sep='\t', index=False)
 # vCM-RV-Trabecular: ventricular cardiomyocyte right ventricle trabecular
 # vEndocardial: ventricular endocardial cell
 # vFibro: ventricular firoblast
+
+import pandas as pd
+from plotnine import *
+import matplotlib.pyplot as plt
+from PIL import Image
+import math
+
+df_raw = pd.read_csv('assigned_barcodes_test.csv')
+df = df_raw[(df_raw['cell_id']!=0) & (df_raw['status']=='good') & (df_raw['fov']==0)]
+df['cell_id'] = pd.Categorical(df['cell_id'])
+p = ggplot(df, aes(x='global_x', y='global_y', color='cell_id')) + geom_point(size=0.0001, show_legend=False) + theme_bw()
+p.save(filename='assigned_barcodes_test.png', dpi=300, height=4, width=4)
+
+x_min, x_max = math.floor(df['global_x'].min()), math.ceil(df['global_x'].max())
+y_min, y_max = math.floor(df['global_y'].min()), math.ceil(df['global_y'].max())
+hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[500, 500],
+                                        range=[[x_min, x_max], [y_min, y_max]])
+img = Image.fromarray(hist)
+img.save('equal_binning.tiff')
+
+
+#### Cellpose
+## url: https://www.cellpose.org/
+## github: https://github.com/MouseLand/cellpose
+
+
+
+
 
 
 #### multiome dataset
