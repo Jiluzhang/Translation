@@ -186,9 +186,11 @@ img.save('equal_binning.tiff')
 ## url: https://www.cellpose.org/
 ## github: https://github.com/MouseLand/cellpose
 
+conda create --name cellpose python=3.10
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple cellpose
 
-
-
+## mannually download model to /data/home/jiluzhang/.cellpose/models
+wget -c hf-mirror.com/mouseland/cellpose-sam/resolve/main/cpsam  # not use huggingface.co
 
 
 #### multiome dataset
