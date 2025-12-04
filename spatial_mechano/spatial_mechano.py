@@ -185,6 +185,7 @@ img.save('equal_binning.tiff')
 #### Cellpose
 ## url: https://www.cellpose.org/
 ## github: https://github.com/MouseLand/cellpose
+## tutorial: https://cellpose.readthedocs.io/en/latest/index.html
 
 conda create --name cellpose python=3.10
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple cellpose
