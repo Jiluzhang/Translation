@@ -9,6 +9,7 @@
 # pip install -i https://pypi.tuna.tsinghua.edu.cn/simple numpy==1.23.0
 # conda install pandas scikit-learn
 # conda install conda-forge::nlopt
+# pip install pandas==1.5.3
 
 #### Run TensionMap to infer cell pressure, cell junction tensions and cellular stress tensor
 # segment.py (line 262: 'for nv in obj.V_df.at[v, 'nverts']:'  ->  'for nv in np.atleast_1d(obj.V_df.at[v, 'nverts']):')
@@ -162,24 +163,6 @@ pos.loc[ct['SpotID']].to_csv('st_pos.tsv', sep='\t', index=False)
 # vEndocardial: ventricular endocardial cell
 # vFibro: ventricular firoblast
 
-import pandas as pd
-from plotnine import *
-import matplotlib.pyplot as plt
-from PIL import Image
-import math
-
-df_raw = pd.read_csv('assigned_barcodes_test.csv')
-df = df_raw[(df_raw['cell_id']!=0) & (df_raw['status']=='good') & (df_raw['fov']==0)]
-df['cell_id'] = pd.Categorical(df['cell_id'])
-p = ggplot(df, aes(x='global_x', y='global_y', color='cell_id')) + geom_point(size=0.0001, show_legend=False) + theme_bw()
-p.save(filename='assigned_barcodes_test.png', dpi=300, height=4, width=4)
-
-x_min, x_max = math.floor(df['global_x'].min()), math.ceil(df['global_x'].max())
-y_min, y_max = math.floor(df['global_y'].min()), math.ceil(df['global_y'].max())
-hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[500, 500],
-                                        range=[[x_min, x_max], [y_min, y_max]])
-img = Image.fromarray(hist)
-img.save('equal_binning.tiff')
 
 
 #### Cellpose
@@ -192,6 +175,7 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple cellpose
 
 ## mannually download model to /data/home/jiluzhang/.cellpose/models
 wget -c hf-mirror.com/mouseland/cellpose-sam/resolve/main/cpsam  # not use huggingface.co
+
 
 
 #### multiome dataset
@@ -272,4 +256,102 @@ cytospace --single-cell \
           --number-of-selected-sub-spots 10000 \
           --number-of-processors 5   # ~15 min
 
+
+#################### infer mechano response elements ####################
+#### workdir: /fs/home/jiluzhang/spatial_mechano/pipeline
+head -n 1 R1_R77_4C4_assigned_barcodes.csv >> R1_R77_4C4_assigned_barcodes_fov_0_with_cell.csv
+awk -F "," '{if($2==0 && $10!=0) print$0}' R1_R77_4C4_assigned_barcodes.csv >> R1_R77_4C4_assigned_barcodes_fov_0_with_cell.csv  # 50875
+# fov: field of view
+# maybe multiple fov
+
+#### export tif image
+import numpy as np
+import pandas as pd
+from PIL import Image
+import math
+
+df = pd.read_csv('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.csv')
+
+x_min, x_max = math.floor(df['global_x'].min()), math.ceil(df['global_x'].max())
+y_min, y_max = math.floor(df['global_y'].min()), math.ceil(df['global_y'].max())
+hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[x_max-x_min, y_max-y_min],
+                                        range=[[x_min, x_max], [y_min, y_max]])
+img = Image.fromarray(hist)
+img.save('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.tif')
+
+#### cell segmentationn
+cellpose --image_path ./R1_R77_4C4_assigned_barcodes_fov_0_with_cell.tif --save_tif --no_npy --verbose  # ~30s
+
+#### force inference
+import sys
+import scipy.stats
+# Change path to location of TensionMap directory
+sys.path.append('/fs/home/jiluzhang/spatial_mechano/TensionMap-main')
+from src.segment import Segmenter
+from src.VMSI import *
+import numpy as np
+import matplotlib.pyplot as plt
+import skimage
+import pandas as pd
+
+img = skimage.io.imread('R1_R77_4C4_assigned_barcodes_fov_0_with_cell_cp_masks.tif')  # 500*500
+img = skimage.segmentation.expand_labels(img, distance=20)
+
+# # Check if we have disconnected regions that are too small
+# labels = skimage.measure.label(img, connectivity=1)
+# areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=labels, properties=('label','area')))
+
+# # Change '10' to some reasonable number of pixels below which we are certain isolated regions are artifacts
+# min_size = 10
+# if any(areas['area'] < min_size):
+#     # Save image exterior
+#     img_exterior = img==0
+    
+#     # Remove holes
+#     # 1: set labels that correspond to isolated regions to 0
+#     img[np.isin(labels, areas['label'].values[areas['area'] < min_size])] = 0
+    
+#     # 2: expand labels to fill holes
+#     img = skimage.segmentation.expand_labels(img, distance=5)
+    
+#     # 3: set original image exterior back to 0
+#     img[img_exterior] = 0
+    
+#     # 4: relabel image to make sure labels range from 1 to num_labels
+#     img = skimage.measure.label(img)
+
+## convert segmentation mask to boundary mask
+mask = img.astype(int)
+mask = skimage.segmentation.find_boundaries(mask, mode='subpixel')
+# subpixel: return a doubled image, with pixels *between* the original pixels marked as boundary where appropriate.
+
+## process mask and detect holes in tissue
+mask = 1-mask
+mask = skimage.measure.label(mask)  # label connected regions
+holes_mask = np.zeros_like(mask)
+areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=mask, properties=('label', 'area')))  # comput image properties
+thresh = np.mean(areas['area'].tolist())*3  # holes are defined as tissue regions with area greater than 2x the mean cell area
+for area in areas.iterrows():
+    if area[1]['area']>thresh:
+        holes_mask[mask==area[1]['label']] = 1
+# Holes denoted by value 1
+# Segmented cells and boundaries denoted by value 0
+
+## Perform force inference on mask
+model = run_VMSI(mask, is_labelled=True, holes_mask=holes_mask, tile=False, verbose=False)
+
+model.plot(['pressure'], mask, size=10, file='pressure.pdf')
+model.plot(['tension'], line_thickness=15, size=10, file='tension.pdf')
+model.plot(['stress', 'cap'], mask, size=10, file='stress.pdf')
+
+results, neighbours = model.output_results(neighbours=True)
+results.to_csv('results.txt', sep='\t')
+
+plt.imshow(img)
+plt.savefig('img.pdf')
+plt.close()
+
+plt.imshow(holes_mask)
+plt.savefig('holes_mask.pdf')
+plt.close()
 
