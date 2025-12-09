@@ -36,7 +36,7 @@ import pandas as pd
 
 img = skimage.io.imread('/fs/home/jiluzhang/spatial_mechano/TensionMap_test/reproduce_data/dataset3/segmentation_final.tif')  # 4096*4232
 
-mask = img[1500:2000, 1500:2000]
+mask = img[1500:2000, 1500:2000]  # mask = img[1800:2700, 50:950]
 plt.imshow(mask)
 plt.savefig('raw.pdf')
 plt.close()
@@ -274,8 +274,10 @@ df = pd.read_csv('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.csv')
 
 x_min, x_max = math.floor(df['global_x'].min()), math.ceil(df['global_x'].max())
 y_min, y_max = math.floor(df['global_y'].min()), math.ceil(df['global_y'].max())
-hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[x_max-x_min, y_max-y_min],
+hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[500, 500],
                                         range=[[x_min, x_max], [y_min, y_max]])
+# hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[x_max-x_min, y_max-y_min],
+#                                         range=[[x_min, x_max], [y_min, y_max]])
 img = Image.fromarray(hist)
 img.save('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.tif')
 
@@ -295,7 +297,7 @@ import skimage
 import pandas as pd
 
 img = skimage.io.imread('R1_R77_4C4_assigned_barcodes_fov_0_with_cell_cp_masks.tif')  # 500*500
-img = skimage.segmentation.expand_labels(img, distance=20)
+img = skimage.segmentation.expand_labels(img, distance=500)
 
 # # Check if we have disconnected regions that are too small
 # labels = skimage.measure.label(img, connectivity=1)
