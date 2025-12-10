@@ -328,7 +328,7 @@ if any(areas['area'] < min_size):
 
 ## convert segmentation mask to boundary mask
 mask = img.astype(int)
-mask = skimage.segmentation.find_boundaries(mask, mode='subpixel')
+mask = skimage.segmentation.find_boundaries(mask, mode='subpixel')  # 'thick', 'inner', 'outer', 'subpixel'
 # subpixel: return a doubled image, with pixels *between* the original pixels marked as boundary where appropriate.
 
 ## process mask and detect holes in tissue
