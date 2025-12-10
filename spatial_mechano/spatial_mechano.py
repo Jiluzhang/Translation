@@ -264,6 +264,10 @@ awk -F "," '{if($2==0 && $10!=0) print$0}' R1_R77_4C4_assigned_barcodes.csv >> R
 # fov: field of view
 # maybe multiple fov
 
+# head -n 1 R1_R77_4C4_assigned_barcodes.csv >> R1_R77_4C4_assigned_barcodes_fov_0_with_cell_2.csv
+# awk -F "," '{if($2<4 && $10!=0) print$0}' R1_R77_4C4_assigned_barcodes.csv >> R1_R77_4C4_assigned_barcodes_fov_0_with_cell_2.csv  # 214952
+
+
 #### export tif image
 import numpy as np
 import pandas as pd
@@ -274,10 +278,10 @@ df = pd.read_csv('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.csv')
 
 x_min, x_max = math.floor(df['global_x'].min()), math.ceil(df['global_x'].max())
 y_min, y_max = math.floor(df['global_y'].min()), math.ceil(df['global_y'].max())
-hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[500, 500],
-                                        range=[[x_min, x_max], [y_min, y_max]])
-# hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[x_max-x_min, y_max-y_min],
+# hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[100, 100],
 #                                         range=[[x_min, x_max], [y_min, y_max]])
+hist, x_edges, y_edges = np.histogram2d(df['global_x'], df['global_y'], bins=[2*(x_max-x_min), 2*(y_max-y_min)],
+                                        range=[[x_min, x_max], [y_min, y_max]])
 img = Image.fromarray(hist)
 img.save('R1_R77_4C4_assigned_barcodes_fov_0_with_cell.tif')
 
@@ -296,31 +300,31 @@ import matplotlib.pyplot as plt
 import skimage
 import pandas as pd
 
-img = skimage.io.imread('R1_R77_4C4_assigned_barcodes_fov_0_with_cell_cp_masks.tif')  # 500*500
-img = skimage.segmentation.expand_labels(img, distance=500)
+img = skimage.io.imread('R1_R77_4C4_assigned_barcodes_fov_0_with_cell_cp_masks.tif')  # (440, 438)
+img = skimage.segmentation.expand_labels(img, distance=20)
 
-# # Check if we have disconnected regions that are too small
-# labels = skimage.measure.label(img, connectivity=1)
-# areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=labels, properties=('label','area')))
+# Check if we have disconnected regions that are too small
+labels = skimage.measure.label(img, connectivity=1)
+areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=labels, properties=('label', 'area')))
 
-# # Change '10' to some reasonable number of pixels below which we are certain isolated regions are artifacts
-# min_size = 10
-# if any(areas['area'] < min_size):
-#     # Save image exterior
-#     img_exterior = img==0
+# Change '10' to some reasonable number of pixels below which we are certain isolated regions are artifacts
+min_size = 10   # min_size = areas['area'].quantile(0.05)  # 60
+if any(areas['area'] < min_size):
+    # Save image exterior
+    img_exterior = img==0
     
-#     # Remove holes
-#     # 1: set labels that correspond to isolated regions to 0
-#     img[np.isin(labels, areas['label'].values[areas['area'] < min_size])] = 0
+    # Remove holes
+    # 1: set labels that correspond to isolated regions to 0
+    img[np.isin(labels, areas['label'].values[areas['area'] < min_size])] = 0
     
-#     # 2: expand labels to fill holes
-#     img = skimage.segmentation.expand_labels(img, distance=5)
+    # 2: expand labels to fill holes
+    img = skimage.segmentation.expand_labels(img, distance=5)
     
-#     # 3: set original image exterior back to 0
-#     img[img_exterior] = 0
+    # 3: set original image exterior back to 0
+    img[img_exterior] = 0
     
-#     # 4: relabel image to make sure labels range from 1 to num_labels
-#     img = skimage.measure.label(img)
+    # 4: relabel image to make sure labels range from 1 to num_labels
+    img = skimage.measure.label(img)
 
 ## convert segmentation mask to boundary mask
 mask = img.astype(int)
@@ -330,6 +334,10 @@ mask = skimage.segmentation.find_boundaries(mask, mode='subpixel')
 ## process mask and detect holes in tissue
 mask = 1-mask
 mask = skimage.measure.label(mask)  # label connected regions
+# 1px, 4-connected boundaries denoted by value 0
+# Background denoted by value 1
+# Unique integer value >= 2 for each segmented cell
+
 holes_mask = np.zeros_like(mask)
 areas = pd.DataFrame(skimage.measure.regionprops_table(label_image=mask, properties=('label', 'area')))  # comput image properties
 thresh = np.mean(areas['area'].tolist())*3  # holes are defined as tissue regions with area greater than 2x the mean cell area
@@ -351,6 +359,10 @@ results.to_csv('results.txt', sep='\t')
 
 plt.imshow(img)
 plt.savefig('img.pdf')
+plt.close()
+
+plt.imshow(mask)
+plt.savefig('mask.pdf')
 plt.close()
 
 plt.imshow(holes_mask)
