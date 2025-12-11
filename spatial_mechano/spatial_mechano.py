@@ -301,7 +301,10 @@ import skimage
 import pandas as pd
 
 img = skimage.io.imread('R1_R77_4C4_assigned_barcodes_fov_0_with_cell_cp_masks.tif')  # (440, 438)
-img = skimage.segmentation.expand_labels(img, distance=20)
+# img = skimage.segmentation.expand_labels(img, distance=20)
+
+img = transform.resize(img, (img.shape[0]//4, img.shape[1]//4), anti_aliasing=True)
+img = measure.label(img>0)
 
 # Check if we have disconnected regions that are too small
 labels = skimage.measure.label(img, connectivity=1)
