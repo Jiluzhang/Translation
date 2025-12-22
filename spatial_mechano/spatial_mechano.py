@@ -104,6 +104,9 @@ cytospace --single-cell \
           --number-of-selected-sub-spots 10000 \
           --number-of-processors 5
 
+
+## MERFISH dataset
+## Spatially organized cellular communities form the developing human heart (Nature, 2024)
 ## st data source: https://datadryad.org/dataset/doi:10.5061/dryad.w0vt4b8vp#readme
 #### prepare input data for cytospace
 import pandas as pd
@@ -371,4 +374,37 @@ plt.close()
 plt.imshow(holes_mask)
 plt.savefig('holes_mask.pdf')
 plt.close()
+
+
+
+#################### calculate Voronoi area for each cell ####################
+## workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_2
+import pandas as pd
+from scipy.spatial import Voronoi, voronoi_plot_2d
+import matplotlib.pyplot as plt
+
+
+df = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
+df = df[df['status']=='ok']
+
+vor= Voronoi(df[['global_x', 'global_y']])
+
+fig = voronoi_plot_2d(vor, point_size=1, show_vertices=False, line_width=0.5)
+plt.savefig('all_fov.pdf')
+plt.close()
+
+df_sub = df[(df['global_x']>1100) & (df['global_x']<1300) & (df['global_y']>1000) & (df['global_y']<1200)]
+vor_sub= Voronoi(df_sub[['global_x', 'global_y']])
+fig = voronoi_plot_2d(vor_sub, point_size=0.5, show_vertices=False, line_width=0.5)
+plt.savefig('fov_tmp.pdf')
+plt.close()
+
+
+
+
+
+
+
+
+
 
