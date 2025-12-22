@@ -383,6 +383,7 @@ import pandas as pd
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
 from tqdm import *
+from scipy import stats
 
 df = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
 df = df[df['status']=='ok']  # 79088
@@ -422,7 +423,7 @@ for idx, region in enumerate(vor.regions):
 ## assign area for each point
 # 输入点 i → vor.point_region[i] → 区域索引 R → vor.regions[R] → 顶点坐标 → 计算面积 → 存储到 point_areas[i]
 point_areas = np.full(df.shape[0], np.nan)
-for point_idx, region_idx in tqdm(enumerate(vor.point_region), ncols=80):
+for point_idx, region_idx in enumerate(tqdm(vor.point_region, ncols=80)):
     if region_idx in region_indices:
         area_idx = region_indices.index(region_idx)
         point_areas[point_idx] = areas[area_idx]
@@ -430,17 +431,61 @@ for point_idx, region_idx in tqdm(enumerate(vor.point_region), ncols=80):
 df['areas'] = point_areas
 
 
-adata = sc.read_h5ad('../cytospace_Luz/overall_merfish.h5ad')
-adata_sub = adata[adata.obs['sample_id']=='R77_4C4'].copy()  # 72962 × 238
-adata_sub.obs.index = [int(i.split('-')[0]) for i in adata_sub.obs.index]
+adata_raw = sc.read_h5ad('../cytospace_Luz/overall_merfish.h5ad')
+adata = adata_raw[adata_raw.obs['sample_id']=='R77_4C4'].copy()  # 72962 × 238
+adata.obs.index = [i.split('-')[0] for i in adata.obs.index]
 
-adata_sub.obs['areas'] = np.nan
+## renormalization
+# raw_cnt = pd.read_csv('../cytospace_Luz/R1_R77_4C4_single_cell_raw_counts.csv', index_col=0)
+# adata.X = np.array(raw_cnt.loc[adata.obs.index])
+# sc.pp.normalize_total(adata, target_sum=1e4)
+# sc.pp.log1p(adata)
 
-adata_sub.obs.loc[df_sub['cell_id'], 'areas'] = df_sub['areas'].values
-adata_sub.X[(adata_sub.obs['areas']>100) & (adata_sub.obs['areas']<200), adata_sub.var.index=='PIEZO2'].mean().item()
-adata_sub.X[(adata_sub.obs['areas']>200) & (adata_sub.obs['areas']<1000), adata_sub.var.index=='PIEZO2'].mean().item()
+adata.obs['areas'] = np.nan
+
+df['cell_id'] = df['cell_id'].astype(str)
+idx =  np.intersect1d(df['cell_id'], adata.obs.index)
+adata.obs.loc[idx, 'areas'] = df[df['cell_id'].isin(idx)]['areas'].values
+
+adata_vsmc = adata[adata.obs['populations']=='VIC', :].copy()  # 4555
+
+adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.39075276255607605
+adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'].mean().item()   # 0.3035983443260193
+
+stats.ttest_ind(adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='PIEZO2'],
+                adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'])[1].item()   # 0.007383651592720666
 
 
+
+stats.ttest_ind(adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='IL1B'],
+                adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='IL1B'])[1].item()
+
+
+adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<200), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.1307757943868637
+adata_vsmc.X[(adata_vsmc.obs['areas']>200) & (adata_vsmc.obs['areas']<500), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.1657598316669464
+adata_vsmc.X[(adata_vsmc.obs['areas']>500) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'].mean().item()   # 0.2058609426021576
+
+adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<200), adata_vsmc.var.index=='ADM'].mean().item()    # 0.1307757943868637
+adata_vsmc.X[(adata_vsmc.obs['areas']>200) & (adata_vsmc.obs['areas']<500), adata_vsmc.var.index=='ADM'].mean().item()    # 0.1657598316669464
+adata_vsmc.X[(adata_vsmc.obs['areas']>500) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='ADM'].mean().item()   # 0.2058609426021576
+
+adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<200), adata.var.index=='PIEZO2'].mean().item()    # 0.1307757943868637
+adata.X[(adata.obs['areas']>300) & (adata.obs['areas']<500), adata.var.index=='PIEZO2'].mean().item()    # 0.1657598316669464
+adata.X[(adata.obs['areas']>600) & (adata.obs['areas']<1000), adata.var.index=='PIEZO2'].mean().item()   # 0.2058609426021576
+
+adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<200), adata.var.index=='FOXC1'].mean().item()    # 0.1307757943868637
+adata.X[(adata.obs['areas']>300) & (adata.obs['areas']<500), adata.var.index=='FOXC1'].mean().item()    # 0.1657598316669464
+adata.X[(adata.obs['areas']>600) & (adata.obs['areas']<1000), adata.var.index=='FOXC1'].mean().item()   # 0.2058609426021576
+
+genes_lst = []
+fc_lst = []
+for gene in adata.var.index:
+    genes_lst.append(gene)
+    small = adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<500), adata.var.index==gene].mean().item()
+    big = adata.X[(adata.obs['areas']>500) & (adata.obs['areas']<1000), adata.var.index==gene].mean().item()
+    fc_lst.append(big/small)
+
+res = pd.DataFrame({'genes':genes_lst, 'fc':fc_lst})
 
 
 
