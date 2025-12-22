@@ -382,26 +382,63 @@ plt.close()
 import pandas as pd
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
-
+from tqdm import *
 
 df = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
-df = df[df['status']=='ok']
+df = df[df['status']=='ok']  # 79088
 
 vor= Voronoi(df[['global_x', 'global_y']])
 
-fig = voronoi_plot_2d(vor, point_size=1, show_vertices=False, line_width=0.5)
-plt.savefig('all_fov.pdf')
-plt.close()
+# fig = voronoi_plot_2d(vor, point_size=1, show_vertices=False, line_width=0.5)
+# plt.savefig('all_fov.pdf')
+# plt.close()
 
-df_sub = df[(df['global_x']>1100) & (df['global_x']<1300) & (df['global_y']>1000) & (df['global_y']<1200)]
-vor_sub= Voronoi(df_sub[['global_x', 'global_y']])
-fig = voronoi_plot_2d(vor_sub, point_size=0.5, show_vertices=False, line_width=0.5)
-plt.savefig('fov_tmp.pdf')
-plt.close()
-
-
+# df_sub = df[(df['global_x']>1100) & (df['global_x']<1200) & (df['global_y']>1100) & (df['global_y']<1200)]
+# vor_sub= Voronoi(df_sub[['global_x', 'global_y']])
+# fig = voronoi_plot_2d(vor_sub, point_size=0.5, show_vertices=False, line_width=0.5)
+# plt.savefig('fov_tmp.pdf')
+# plt.close()
 
 
+# vertices should be ranked based on plot
+def poly_area(vertices):
+    x = vertices[:, 0]
+    y = vertices[:, 1]
+    return (0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))).item()
+
+## calculate area
+areas = []
+region_indices = []
+for idx, region in enumerate(vor.regions):
+    # delete blank or no-border regions
+    if not region or -1 in region:
+        continue
+    
+    polygon_vertices = vor.vertices[region]
+    area = poly_area(polygon_vertices)
+    areas.append(area)
+    region_indices.append(idx)
+
+## assign area for each point
+# 输入点 i → vor.point_region[i] → 区域索引 R → vor.regions[R] → 顶点坐标 → 计算面积 → 存储到 point_areas[i]
+point_areas = np.full(df.shape[0], np.nan)
+for point_idx, region_idx in tqdm(enumerate(vor.point_region), ncols=80):
+    if region_idx in region_indices:
+        area_idx = region_indices.index(region_idx)
+        point_areas[point_idx] = areas[area_idx]
+
+df['areas'] = point_areas
+
+
+adata = sc.read_h5ad('../cytospace_Luz/overall_merfish.h5ad')
+adata_sub = adata[adata.obs['sample_id']=='R77_4C4'].copy()  # 72962 × 238
+adata_sub.obs.index = [int(i.split('-')[0]) for i in adata_sub.obs.index]
+
+adata_sub.obs['areas'] = np.nan
+
+adata_sub.obs.loc[df_sub['cell_id'], 'areas'] = df_sub['areas'].values
+adata_sub.X[(adata_sub.obs['areas']>100) & (adata_sub.obs['areas']<200), adata_sub.var.index=='PIEZO2'].mean().item()
+adata_sub.X[(adata_sub.obs['areas']>200) & (adata_sub.obs['areas']<1000), adata_sub.var.index=='PIEZO2'].mean().item()
 
 
 
