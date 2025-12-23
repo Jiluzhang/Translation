@@ -447,58 +447,123 @@ adata.obs['areas'] = np.nan
 df['cell_id'] = df['cell_id'].astype(str)
 idx =  np.intersect1d(df['cell_id'], adata.obs.index)
 adata.obs.loc[idx, 'areas'] = df[df['cell_id'].isin(idx)]['areas'].values
+adata.write('overall_merfish_areas.h5ad')
 
-## VSMC: vascular smooth muscle cells
-adata_vsmc = adata[(adata.obs['populations']=='VSMC') & (adata.obs['areas']<1000), :].copy()  # 947 × 238
+#### specifically for PIEZO2 (median is not significant)
+ct_lst = []
+s_gex_lst = []
+b_gex_lst = []
+p_value_lst = []
+for ct in adata.obs['populations'].drop_duplicates():
+    ct_lst.append(ct)
+    adata_ct = adata[(adata.obs['populations']==ct) & (adata.obs['areas']<1000), :].copy()
+    area_mid = adata_ct.obs['areas'].median().item()
+    s_gex_lst.append(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index=='PIEZO2'].mean().item())
+    b_gex_lst.append(adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index=='PIEZO2'].mean().item())
+    p_value_lst.append(stats.ttest_ind(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index=='PIEZO2'],
+                                       adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index=='PIEZO2'])[1].item())
 
-vsmc_area_mid = adata_vsmc.obs['areas'].median().item()
-adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.39075276255607605
-adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.3035983443260193
-stats.ttest_ind(adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'],
-                adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'])[1].item()   # 0.007383651592720666
+p_value_lst[0]   # 0.010926409206141654
+p_value_lst[-4]  # 0.011584681009410555
+ct_lst[0]        # VIC
+ct_lst[-4]       # Epicardial
 
-vsmc_genes_lst = []
-vsmc_fc_lst = []
-vsmc_p_lst = []
-for gene in adata_vsmc.var.index:
-    vsmc_genes_lst.append(gene)
-    vsmc_s_gex = adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index==gene].mean().item()
-    vsmc_b_gex = adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index==gene].mean().item()
-    vsmc_fc_lst.append(np.log2(vsmc_s_gex/vsmc_b_gex).item())
-    vsmc_p_value = stats.ttest_ind(adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index==gene],
-                                   adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index==gene])[1].item() 
-    vsmc_p_lst.append(vsmc_p_value)
+#### test for all genes
+ct_lst = []
+genes_lst = []
+fc_lst = []
+p_lst = []
+for ct in tqdm(adata.obs['populations'].drop_duplicates(), ncols=80):
+    adata_ct = adata[(adata.obs['populations']==ct) & (adata.obs['areas']<1000), :].copy()
+    for gene in adata_ct.var.index:
+        ct_lst.append(ct)
+        genes_lst.append(gene)
+        s_gex = adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index==gene].mean().item()
+        b_gex = adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index==gene].mean().item()
+        fc_lst.append(np.log2((s_gex+0.001)/(b_gex+0.001)).item())
+        p_value = stats.ttest_ind(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index==gene],
+                                  adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index==gene])[1].item() 
+        p_lst.append(p_value)
 
-vsmc_res = pd.DataFrame({'genes':vsmc_genes_lst, 'log2fc':vsmc_fc_lst, 'pvalue':vsmc_p_lst})
-vsmc_res.to_csv('vsmc_log2fc_pvalue.txt', sep='\t', index=False)
+res = pd.DataFrame({'ct':ct_lst, 'gene':genes_lst, 'log2fc':fc_lst, 'pvalue':p_lst})
+res.to_csv('log2fc_pvalue.txt', sep='\t', index=False)
 
 ## plot volcano
 import pandas as pd
 import numpy as np
 from plotnine import *
+import matplotlib.pyplot as plt
 
 plt.rcParams['pdf.fonttype'] = 42
 
-df = pd.read_table('vsmc_log2fc_pvalue.txt')
-df['-log10(pvalue)'] = -np.log10(data['pvalue'])
-
+df = pd.read_table('log2fc_pvalue.txt')
+df['-log10(pvalue)'] = -np.log10(df['pvalue'])
 df['idx'] = 'not_sig'
-df.loc[(df['log2fc']>np.log2(1.5))  &  (df['-log10(pvalue)']>-np.log10(0.05)),  'idx'] = 'up'
-df.loc[(df['log2fc']<-np.log2(1.5))  &  (df['-log10(pvalue)']>-np.log10(0.05)), 'idx'] = 'down'
-
-df['idx'].value_counts()
-# not_sig    235
-# up           3
-
+df.loc[(df['log2fc']>np.log2(1.2))  &  (df['-log10(pvalue)']>-np.log10(0.05)),  'idx'] = 'up'
+df.loc[(df['log2fc']<-np.log2(1.2))  &  (df['-log10(pvalue)']>-np.log10(0.05)), 'idx'] = 'down'
 df['idx'] = pd.Categorical(df['idx'], categories=['up', 'down', 'not_sig'])
 
-p = ggplot(df, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                   scale_color_manual(values={'up': 'red', 'down': 'blue', 'not_sig': 'gray'}) +\
-                                                                   scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.4)) +\
-                                                                   scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
-                                                                   geom_text(data=df[df['idx']!='not_sig'], mapping=aes(label='genes'), 
-                                                                             size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                   # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                   # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-p.save(filename='vsmc_volcano.pdf', dpi=600, height=4, width=5)
+df['idx'].value_counts()
+# not_sig    6011
+# up          225
+# down        190
 
+for ct in df['ct'].drop_duplicates():
+    df_ct = df[df['ct']==ct]
+    p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                          scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
+                                                                          geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
+                                                                                    size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                          # scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.4)) +\
+                                                                          # scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+                                                                          # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                          # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+    p.save(filename=ct+'_volcano.pdf', dpi=600, height=4, width=5)
+
+## VIC
+df_ct = df[df['ct']=='VIC']
+p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
+                                                                      scale_x_continuous(limits=[-1.5, 1.5], breaks=np.arange(-1.5, 1.5+0.1, 0.5)) +\
+                                                                      scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
+                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
+                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+p.save(filename='VIC_volcano_mod.pdf', dpi=600, height=4, width=5)
+
+## Epicardial
+df_ct = df[df['ct']=='Epicardial']
+p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
+                                                                      scale_x_continuous(limits=[-2, 2], breaks=np.arange(-2, 2+0.1, 1.0)) +\
+                                                                      scale_y_continuous(limits=[0, 5], breaks=np.arange(0, 5+0.1, 1.0)) +\
+                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
+                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+p.save(filename='Epicardial_volcano_mod.pdf', dpi=600, height=4, width=5)
+
+## BEC: blood endothelial cell
+df_ct = df[df['ct']=='BEC']
+p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
+                                                                      scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.5)) +\
+                                                                      scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
+                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+p.save(filename='BEC_volcano_mod.pdf', dpi=600, height=4, width=5)
+
+## aFibro: atria firoblast
+df_ct = df[df['ct']=='aFibro']
+p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
+                                                                      scale_x_continuous(limits=[-1.25, 1.25], breaks=np.arange(-1.25, 1.25+0.1, 0.25)) +\
+                                                                      scale_y_continuous(limits=[0, 9], breaks=np.arange(0, 9+0.1, 3)) +\
+                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
+                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+p.save(filename='aFibro_volcano_mod.pdf', dpi=600, height=4, width=5)
