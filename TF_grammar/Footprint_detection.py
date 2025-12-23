@@ -97,9 +97,25 @@ CUDA_VISIBLE_DEVICES=3 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-
                               --data_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test \
                               --project scPrinter_seq_PBMC_bulkATAC_Bcell_0 --enable_wandb
 
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
+CUDA_VISIBLE_DEVICES=3 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py \
+                              --config ./PBMC_bulkATAC_Bcell_0_fold0.JSON \
+                              --temp_dir ./temp \
+                              --model_dir ./model \
+                              --data_dir . \
+                              --project scPrinter_seq_PBMC_bulkATAC_Bcell_0
+
+# dispersion model: /data/home/jiluzhang/.cache/scprinter/dispersion_model_py_v2.h5
+# "peaks": "seq2print_cleaned_narrowPeak.bed"
+# "signals": "Bcell_0.bw"
+
 ## scripts to generate dispersion model
 # https://github.com/buenrostrolab/PRINT/blob/cadfc55251fa57b006bd460d2d2e4d067e1c085b/analyses/BAC/getBackgroundDispersion.R
 # https://github.com/buenrostrolab/PRINT/blob/cadfc55251fa57b006bd460d2d2e4d067e1c085b/analyses/BAC/dispersionModel.ipynb
+
+conda install r-base
+
+
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
