@@ -380,10 +380,12 @@ plt.close()
 #################### calculate Voronoi area for each cell ####################
 ## workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_2
 import pandas as pd
+import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
 import matplotlib.pyplot as plt
 from tqdm import *
 from scipy import stats
+import scanpy as sc
 
 df = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
 df = df[df['status']=='ok']  # 79088
@@ -394,12 +396,11 @@ vor= Voronoi(df[['global_x', 'global_y']])
 # plt.savefig('all_fov.pdf')
 # plt.close()
 
-# df_sub = df[(df['global_x']>1100) & (df['global_x']<1200) & (df['global_y']>1100) & (df['global_y']<1200)]
+# df_sub = df[(df['global_x']>1000) & (df['global_x']<1500) & (df['global_y']>1000) & (df['global_y']<1500)]
 # vor_sub= Voronoi(df_sub[['global_x', 'global_y']])
-# fig = voronoi_plot_2d(vor_sub, point_size=0.5, show_vertices=False, line_width=0.5)
-# plt.savefig('fov_tmp.pdf')
+# fig = voronoi_plot_2d(vor_sub, point_size=1, show_vertices=False, line_width=0.5)
+# plt.savefig('fov_1000_1500.pdf')
 # plt.close()
-
 
 # vertices should be ranked based on plot
 def poly_area(vertices):
@@ -422,6 +423,7 @@ for idx, region in enumerate(vor.regions):
 
 ## assign area for each point
 # 输入点 i → vor.point_region[i] → 区域索引 R → vor.regions[R] → 顶点坐标 → 计算面积 → 存储到 point_areas[i]
+# ~ 3 min
 point_areas = np.full(df.shape[0], np.nan)
 for point_idx, region_idx in enumerate(tqdm(vor.point_region, ncols=80)):
     if region_idx in region_indices:
@@ -442,51 +444,61 @@ adata.obs.index = [i.split('-')[0] for i in adata.obs.index]
 # sc.pp.log1p(adata)
 
 adata.obs['areas'] = np.nan
-
 df['cell_id'] = df['cell_id'].astype(str)
 idx =  np.intersect1d(df['cell_id'], adata.obs.index)
 adata.obs.loc[idx, 'areas'] = df[df['cell_id'].isin(idx)]['areas'].values
 
-adata_vsmc = adata[adata.obs['populations']=='VIC', :].copy()  # 4555
+## VSMC: vascular smooth muscle cells
+adata_vsmc = adata[(adata.obs['populations']=='VSMC') & (adata.obs['areas']<1000), :].copy()  # 947 × 238
 
-adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.39075276255607605
-adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'].mean().item()   # 0.3035983443260193
+vsmc_area_mid = adata_vsmc.obs['areas'].median().item()
+adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.39075276255607605
+adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.3035983443260193
+stats.ttest_ind(adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'],
+                adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index=='PIEZO2'])[1].item()   # 0.007383651592720666
 
-stats.ttest_ind(adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='PIEZO2'],
-                adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'])[1].item()   # 0.007383651592720666
+vsmc_genes_lst = []
+vsmc_fc_lst = []
+vsmc_p_lst = []
+for gene in adata_vsmc.var.index:
+    vsmc_genes_lst.append(gene)
+    vsmc_s_gex = adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index==gene].mean().item()
+    vsmc_b_gex = adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index==gene].mean().item()
+    vsmc_fc_lst.append(np.log2(vsmc_s_gex/vsmc_b_gex).item())
+    vsmc_p_value = stats.ttest_ind(adata_vsmc.X[adata_vsmc.obs['areas']<vsmc_area_mid, adata_vsmc.var.index==gene],
+                                   adata_vsmc.X[adata_vsmc.obs['areas']>vsmc_area_mid, adata_vsmc.var.index==gene])[1].item() 
+    vsmc_p_lst.append(vsmc_p_value)
 
+vsmc_res = pd.DataFrame({'genes':vsmc_genes_lst, 'log2fc':vsmc_fc_lst, 'pvalue':vsmc_p_lst})
+vsmc_res.to_csv('vsmc_log2fc_pvalue.txt', sep='\t', index=False)
 
+## plot volcano
+import pandas as pd
+import numpy as np
+from plotnine import *
 
-stats.ttest_ind(adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<300), adata_vsmc.var.index=='IL1B'],
-                adata_vsmc.X[(adata_vsmc.obs['areas']>300) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='IL1B'])[1].item()
+plt.rcParams['pdf.fonttype'] = 42
 
+df = pd.read_table('vsmc_log2fc_pvalue.txt')
+df['-log10(pvalue)'] = -np.log10(data['pvalue'])
 
-adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<200), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.1307757943868637
-adata_vsmc.X[(adata_vsmc.obs['areas']>200) & (adata_vsmc.obs['areas']<500), adata_vsmc.var.index=='PIEZO2'].mean().item()    # 0.1657598316669464
-adata_vsmc.X[(adata_vsmc.obs['areas']>500) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='PIEZO2'].mean().item()   # 0.2058609426021576
+df['idx'] = 'not_sig'
+df.loc[(df['log2fc']>np.log2(1.5))  &  (df['-log10(pvalue)']>-np.log10(0.05)),  'idx'] = 'up'
+df.loc[(df['log2fc']<-np.log2(1.5))  &  (df['-log10(pvalue)']>-np.log10(0.05)), 'idx'] = 'down'
 
-adata_vsmc.X[(adata_vsmc.obs['areas']>100) & (adata_vsmc.obs['areas']<200), adata_vsmc.var.index=='ADM'].mean().item()    # 0.1307757943868637
-adata_vsmc.X[(adata_vsmc.obs['areas']>200) & (adata_vsmc.obs['areas']<500), adata_vsmc.var.index=='ADM'].mean().item()    # 0.1657598316669464
-adata_vsmc.X[(adata_vsmc.obs['areas']>500) & (adata_vsmc.obs['areas']<1000), adata_vsmc.var.index=='ADM'].mean().item()   # 0.2058609426021576
+df['idx'].value_counts()
+# not_sig    235
+# up           3
 
-adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<200), adata.var.index=='PIEZO2'].mean().item()    # 0.1307757943868637
-adata.X[(adata.obs['areas']>300) & (adata.obs['areas']<500), adata.var.index=='PIEZO2'].mean().item()    # 0.1657598316669464
-adata.X[(adata.obs['areas']>600) & (adata.obs['areas']<1000), adata.var.index=='PIEZO2'].mean().item()   # 0.2058609426021576
+df['idx'] = pd.Categorical(df['idx'], categories=['up', 'down', 'not_sig'])
 
-adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<200), adata.var.index=='FOXC1'].mean().item()    # 0.1307757943868637
-adata.X[(adata.obs['areas']>300) & (adata.obs['areas']<500), adata.var.index=='FOXC1'].mean().item()    # 0.1657598316669464
-adata.X[(adata.obs['areas']>600) & (adata.obs['areas']<1000), adata.var.index=='FOXC1'].mean().item()   # 0.2058609426021576
-
-genes_lst = []
-fc_lst = []
-for gene in adata.var.index:
-    genes_lst.append(gene)
-    small = adata.X[(adata.obs['areas']>100) & (adata.obs['areas']<500), adata.var.index==gene].mean().item()
-    big = adata.X[(adata.obs['areas']>500) & (adata.obs['areas']<1000), adata.var.index==gene].mean().item()
-    fc_lst.append(big/small)
-
-res = pd.DataFrame({'genes':genes_lst, 'fc':fc_lst})
-
-
-
+p = ggplot(df, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
+                                                                   scale_color_manual(values={'up': 'red', 'down': 'blue', 'not_sig': 'gray'}) +\
+                                                                   scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.4)) +\
+                                                                   scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
+                                                                   geom_text(data=df[df['idx']!='not_sig'], mapping=aes(label='genes'), 
+                                                                             size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
+                                                                   # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
+                                                                   # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
+p.save(filename='vsmc_volcano.pdf', dpi=600, height=4, width=5)
 
