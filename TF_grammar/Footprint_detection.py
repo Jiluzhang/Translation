@@ -127,8 +127,10 @@ BiocManager::install("hdf5r")
 # wget -c https://bioconductor.org/packages/release/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz
 install.packages("./BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz")
 BiocManager::install("pbmcapply")
-
-# conda install conda-forge::h5py
+BiocManager::install("gtools")
+BiocManager::install("data.table")
+install.packages('R.utils')
+BiocManager::install("pbapply")
 
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
@@ -136,6 +138,9 @@ library(GenomicRanges)
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
+
 
 use_condaenv('PRINT')  # not use python installed by uv
 
@@ -187,32 +192,32 @@ project <- getRegionBias(project, nCores=16)
 # cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/code
 # cp /fs/home/jiluzhang/TF_grammar/PRINT/cfoot/obsBias_PRINT.tsv /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/obsBias.tsv
 # cp /fs/home/jiluzhang/TF_grammar/PRINT/data/shared/Tn5_NN_model.h5 /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared
-
 saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
 
 # Load barcodes for each replicate
-barcodeGroups <- data.frame(barcode = paste("rep", 1:5, sep = ""),
-                            group = 1:5)
+barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
 groups(project) <- mixedsort(unique(barcodeGroups$group))
 
 # Get position-by-tile-by-replicate ATAC insertion count tensor
 # We go through all down-sampling rates and get a count tensor for each of them
-if(!file.exists("../../data/BAC/tileCounts.rds")){
-  counts <- list()
-  pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")
+counts <- list()
+pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")  
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/PBMC_bulk_ATAC_tutorial_Bcell_0_frags.tsv.gz /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/all.fragments.tsv.gz
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T))
+
+
+
+
+
+for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
+  print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
   system("rm -r ../../data/BAC/chunkedCountTensor")
-  counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
-  for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
-    print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
-    system("rm -r ../../data/BAC/chunkedCountTensor")
-    pathToFrags <- paste0("../../data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
-    counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
-  }
-  system("rm -r ../../data/BAC/chunkedCountTensor")
-  saveRDS(counts, "../../data/BAC/tileCounts.rds")
-}else{
-  counts <- readRDS("../../data/BAC/tileCounts.rds")
+  pathToFrags <- paste0("../../data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
 }
+system("rm -r ../../data/BAC/chunkedCountTensor")
+saveRDS(counts, "../../data/BAC/tileCounts.rds")
+
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
