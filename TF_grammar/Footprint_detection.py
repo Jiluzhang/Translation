@@ -115,7 +115,96 @@ CUDA_VISIBLE_DEVICES=3 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-
 
 conda install r-base
 
+install.packages("BiocManager")
+BiocManager::install("GenomicRanges")
+BiocManager::install("dplyr")
+BiocManager::install("lattice")
+install.packages("https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-0.tar.gz")
+BiocManager::install("reticulate")
+BiocManager::install("SummarizedExperiment")
+BiocManager::install("ggplot2")
+BiocManager::install("hdf5r")
+BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 
+
+
+library(GenomicRanges)
+
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
+
+
+####################################
+# Get genomic ranges of BAC clones #
+####################################
+# Load list of BACs
+selectedBACs <- read.table("selectedBACs.txt")
+colnames(selectedBACs) <- c("ID", "chr", "start", "end")
+
+# Get genomic ranges of BACs
+BACRanges <- GRanges(seqnames=selectedBACs$chr,
+                     ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
+names(BACRanges) <- selectedBACs$ID
+saveRDS(BACRanges, "BACRanges.rds")
+
+#######################
+# Retrieve BAC ranges #
+#######################
+# Load genomic ranges of BACs
+BACRanges <- readRDS("BACRanges.rds")
+
+# Convert BAC genomic ranges into 1kb tiles
+tileRanges <- Reduce("c", GenomicRanges::slidingWindows(BACRanges, width=1000, step=1000))
+tileRanges <- tileRanges[width(tileRanges)==1000]
+tileBACs <- names(tileRanges)
+saveRDS(tileRanges, "tileRanges.rds")
+
+###################################################
+# Get BAC predicted bias and Tn5 insertion track #
+##################################################
+# Initialize a footprintingProject object
+projectName <- "BAC"
+project <- footprintingProject(projectName=projectName, refGenome="hg38")
+projectMainDir <- "./"
+projectDataDir <- paste0(projectMainDir, "/", projectName, "/")
+dataDir(project) <- projectDataDir
+mainDir(project) <- projectMainDir
+
+# Set the regionRanges slot
+regionRanges(project) <- tileRanges
+
+# Use our neural network to predict Tn5 bias for all positions in all regions
+# Remember to make a copy of the Tn5_NN_model.h5 file in projectDataDir!!
+if(file.exists(paste0(projectDataDir, "predBias.rds"))){
+  regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
+}else{
+  project <- getRegionBias(project, nCores=16)
+  saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
+}
+
+# Load barcodes for each replicate
+barcodeGroups <- data.frame(barcode = paste("rep", 1:5, sep = ""),
+                            group = 1:5)
+groups(project) <- mixedsort(unique(barcodeGroups$group))
+
+# Get position-by-tile-by-replicate ATAC insertion count tensor
+# We go through all down-sampling rates and get a count tensor for each of them
+if(!file.exists("../../data/BAC/tileCounts.rds")){
+  counts <- list()
+  pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")
+  system("rm -r ../../data/BAC/chunkedCountTensor")
+  counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
+  for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
+    print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
+    system("rm -r ../../data/BAC/chunkedCountTensor")
+    pathToFrags <- paste0("../../data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+    counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
+  }
+  system("rm -r ../../data/BAC/chunkedCountTensor")
+  saveRDS(counts, "../../data/BAC/tileCounts.rds")
+}else{
+  counts <- readRDS("../../data/BAC/tileCounts.rds")
+}
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
