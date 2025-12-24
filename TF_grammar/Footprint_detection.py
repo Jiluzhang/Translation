@@ -202,22 +202,171 @@ groups(project) <- mixedsort(unique(barcodeGroups$group))
 # We go through all down-sampling rates and get a count tensor for each of them
 counts <- list()
 pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")  
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/PBMC_bulk_ATAC_tutorial_Bcell_0_frags.tsv.gz /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/all.fragments.tsv.gz
+# wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE216nnn/GSE216403/suppl/GSE216403_BAC.fragments.tsv.gz  529Mb
+# mv GSE216403_BAC.fragments.tsv.gz all.fragments.tsv.gz
 counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T))
 
+# Null data.table (0 rows and 0 cols)
+############################### HERE ###############################
+############################### HERE ###############################
+############################### HERE ###############################
+############################### HERE ###############################
+############################### HERE ###############################
 
 
 
+# Down-sample fragments data (from getObservedBias.R)
+frags <- data.table::fread(paste0(projectDataDir, "rawData/all.fragments.tsv.gz"))
+nFrags <- dim(frags)[1]
+if(!dir.exists("./data/BAC/downSampledFragments/")){
+  system("mkdir ./data/BAC/downSampledFragments")
+}
+for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
+  print(paste0("Downsampling rate: ", downSampleRate))
+  downSampleInd <- sample(1:nFrags, as.integer(nFrags*downSampleRate))
+  downSampledFrags <- frags[downSampleInd, ]
+  gz <- gzfile(paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
+  write.table(downSampledFrags, gz, quote=F, row.names=F, col.names=F, sep="\t")
+  close(gz)
+}
 
 for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
   print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
-  system("rm -r ../../data/BAC/chunkedCountTensor")
-  pathToFrags <- paste0("../../data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
-  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined = T))
+  system("rm -r ./data/BAC/chunkedCountTensor")
+  pathToFrags <- paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T))
 }
-system("rm -r ../../data/BAC/chunkedCountTensor")
-saveRDS(counts, "../../data/BAC/tileCounts.rds")
+system("rm -r ./data/BAC/chunkedCountTensor")
+saveRDS(counts, "./data/BAC/tileCounts.rds")
 
+##################################
+# Get background dispersion data #
+##################################
+if(!dir.exists("./data/BAC/dispModelData")){
+  system("mkdir ./data/BAC/dispModelData")
+}
+
+for(footprintRadius in seq(2, 100, 1)){
+  
+  ############################### Get naked DNA Tn5 observations ###############################
+  print(paste0("Generating background dispersion data for footprintRadius = ", footprintRadius))
+  flankRadius <- footprintRadius
+  
+  # Record background observations of Tn5 bias and insertion density in the BAC data
+  bgObsData <- NULL
+  for(downSampleRate in names(counts)){
+    bgObsData <- rbind(bgObsData, data.table::rbindlist(
+      pbmcapply::pbmclapply(
+        1:length(counts[[downSampleRate]]),
+        function(tileInd){
+          
+          # Get predicted bias
+          predBias <- regionBias(project)[tileInd, ]
+          
+          # Get Tn5 insertion
+          tileCountTensor <- counts[[downSampleRate]][[tileInd]]
+          tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion = sum(count))
+
+
+          
+          Tn5Insertion <- rep(0, length(predBias))
+          Tn5Insertion[tileCountTensor$position] <- tileCountTensor$insertion
+          
+          # Get sum of predicted bias in left flanking, center, and right flanking windows
+          biasWindowSums <- footprintWindowSum(predBias, footprintRadius, flankRadius)
+          
+          # Get sum of insertion counts in left flanking, center, and right flanking windows
+          insertionWindowSums <- footprintWindowSum(Tn5Insertion, footprintRadius, flankRadius)
+          
+          # Combine results into a data.frame
+          tileObsData <- data.frame(leftFlankBias = biasWindowSums$leftFlank,
+                                    leftFlankInsertion = round(insertionWindowSums$leftFlank),
+                                    centerBias = biasWindowSums$center,
+                                    centerInsertion = round(insertionWindowSums$center),
+                                    rightFlankBias = biasWindowSums$rightFlank,
+                                    rightFlankInsertion = round(insertionWindowSums$rightFlank))
+          tileObsData$leftTotalInsertion <- tileObsData$leftFlankInsertion + tileObsData$centerInsertion
+          tileObsData$rightTotalInsertion <- tileObsData$rightFlankInsertion + tileObsData$centerInsertion
+          tileObsData$BACInd <- tileBACs[tileInd]
+          
+          tileObsData
+        },
+        mc.cores = 8
+      )
+    ))
+  }
+  
+  # Filter out regions with zero reads
+  bgObsData <- bgObsData[(bgObsData$leftTotalInsertion>=1) & (bgObsData$rightTotalInsertion>=1), ]
+  
+  # Get features of background observations for left-side testing
+  bgLeftFeatures <- as.data.frame(bgObsData[,c("leftFlankBias", "centerBias", "leftTotalInsertion")])
+  bgLeftFeatures <- data.frame(bgLeftFeatures)
+  bgLeftFeatures$leftTotalInsertion <- log10(bgLeftFeatures$leftTotalInsertion)
+  leftFeatureMean <- colMeans(bgLeftFeatures)
+  leftFeatureSD <- apply(bgLeftFeatures, 2, sd)
+  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureMean)
+  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureSD, "/")
+  
+  # Get features of background observations for right-side testing
+  bgRightFeatures <- as.data.frame(bgObsData[,c("rightFlankBias", "centerBias", "rightTotalInsertion")])
+  bgRightFeatures <- data.frame(bgRightFeatures)
+  bgRightFeatures$rightTotalInsertion <- log10(bgRightFeatures$rightTotalInsertion)
+  rightFeatureMean <- colMeans(bgRightFeatures)
+  rightFeatureSD <- apply(bgRightFeatures, 2, sd)
+  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureMean)
+  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureSD, "/")
+  
+  ############################### Match background KNN observations and calculate distribution of center / (center + flank) ratio ###############################
+  
+  # We sample 1e5 data points
+  set.seed(123)
+  sampleInds <- sample(1:dim(bgObsData)[1], 1e5)
+  sampleObsData <- bgObsData[sampleInds, ]
+  sampleLeftFeatures <- bgLeftFeatures[sampleInds, ]
+  sampleRightFeatures <- bgRightFeatures[sampleInds, ]
+  
+  # Match KNN observations in (flank bias, center bias, count sum) 3-dimensional space 
+  leftKNN <- FNN::get.knnx(bgLeftFeatures, sampleLeftFeatures, k = 500)$nn.index
+  leftRatioParams <- t(sapply(
+    1:dim(leftKNN)[1],
+    function(i){
+      KNNObsData <- bgObsData[leftKNN[i,],]
+      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$leftTotalInsertion
+      ratioMean <- mean(KNNRatio)
+      ratioSD <- sd(KNNRatio)
+      c(ratioMean, ratioSD)
+    }
+  ))
+  leftRatioParams <- as.data.frame(leftRatioParams)
+  colnames(leftRatioParams) <- c("leftRatioMean", "leftRatioSD")
+  
+  rightKNN <- FNN::get.knnx(bgRightFeatures, sampleRightFeatures, k = 500)$nn.index
+  rightRatioParams <- t(sapply(
+    1:dim(rightKNN)[1],
+    function(i){
+      KNNObsData <- bgObsData[rightKNN[i,],]
+      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$rightTotalInsertion
+      ratioMean <- mean(KNNRatio)
+      ratioSD <- sd(KNNRatio)
+      c(ratioMean, ratioSD)
+    }
+  ))
+  rightRatioParams <- as.data.frame(rightRatioParams)
+  colnames(rightRatioParams) <- c("rightRatioMean", "rightRatioSD")
+  
+  # Combine background observations on both sides
+  dispModelData <- cbind(sampleObsData,
+                         leftRatioParams, 
+                         rightRatioParams)
+  dispModelData$leftTotalInsertion <- log10(dispModelData$leftTotalInsertion)
+  dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
+  
+  # Save background observations to file
+  write.table(dispModelData, 
+              paste0("../../data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"),
+              quote = F, sep = "\t")
+}
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
