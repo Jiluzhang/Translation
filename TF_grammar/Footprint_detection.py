@@ -124,15 +124,22 @@ BiocManager::install("reticulate")
 BiocManager::install("SummarizedExperiment")
 BiocManager::install("ggplot2")
 BiocManager::install("hdf5r")
-BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
+# wget -c https://bioconductor.org/packages/release/data/annotation/src/contrib/BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz
+install.packages("./BSgenome.Hsapiens.UCSC.hg38_1.4.5.tar.gz")
+BiocManager::install("pbmcapply")
+
+# conda install conda-forge::h5py
 
 
-
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
 library(GenomicRanges)
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
 
+use_condaenv('PRINT')  # not use python installed by uv
+
+# shuf selectedBACs_raw.txt | head > selectedBACs.txt
 
 ####################################
 # Get genomic ranges of BAC clones #
@@ -166,7 +173,8 @@ saveRDS(tileRanges, "tileRanges.rds")
 projectName <- "BAC"
 project <- footprintingProject(projectName=projectName, refGenome="hg38")
 projectMainDir <- "./"
-projectDataDir <- paste0(projectMainDir, "/", projectName, "/")
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
+# mkdir data
 dataDir(project) <- projectDataDir
 mainDir(project) <- projectMainDir
 
@@ -175,12 +183,12 @@ regionRanges(project) <- tileRanges
 
 # Use our neural network to predict Tn5 bias for all positions in all regions
 # Remember to make a copy of the Tn5_NN_model.h5 file in projectDataDir!!
-if(file.exists(paste0(projectDataDir, "predBias.rds"))){
-  regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
-}else{
-  project <- getRegionBias(project, nCores=16)
-  saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
-}
+project <- getRegionBias(project, nCores=16)
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/code
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/cfoot/obsBias_PRINT.tsv /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/obsBias.tsv
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/data/shared/Tn5_NN_model.h5 /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared
+
+saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
 
 # Load barcodes for each replicate
 barcodeGroups <- data.frame(barcode = paste("rep", 1:5, sep = ""),
