@@ -131,6 +131,10 @@ BiocManager::install("gtools")
 BiocManager::install("data.table")
 install.packages('R.utils')
 BiocManager::install("pbapply")
+BiocManager::install("doParallel")
+BiocManager::install("doSNOW")
+BiocManager::install("cladoRcpp")
+BiocManager::install("FNN")
 
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
@@ -201,22 +205,13 @@ groups(project) <- mixedsort(unique(barcodeGroups$group))
 # Get position-by-tile-by-replicate ATAC insertion count tensor
 # We go through all down-sampling rates and get a count tensor for each of them
 counts <- list()
-pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")  
+pathToFrags <- paste0(projectDataDir, "rawData/test.fragments.tsv.gz")  # zcat all.fragments.tsv.gz | shuf | head -n 1000000 > test.fragments.tsv # pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")    
 # wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE216nnn/GSE216403/suppl/GSE216403_BAC.fragments.tsv.gz  529Mb
 # mv GSE216403_BAC.fragments.tsv.gz all.fragments.tsv.gz
-counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T))
-
-# Null data.table (0 rows and 0 cols)
-############################### HERE ###############################
-############################### HERE ###############################
-############################### HERE ###############################
-############################### HERE ###############################
-############################### HERE ###############################
-
-
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=100, nCores=3))  # set chunkSize!!!!!!
 
 # Down-sample fragments data (from getObservedBias.R)
-frags <- data.table::fread(paste0(projectDataDir, "rawData/all.fragments.tsv.gz"))
+frags <- data.table::fread(paste0(projectDataDir, "rawData/test.fragments.tsv.gz")) # frags <- data.table::fread(paste0(projectDataDir, "rawData/all.fragments.tsv.gz"))
 nFrags <- dim(frags)[1]
 if(!dir.exists("./data/BAC/downSampledFragments/")){
   system("mkdir ./data/BAC/downSampledFragments")
@@ -246,7 +241,7 @@ if(!dir.exists("./data/BAC/dispModelData")){
   system("mkdir ./data/BAC/dispModelData")
 }
 
-for(footprintRadius in seq(2, 100, 1)){
+for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
   
   ############################### Get naked DNA Tn5 observations ###############################
   print(paste0("Generating background dispersion data for footprintRadius = ", footprintRadius))
@@ -267,8 +262,6 @@ for(footprintRadius in seq(2, 100, 1)){
           tileCountTensor <- counts[[downSampleRate]][[tileInd]]
           tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion = sum(count))
 
-
-          
           Tn5Insertion <- rep(0, length(predBias))
           Tn5Insertion[tileCountTensor$position] <- tileCountTensor$insertion
           
