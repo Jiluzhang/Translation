@@ -241,7 +241,8 @@ if(!dir.exists("./data/BAC/dispModelData")){
   system("mkdir ./data/BAC/dispModelData")
 }
 
-for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
+for(footprintRadius in seq(2, 3, 1)){
+# for(footprintRadius in seq(2, 100, 1)){
   
   ############################### Get naked DNA Tn5 observations ###############################
   print(paste0("Generating background dispersion data for footprintRadius = ", footprintRadius))
@@ -284,7 +285,7 @@ for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
           
           tileObsData
         },
-        mc.cores = 8
+        mc.cores=2  #Luz
       )
     ))
   }
@@ -293,7 +294,7 @@ for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
   bgObsData <- bgObsData[(bgObsData$leftTotalInsertion>=1) & (bgObsData$rightTotalInsertion>=1), ]
   
   # Get features of background observations for left-side testing
-  bgLeftFeatures <- as.data.frame(bgObsData[,c("leftFlankBias", "centerBias", "leftTotalInsertion")])
+  bgLeftFeatures <- as.data.frame(bgObsData[, c("leftFlankBias", "centerBias", "leftTotalInsertion")])
   bgLeftFeatures <- data.frame(bgLeftFeatures)
   bgLeftFeatures$leftTotalInsertion <- log10(bgLeftFeatures$leftTotalInsertion)
   leftFeatureMean <- colMeans(bgLeftFeatures)
@@ -311,7 +312,6 @@ for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
   bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureSD, "/")
   
   ############################### Match background KNN observations and calculate distribution of center / (center + flank) ratio ###############################
-  
   # We sample 1e5 data points
   set.seed(123)
   sampleInds <- sample(1:dim(bgObsData)[1], 1e5)
@@ -320,7 +320,7 @@ for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
   sampleRightFeatures <- bgRightFeatures[sampleInds, ]
   
   # Match KNN observations in (flank bias, center bias, count sum) 3-dimensional space 
-  leftKNN <- FNN::get.knnx(bgLeftFeatures, sampleLeftFeatures, k = 500)$nn.index
+  leftKNN <- FNN::get.knnx(bgLeftFeatures, sampleLeftFeatures, k=500)$nn.index
   leftRatioParams <- t(sapply(
     1:dim(leftKNN)[1],
     function(i){
@@ -349,17 +349,138 @@ for(footprintRadius in seq(2, 3, 1)){ # for(footprintRadius in seq(2, 100, 1)){
   colnames(rightRatioParams) <- c("rightRatioMean", "rightRatioSD")
   
   # Combine background observations on both sides
-  dispModelData <- cbind(sampleObsData,
-                         leftRatioParams, 
-                         rightRatioParams)
+  dispModelData <- cbind(sampleObsData, leftRatioParams, rightRatioParams)
   dispModelData$leftTotalInsertion <- log10(dispModelData$leftTotalInsertion)
   dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
   
   # Save background observations to file
-  write.table(dispModelData, 
-              paste0("../../data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"),
-              quote = F, sep = "\t")
+  write.table(dispModelData, paste0("./data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=F, sep="\t")
+  # paste0("../../data/BAC/dispModelData/dispModelData", footprintRadius
 }
+
+
+## dispersionModel.ipynb
+import os
+import sys
+import h5py
+import pandas as pd
+import numpy as np
+import copy
+import tqdm
+import pickle
+import matplotlib
+import matplotlib.pyplot as plt
+import multiprocessing as mp
+import scipy.stats as ss
+from datetime import datetime
+from keras.models import load_model
+from keras.models import Sequential
+from keras.layers import *
+from keras.models import Model
+from keras import backend as K
+import tensorflow as tf  #Luz
+
+np.random.seed(42)
+for footprint_radius in range(2, 101):
+    
+    print("Training model for footprint radius = " + str(footprint_radius))
+
+    dispersion_data = pd.read_csv("./data/BAC/dispModelData/dispModelData" +\
+                                  str(footprint_radius) + "bp.txt", sep = "\t")
+
+    # Get model input data and prediction target
+    data = copy.deepcopy(dispersion_data.loc[:,["leftFlankBias", "rightFlankBias", "centerBias", 
+                                                "leftTotalInsertion", "rightTotalInsertion"]])
+    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", 
+                                 "rightRatioSD"]])
+    data = data.values
+    target = target.values
+    
+    # Remove infinite values
+    filter = np.isfinite(np.sum(target, axis = 1))
+    data = data[filter, :]
+    target = target[filter, :]
+    dispersion_data = dispersion_data.loc[filter, :]
+
+    # Get BAC indices for each observation
+    BAC_inds = dispersion_data.loc[:, "BACInd"].values
+    BACs = np.unique(BAC_inds)
+
+    # Randomly split BACs into training, validation and test
+    inds = np.arange(len(BACs))
+    np.random.shuffle(inds)
+    n_inds = len(inds)
+    training_BACs = BACs[inds[:int(n_inds * 0.5)]]               #Luz training_BACs = BACs[inds[:int(n_inds * 0.8)]]
+    val_BACs = BACs[inds[int(n_inds * 0.5):int(n_inds * 0.8)]]   #Luz val_BACs = BACs[inds[int(n_inds * 0.8):int(n_inds * 0.9)]]
+    test_BACs = BACs[inds[int(n_inds * 0.8):]]                   #Luz test_BACs = BACs[inds[int(n_inds * 0.9):]]
+
+    # Split individual observations by BAC into training, validation and test
+    training_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in training_BACs]
+    val_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in val_BACs]
+    test_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in test_BACs]
+
+    # Rescale the data and target values
+    data_mean = np.mean(data, axis = 0)
+    data_sd = np.std(data, axis = 0)
+    data = (data - data_mean) / data_sd
+    target_mean = np.mean(target, axis = 0)
+    target_sd = np.std(target, axis = 0)
+    target = (target - target_mean) / target_sd
+
+    # Randomly shuffle training data
+    training_inds = np.array(training_inds)
+    np.random.shuffle(training_inds)
+
+    # Split data into training, validation and test
+    training_data = data[training_inds, :]
+    val_data = data[val_inds, :]
+    test_data = data[test_inds, :]
+
+    # Split targets into training, validation and test
+    training_target = target[training_inds, :]
+    val_target = target[val_inds, :]
+    test_target = target[test_inds, :]
+
+    # Model Initialization
+    print("Training Tn5 dispersion model")
+    inputs = Input(shape = (np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
+    fc1 = Dense(32,activation = "relu")(inputs)
+    out = Dense(np.shape(target)[1],activation = "linear")(fc1)
+    model = Model(inputs=inputs,outputs=out)  
+    model.summary()
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
+
+    # Model training
+    mse = tf.keras.losses.MeanSquaredError()
+    prev_loss = np.inf
+    for n_epoch in range(500):
+
+        # New training epoch
+        model.fit(training_data, 
+                  training_target, 
+                  batch_size=32, epochs = 1, 
+                  validation_data=(val_data, val_target))  
+
+        # Get MSE loss on the valdation set after current epoch
+        val_pred = model.predict(val_data)
+        mse_loss = mse(val_target, val_pred).numpy()
+        print("MSE on validation set" + str(mse_loss))
+
+        # Get pred-target correlation on the validation set after current epoch
+        pred_corrs = [ss.pearsonr(val_target[:, i], val_pred[:, i])[0]
+                      for i in range(np.shape(target)[1])]
+        print("Pred-target correlation " + " ".join([str(i) for i in pred_corrs]))
+
+        # If loss on validation set stops decreasing quickly, stop training and adopt the previous saved version
+        print(mse_loss, prev_loss)
+        if mse_loss - prev_loss > -0.001 and n_epoch > 5:
+            break
+        else:
+            prev_loss = mse_loss
+
+    # Save model to file
+    model.save("./data/shared/dispModel/dispersionModel" + str(footprint_radius) + "bp.h5")
+
 
 
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
