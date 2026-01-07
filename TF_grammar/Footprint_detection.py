@@ -482,7 +482,6 @@ for footprint_radius in range(2, 101):
     model.save("./data/shared/dispModel/dispersionModel" + str(footprint_radius) + "bp.h5")
 
 
-
 # CUDA_VISIBLE_DEVICES=0 seq2print_train --config /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/configs/PBMC_bulkATAC_Bcell_0_fold0.JSON \
 #                                        --temp_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/temp \
 #                                        --model_dir /fs/home/jiluzhang/TF_grammar/scPrinter/test/seq2print/model \
@@ -493,4 +492,277 @@ wandb login
 #api key: 81a507e12b0e6ed78f49d25ac30c57b5bc3c26db
 
 # /data/home/jiluzhang/miniconda3/envs/scPrinter/bin  cp macs3 macs2
+
+
+
+#### TFBS_finetune.ipynb
+## conda activate scPrinter
+# reload imported modules
+%load_ext autoreload
+%autoreload 2
+    
+import scprinter as scp
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+import time
+import pandas as pd
+import numpy as np
+import os
+import time
+import re
+import pyBigWig
+import numpy as np
+import pandas as pd
+from concurrent.futures import *
+from tqdm.auto import *
+import pickle
+
+# wget -c https://raw.githubusercontent.com/ruochiz/FigRmotifs/main/human_pfms_v4.txt
+# > ENSG00000267281_LINE960_AC0235093_I
+# A [147 179 712 1 1 994 0 3 1 83 997 2 231 240]
+# C [305 110 16 3 2 4 995 2 3 915 2 160 378 215]
+# G [255 420 269 0 875 1 0 994 0 0 0 16 126 342]
+# T [294 291 3 997 122 1 4 1 996 1 1 822 265 203]
+motifs = scp.motifs.Motifs("./human_pfms_v4.txt", scp.genome.hg38.fetch_fa(), scp.genome.hg38.bg)
+motif2matrix = {motif.name.split("_")[2]: np.array([motif.counts['A'], motif.counts['C'], motif.counts['G'], motif.counts['T']]) for motif in motifs.all_motifs}
+
+## normalization to keep colsum of 1
+for m in motif2matrix:
+    mm = motif2matrix[m]
+    mm = mm / np.sum(mm, axis=0, keepdims=True)
+    motif2matrix[m] = mm
+
+tsvs = {cell:read_TF_loci(tsv_paths[cell]) for cell in tsv_paths}
+peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
+
+
+
+
+#### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
+#### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
+## conda activate PRINT
+
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+
+
+source("../../code/getCounts.R")
+source("../../code/getBias.R")
+source("../../code/getFootprints.R")
+source("../../code/visualization.R")
+source("../../code/getTFBS.R")
+source("../../code/getAggregateFootprint.R")
+library(hdf5r)
+
+###################
+# Load input data #
+###################
+
+projectName <- "HepG2" # One of "K562", "GM12878", "HepG2"
+ChIPDataset <- "Unibind"# One of "ENCODE", "Unibind"
+
+# Load footprint SummarizedExperiment object
+project <- footprintingProject(projectName=projectName, refGenome="hg38")
+projectMainDir <- "./"
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")  # mkdir data
+dataDir(project) <- projectDataDir
+mainDir(project) <- projectMainDir
+
+# Load region ranges
+
+## Download GSM6672041_HepG2_peaks.bed from GSE216464
+## generate "regionsRanges.rds"
+regionBed <- read.table(paste0(projectDataDir, "GSM6672041_HepG2_peaks.bed"))
+regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
+regions <- resize(regions, 1000, fix="center")
+saveRDS(regions, paste0(projectDataDir, "regionRanges.rds"))
+
+## Read rds file
+regions <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
+
+# Set the regionRanges slot
+regionRanges(project) <- regions
+
+# Load footprints
+footprintRadii <- c(10, 20, 30, 50, 80, 100)
+multiScaleFootprints <- list()
+for(footprintRadius in footprintRadii){
+  
+  print(paste0("Loading data for footprint radius = ", footprintRadius))  
+  chunkDir <- paste0("../../data/", projectName, "/chunkedFootprintResults/", footprintRadius, "/")
+  chunkFiles <- gtools::mixedsort(list.files(chunkDir))
+  scaleFootprints <- pbmcapply::pbmclapply(
+    chunkFiles,
+    function(chunkFile){
+      chunkData <- readRDS(paste0(chunkDir, chunkFile))
+      as.data.frame(t(sapply(
+        chunkData,
+        function(regionData){
+          regionData$aggregateScores
+        }
+      )))
+    },
+    mc.cores = 16
+  )
+  scaleFootprints <- data.table::rbindlist(scaleFootprints)
+  multiScaleFootprints[[as.character(footprintRadius)]] <- as.matrix(scaleFootprints)
+}
+
+# Load PWM data
+cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))
+
+# Load TF ChIP ranges
+if(ChIPDataset == "ENCODE"){
+  TFChIPRanges <- readRDS(paste0("../../data/", projectName, "/ENCODEChIPRanges.rds"))
+}else if(ChIPDataset == "Unibind"){
+  TFChIPRanges <- readRDS(paste0("../../data/shared/unibind/", projectName, "ChIPRanges.rds"))
+}
+
+# Only keep TFs with both motif and ChIP data
+keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
+cisBPMotifs <- cisBPMotifs[keptTFs]
+TFChIPRanges <- TFChIPRanges[keptTFs]
+
+# Find motif matches across all regions
+path <- paste0(dataDir(project), "motifPositionsList.rds")
+nCores <- 16
+combineTFs <- F
+if(file.exists(path)){
+  motifMatches <- readRDS(path)
+}else{
+  regions <- regionRanges(project)
+  # Find motif matches across all regions
+  print("Getting TF motif matches within CREs")
+  motifMatches <- pbmcapply::pbmclapply(
+    names(cisBPMotifs),
+    function(TF){
+      TFMotifPositions <- motifmatchr::matchMotifs(pwms = cisBPMotifs[[TF]], 
+                                                   subject = regions, 
+                                                   genome = refGenome(project),
+                                                   out = "positions")[[1]]
+      if(length(TFMotifPositions) > 0){
+        TFMotifPositions$TF <- TF
+        TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
+        TFMotifPositions <- mergeRegions(TFMotifPositions)
+        TFMotifPositions
+      }
+    },
+    mc.cores = nCores
+  )
+  names(motifMatches) <- names(cisBPMotifs)
+  if(combineTFs){motifMatches <- Reduce(c, motifMatches)}
+  saveRDS(motifMatches, path)
+}
+
+# Get ATAC tracks for each region
+project <- getATACTracks(project)
+regionATAC <- ATACTracks(project)
+
+##########################################
+# Get multi-scale footprints around TFBS #
+##########################################
+
+TFBSData <- getTFBSTrainingData(multiScaleFootprints,
+                                motifMatches,
+                                TFChIPRanges,
+                                regions, 
+                                percentBoundThreshold = 0.1)
+
+#####################
+# Save data to file #
+#####################
+
+# Write TFBS training data to a file
+h5_path <- paste0("../../data/", projectName, "/TFBSData", ChIPDataset, ".h5")
+if(file.exists(h5_path)){
+  system(paste0("rm ../../data/", projectName, "/TFBSData", ChIPDataset, ".h5"))
+}
+h5file <- H5File$new(h5_path, mode="w")
+h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
+h5file[["metadata"]] <- TFBSData[["metadata"]]
+h5file$close_all()
+
+####################################
+# Visualize footprints around TFBS #
+####################################
+
+h5_path <- paste0("../../data/", projectName, "/TFBSData", ChIPDataset, ".h5")
+h5file <- H5File$new(h5_path, mode="r")
+motifFootprints <- h5file[["motifFootprints"]]
+metadata <- h5file[["metadata"]]
+motifFootprints <- motifFootprints[1:motifFootprints$dims[1],]
+metadata <- metadata[1:metadata$dims]
+h5file$close_all()
+footprintRadii <- c(10, 20, 30, 50, 80, 100)
+contextRadius <- 100
+
+library(ComplexHeatmap)
+library(BuenColors)
+library(circlize)
+library(RColorBrewer)
+
+# Split heatmap columns by kernel size
+colGroups <- Reduce(c, lapply(
+  footprintRadii,
+  function(r){
+    paste(rep(r, contextRadius * 2 + 1), "bp")
+  }
+))
+
+# Label each kernel size
+colNames <- Reduce(c, lapply(
+  footprintRadii,
+  function(r){
+    c(rep("", contextRadius),
+      paste(" ", r, "bp"),
+      rep("", contextRadius))
+  }
+))
+
+TF <- "NFE2L2"
+TFFilter <- metadata[, 3] %in% TF
+TFFingerprint <- motifFootprints[TFFilter, ]
+sampleInd <- c(sample(which(metadata[TFFilter,1] == 1), 500, replace = T),
+               sample(which(metadata[TFFilter,1] == 0), 500, replace = T))
+TFBinding <- c("Unbound", "Bound")[(metadata[TFFilter,1] + 1)[sampleInd]]
+rowOrder <- order(TFFingerprint[sampleInd, 502], decreasing = T)
+colors <- colorRamp2(seq(0, quantile(TFFingerprint, 0.95), length.out=9),
+                     colors = colorRampPalette(c(rep("white", 2),  
+                                                 "#9ECAE1", "#08519C", "#08306B"))(9))
+
+Heatmap(TFFingerprint[sampleInd[rowOrder],],
+        col = colors,
+        cluster_rows = F,
+        show_row_dend = F,
+        show_column_dend = F,
+        column_split = factor(colGroups, levels = paste(footprintRadii, "bp")),
+        row_split = factor(TFBinding[rowOrder], levels = c("Unbound", "Bound")),
+        cluster_columns = F,
+        cluster_column_slices = F,
+        name = paste(TF, "\nfootprint\nscore"),
+        border = TRUE,
+        column_title = "Kernel sizes",
+        column_title_side = "bottom",
+        bottom_annotation = HeatmapAnnotation(
+          text = anno_text(colNames, rot = 0, location = 0.5, just = "center")
+        )
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
