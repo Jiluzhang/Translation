@@ -616,23 +616,17 @@ chunkSize <- regionChunkSize(project)
 
 dispersionModel <- dispModel(project, mode='2')
 
-
-barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
-groups(project) <- mixedsort(unique(barcodeGroups$group))
-pathToFrags <- paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz")
-projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=2000, nCores=8))
+# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+# groups(project) <- mixedsort(unique(barcodeGroups$group))
+# pathToFrags <- paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz")
+# projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=5000, nCores=32))  # generate chunk files
 
 groups(project) <- as.character(groups(project))
 groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
 cellTypeLabels <- groupCellType(project)
+chunkSize = 5000
 
-footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
-                                  tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
-                                  cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
-                                  returnCellTypeScores=FALSE, nCores=5)
-#   task 2 failed - "ℹ In argument: `group %in% groupID`.
-# Caused by error in `h()`:
-# ! error in evaluating the argument 'x' in selecting a method for function '%in%': object 'group' not found"
+seqBias <- regionBias(project)
 
 ############################################################
 ############################################################
@@ -640,6 +634,13 @@ footprintResults <- get_footprints(projectCountTensor=projectCountTensor, disper
 ############################################################
 ############################################################
 ############################################################
+
+footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
+                                  tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
+                                  cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
+                                  returnCellTypeScores=FALSE, nCores=8)
+
+
 
 
 # Load footprints
