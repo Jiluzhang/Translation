@@ -630,6 +630,17 @@ footprintResults <- get_footprints(projectCountTensor=projectCountTensor, disper
                                   tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
                                   cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
                                   returnCellTypeScores=FALSE, nCores=5)
+#   task 2 failed - "ℹ In argument: `group %in% groupID`.
+# Caused by error in `h()`:
+# ! error in evaluating the argument 'x' in selecting a method for function '%in%': object 'group' not found"
+
+############################################################
+############################################################
+####################### HERE ###############################
+############################################################
+############################################################
+############################################################
+
 
 # Load footprints
 footprintRadii <- c(10, 20, 30, 50, 80, 100)
