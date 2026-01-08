@@ -135,6 +135,8 @@ BiocManager::install("doParallel")
 BiocManager::install("doSNOW")
 BiocManager::install("cladoRcpp")
 BiocManager::install("FNN")
+BiocManager::install("keras")
+
 
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
@@ -546,6 +548,9 @@ peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
 ## conda activate PRINT
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R")
+use_condaenv('PRINT')
 
 
 source("../../code/getCounts.R")
@@ -574,10 +579,10 @@ mainDir(project) <- projectMainDir
 
 ## Download GSM6672041_HepG2_peaks.bed from GSE216464
 ## generate "regionsRanges.rds"
-regionBed <- read.table(paste0(projectDataDir, "GSM6672041_HepG2_peaks.bed"))
-regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
-regions <- resize(regions, 1000, fix="center")
-saveRDS(regions, paste0(projectDataDir, "regionRanges.rds"))
+# regionBed <- read.table(paste0(projectDataDir, "GSM6672041_HepG2_peaks.bed"))
+# regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
+# regions <- resize(regions, 1000, fix="center")
+# saveRDS(regions, paste0(projectDataDir, "regionRanges.rds"))
 
 ## Read rds file
 regions <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
@@ -585,13 +590,54 @@ regions <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
 # Set the regionRanges slot
 regionRanges(project) <- regions
 
+## get footprints
+tmpDir <- dataDir(project)
+chunkSize <- regionChunkSize(project)
+
+## h5 to rds for dispersion model
+# Sys.setenv(CUDA_VISIBLE_DEVICES='7')
+# keras <- import("keras")
+# for(footprintRadius in 2:2){
+#   # For each specific footprint radius, load dispersion model and training data
+#   dispModelData <- read.table(paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"),sep = "\t")
+#   dispersionModel <- keras$models$load_model(paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared/dispModel/dispersionModel", footprintRadius, "bp.h5"))
+#   # dispersionModel <- keras::load_model_hdf5(paste0("../../data/shared/dispModel/dispersionModel", footprintRadius, "bp.h5"))
+#   modelWeights <- dispersionModel$get_weights()  # modelWeights <- keras::get_weights(dispersionModel)
+#   modelFeatures <- dispModelData[, c("leftFlankBias", "rightFlankBias", "centerBias", "leftTotalInsertion", "rightTotalInsertion")]
+#   modelTargets <- dispModelData[, c("leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD")]
+  
+#   # Organize everything we need for background dispersion modeling into a list
+#   dispersionModel <- list(modelWeights=modelWeights, featureMean=colMeans(modelFeatures),
+#                           featureSD=apply(modelFeatures, 2, sd), targetMean=colMeans(modelTargets),
+#                           targetSD=apply(modelTargets, 2, sd))
+  
+#   saveRDS(dispersionModel, paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared/dispModel/dispersionModel", footprintRadius ,"bp.rds"))
+# }
+
+dispersionModel <- dispModel(project, mode='2')
+
+
+barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+groups(project) <- mixedsort(unique(barcodeGroups$group))
+pathToFrags <- paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz")
+projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=2000, nCores=8))
+
+groups(project) <- as.character(groups(project))
+groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
+cellTypeLabels <- groupCellType(project)
+
+footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
+                                  tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
+                                  cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
+                                  returnCellTypeScores=FALSE, nCores=5)
+
 # Load footprints
 footprintRadii <- c(10, 20, 30, 50, 80, 100)
 multiScaleFootprints <- list()
 for(footprintRadius in footprintRadii){
   
   print(paste0("Loading data for footprint radius = ", footprintRadius))  
-  chunkDir <- paste0("../../data/", projectName, "/chunkedFootprintResults/", footprintRadius, "/")
+  chunkDir <- paste0("./data/", projectName, "/chunkedFootprintResults/", footprintRadius, "/")
   chunkFiles <- gtools::mixedsort(list.files(chunkDir))
   scaleFootprints <- pbmcapply::pbmclapply(
     chunkFiles,
