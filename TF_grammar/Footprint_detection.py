@@ -136,8 +136,9 @@ BiocManager::install("doSNOW")
 BiocManager::install("cladoRcpp")
 BiocManager::install("FNN")
 BiocManager::install("keras")
-
-
+install.packages('https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-58.tar.gz')
+BiocManager::install("survcomp")  # speed up: options(repos = c(CRAN = "https://mirrors.tuna.tsinghua.edu.cn/CRAN/"))
+BiocManager::install("caTools")
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
 library(GenomicRanges)
@@ -546,10 +547,12 @@ peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
 #### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
 #### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
 ## conda activate PRINT
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/code
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R")
 use_condaenv('PRINT')
 
 
@@ -579,7 +582,8 @@ mainDir(project) <- projectMainDir
 
 ## Download GSM6672041_HepG2_peaks.bed from GSE216464
 ## generate "regionsRanges.rds"
-# regionBed <- read.table(paste0(projectDataDir, "GSM6672041_HepG2_peaks.bed"))
+# shuf GSM6672041_HepG2_peaks.bed | head -n 1000 > test_peaks.bed
+# regionBed <- read.table(paste0(projectDataDir, "test_peaks.bed")) # regionBed <- read.table(paste0(projectDataDir, "GSM6672041_HepG2_peaks.bed"))
 # regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
 # regions <- resize(regions, 1000, fix="center")
 # saveRDS(regions, paste0(projectDataDir, "regionRanges.rds"))
@@ -614,11 +618,13 @@ chunkSize <- regionChunkSize(project)
 #   saveRDS(dispersionModel, paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared/dispModel/dispersionModel", footprintRadius ,"bp.rds"))
 # }
 
-dispersionModel <- dispModel(project, mode='2')
+dispModel(project, 2) <- readRDS(paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared/dispModel/dispersionModel", '2' ,"bp.rds"))
+dispersionModel <- project@dispModel[[2]]
 
 # barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
 # groups(project) <- mixedsort(unique(barcodeGroups$group))
-# pathToFrags <- paste0("/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz")
+# zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
+# pathToFrags <- paste0("./data/HepG2/test.fragments.tsv.gz")
 # projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=5000, nCores=32))  # generate chunk files
 
 groups(project) <- as.character(groups(project))
@@ -626,25 +632,15 @@ groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
 cellTypeLabels <- groupCellType(project)
 chunkSize = 5000
 
-seqBias <- regionBias(project)
-
-############################################################
-############################################################
-####################### HERE ###############################
-############################################################
-############################################################
-############################################################
+project <- getRegionBias(project, nCores=16)
 
 footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
                                   tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
                                   cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
                                   returnCellTypeScores=FALSE, nCores=8)
 
-
-
-
 # Load footprints
-footprintRadii <- c(10, 20, 30, 50, 80, 100)
+footprintRadii <- c(2) #footprintRadii <- c(10, 20, 30, 50, 80, 100)
 multiScaleFootprints <- list()
 for(footprintRadius in footprintRadii){
   
@@ -669,14 +665,22 @@ for(footprintRadius in footprintRadii){
 }
 
 # Load PWM data
-cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))
+cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))  # wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
+
+## generate TF ChIP ranges
+# see 'getUnibindData.R'
+
+############################################################
+############################################################
+######################### HERE #############################
+############################################################
+############################################################
+############################################################
+
 
 # Load TF ChIP ranges
-if(ChIPDataset == "ENCODE"){
-  TFChIPRanges <- readRDS(paste0("../../data/", projectName, "/ENCODEChIPRanges.rds"))
-}else if(ChIPDataset == "Unibind"){
-  TFChIPRanges <- readRDS(paste0("../../data/shared/unibind/", projectName, "ChIPRanges.rds"))
-}
+TFChIPRanges <- readRDS(paste0("../../data/shared/unibind/", projectName, "ChIPRanges.rds"))
+
 
 # Only keep TFs with both motif and ChIP data
 keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
@@ -741,79 +745,6 @@ h5file <- H5File$new(h5_path, mode="w")
 h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
 h5file[["metadata"]] <- TFBSData[["metadata"]]
 h5file$close_all()
-
-####################################
-# Visualize footprints around TFBS #
-####################################
-
-h5_path <- paste0("../../data/", projectName, "/TFBSData", ChIPDataset, ".h5")
-h5file <- H5File$new(h5_path, mode="r")
-motifFootprints <- h5file[["motifFootprints"]]
-metadata <- h5file[["metadata"]]
-motifFootprints <- motifFootprints[1:motifFootprints$dims[1],]
-metadata <- metadata[1:metadata$dims]
-h5file$close_all()
-footprintRadii <- c(10, 20, 30, 50, 80, 100)
-contextRadius <- 100
-
-library(ComplexHeatmap)
-library(BuenColors)
-library(circlize)
-library(RColorBrewer)
-
-# Split heatmap columns by kernel size
-colGroups <- Reduce(c, lapply(
-  footprintRadii,
-  function(r){
-    paste(rep(r, contextRadius * 2 + 1), "bp")
-  }
-))
-
-# Label each kernel size
-colNames <- Reduce(c, lapply(
-  footprintRadii,
-  function(r){
-    c(rep("", contextRadius),
-      paste(" ", r, "bp"),
-      rep("", contextRadius))
-  }
-))
-
-TF <- "NFE2L2"
-TFFilter <- metadata[, 3] %in% TF
-TFFingerprint <- motifFootprints[TFFilter, ]
-sampleInd <- c(sample(which(metadata[TFFilter,1] == 1), 500, replace = T),
-               sample(which(metadata[TFFilter,1] == 0), 500, replace = T))
-TFBinding <- c("Unbound", "Bound")[(metadata[TFFilter,1] + 1)[sampleInd]]
-rowOrder <- order(TFFingerprint[sampleInd, 502], decreasing = T)
-colors <- colorRamp2(seq(0, quantile(TFFingerprint, 0.95), length.out=9),
-                     colors = colorRampPalette(c(rep("white", 2),  
-                                                 "#9ECAE1", "#08519C", "#08306B"))(9))
-
-Heatmap(TFFingerprint[sampleInd[rowOrder],],
-        col = colors,
-        cluster_rows = F,
-        show_row_dend = F,
-        show_column_dend = F,
-        column_split = factor(colGroups, levels = paste(footprintRadii, "bp")),
-        row_split = factor(TFBinding[rowOrder], levels = c("Unbound", "Bound")),
-        cluster_columns = F,
-        cluster_column_slices = F,
-        name = paste(TF, "\nfootprint\nscore"),
-        border = TRUE,
-        column_title = "Kernel sizes",
-        column_title_side = "bottom",
-        bottom_annotation = HeatmapAnnotation(
-          text = anno_text(colNames, rot = 0, location = 0.5, just = "center")
-        )
-)
-
-
-
-
-
-
-
 
 
 
