@@ -139,6 +139,12 @@ BiocManager::install("keras")
 install.packages('https://cran.r-project.org/src/contrib/Archive/MASS/MASS_7.3-58.tar.gz')
 BiocManager::install("survcomp")  # speed up: options(repos = c(CRAN = "https://mirrors.tuna.tsinghua.edu.cn/CRAN/"))
 BiocManager::install("caTools")
+conda install gsl
+BiocManager::install("DirichletMultinomial")
+install.packages('https://cran.r-project.org/src/contrib/Archive/TFMPvalue/TFMPvalue_0.0.9.tar.gz')
+BiocManager::install("TFBSTools")
+BiocManager::install("motifmatchr")
+
 
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz
 library(GenomicRanges)
@@ -538,10 +544,68 @@ for m in motif2matrix:
     mm = mm / np.sum(mm, axis=0, keepdims=True)
     motif2matrix[m] = mm
 
+def read_TF_loci(path):
+    TF_prediction = pd.read_csv(path, sep='\t')
+    if 'range' in TF_prediction.columns:
+        ranges = pd.DataFrame([re.split(':|-', xx) for xx in TF_prediction['range']])
+        ranges = ranges[[0,1,2,3]]
+        v = np.array(ranges[3])
+        v[v == ''] = '-'
+        ranges[3] = v
+        ranges.columns = ['chrom','start','end', 'strand']
+        ranges['start'] = ranges['start'].astype('int')
+        ranges['end'] = ranges['end'].astype('int')
+        TF_prediction = pd.concat([TF_prediction, ranges], axis=1)
+    else:
+        TF_prediction = pd.read_csv(path, sep='\t', header=None)
+        TF_prediction.columns = ['chrom','start','end', 'bound', 'TF']
+        TF_prediction['strand'] = '+'
+    # TF_prediction = TF_prediction.sort_values(by=['bound'], ascending=False) # sort such that bound = 1, comes first, and will be kept.
+    TF_prediction['summit'] = (TF_prediction['start']-1 + TF_prediction['end']) // 2
+    # TF_prediction = TF_prediction.drop_duplicates(['chrom','start', 'end'])
+    # TF_prediction = TF_prediction[TF_prediction['chrom'].isin(['chr1', 'chr3', 'chr6'])]
+    return TF_prediction
+
+def read_peaks(path):
+    df = pd.read_csv(path, sep='\t', header=None)
+    df.columns = ['chrom', 'start', 'end']
+    #print (df)
+    return df
+
+tsv_paths = {'HepG2': "./data/TFBSPrediction/HepG2_pred_data.tsv"}
+peaks_path = {'HepG2_0': "./data/HepG2/test_peaks.bed"}
+
 tsvs = {cell:read_TF_loci(tsv_paths[cell]) for cell in tsv_paths}
 peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
+model_name = {'HepG2': ["./TFBS_model_py.pt"]} # wget -c https://zenodo.org/records/15399859/files/TFBS_model_py.pt?download=1
+
+feats = ['attr.count.shap_hypo_0_.0.85.bigwig', 'attr.just_sum.shap_hypo_0-30_.0.85.bigwig']
+####### deeplift #######
+####### deeplift #######
+####### deeplift #######
+####### deeplift #######
+####### deeplift #######
 
 
+pool= ProcessPoolExecutor(max_workers=3)
+norm_factor = {}
+p_list = []
+for cell in model_name:
+    norm_factor[cell] = {}
+    for feat in feats:
+        norm_factor[cell][feat] = []
+        for model in model_name[cell]:
+            p = pool.submit(get_normalization_factor, model, feat, peaks[cell], sample_num=-1)
+            norm_factor[cell][feat].append(p)
+            p_list.append(p)
+
+
+
+############################################################
+############################################################
+##################### HERE #################################
+############################################################
+############################################################
 
 
 #### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
@@ -553,6 +617,8 @@ source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R")
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getAggregateFootprint.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getTFBS.R")
 use_condaenv('PRINT')
 
 
@@ -563,6 +629,7 @@ source("../../code/visualization.R")
 source("../../code/getTFBS.R")
 source("../../code/getAggregateFootprint.R")
 library(hdf5r)
+library(motifmatchr)
 
 ###################
 # Load input data #
@@ -672,9 +739,8 @@ cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_202
 # If running in Rstudio, set the working directory to current path
 
 library(GenomicRanges)
-source("../../../code/utils.R")
 
-dataset <- "K562"
+dataset <- "HepG2"
 
 # Get dataset metadata
 ChIPDir <- "/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/damo_hg38_all_TFBS/"
@@ -690,15 +756,16 @@ colnames(ChIPMeta) <- c("ID", "dataset", "TF")
 ChIPMeta$Dir <- ChIPSubDirs
 
 # Select cell types
-datasetName <- list("K562" = "K562_myelogenous_leukemia",
-                    "HepG2" = "HepG2_hepatoblastoma",
-                    "GM12878" = "GM12878_female_B-cells_lymphoblastoid_cell_line",
-                    "A549" = "A549_lung_carcinoma")
+# datasetName <- list("K562" = "K562_myelogenous_leukemia",
+#                     "HepG2" = "HepG2_hepatoblastoma",
+#                     "GM12878" = "GM12878_female_B-cells_lymphoblastoid_cell_line",
+#                     "A549" = "A549_lung_carcinoma")
+datasetName <- list("HepG2"="HepG2_hepatoblastoma")
 ChIPMeta <- ChIPMeta[ChIPMeta$dataset == datasetName[[dataset]], ]
 ChIPTFs <- ChIPMeta$TF
 
 # If we have multiple files for the same TF, decide whether to keep the intersection or union of sites
-mode <- "union"
+mode <- "intersect"
 
 # Extract TFBS ChIP ranges
 unibindTFBS <- pbmcapply::pbmclapply(
@@ -738,50 +805,22 @@ unibindTFBS <- pbmcapply::pbmclapply(
     }
     ChIPRanges
   },
-  mc.cores = 12
+  mc.cores = 3
 )
 names(unibindTFBS) <- sort(unique(ChIPTFs))
 
 # Save results to file
-if(mode == "intersect"){
-  saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "ChIPRanges.rds"))
-}else if (mode == "union"){
-  saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "UnionChIPRanges.rds"))
-}
-
-# Also save to bed file
-unibindBed <- data.table::rbindlist(
-  pbmcapply::pbmclapply(
-    names(unibindTFBS),
-    function(TF){
-      sites <- unibindTFBS[[TF]]
-      data.frame(
-        chr = as.character(seqnames(sites)),
-        start = start(sites),
-        end = end(sites),
-        TF = TF
-      )
-    },
-    mc.cores = 12
-  )
-)
-if(mode == "intersect"){
-  path <- paste0("../../../data/shared/unibind/", dataset, "ChIPRanges.bed")
-}else if (mode == "union"){
-  path <- paste0("../../../data/shared/unibind/", dataset, "UnionChIPRanges.bed")
-}
-write.table(
-  unibindBed, path,
-  sep = "\t", quote = F, col.names = F, row.names = F
-)
-
-
+# if(mode == "intersect"){
+#   saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "ChIPRanges.rds"))
+# }else if (mode == "union"){
+#   saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "UnionChIPRanges.rds"))
+# }
+saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
 ##########
 
 
 # Load TF ChIP ranges
-TFChIPRanges <- readRDS(paste0("../../data/shared/unibind/", projectName, "ChIPRanges.rds"))
-
+TFChIPRanges <- readRDS(paste0("./", projectName, "ChIPRanges.rds"))
 
 # Only keep TFs with both motif and ChIP data
 keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
@@ -790,8 +829,8 @@ TFChIPRanges <- TFChIPRanges[keptTFs]
 
 # Find motif matches across all regions
 path <- paste0(dataDir(project), "motifPositionsList.rds")
-nCores <- 16
-combineTFs <- F
+nCores <- 3
+combineTFs <- FALSE
 if(file.exists(path)){
   motifMatches <- readRDS(path)
 }else{
@@ -801,10 +840,8 @@ if(file.exists(path)){
   motifMatches <- pbmcapply::pbmclapply(
     names(cisBPMotifs),
     function(TF){
-      TFMotifPositions <- motifmatchr::matchMotifs(pwms = cisBPMotifs[[TF]], 
-                                                   subject = regions, 
-                                                   genome = refGenome(project),
-                                                   out = "positions")[[1]]
+      TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], subject=regions, 
+                                                   genome=refGenome(project), out="positions")[[1]]
       if(length(TFMotifPositions) > 0){
         TFMotifPositions$TF <- TF
         TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
@@ -826,26 +863,64 @@ regionATAC <- ATACTracks(project)
 ##########################################
 # Get multi-scale footprints around TFBS #
 ##########################################
-
-TFBSData <- getTFBSTrainingData(multiScaleFootprints,
-                                motifMatches,
-                                TFChIPRanges,
-                                regions, 
-                                percentBoundThreshold = 0.1)
+TFBSData <- getTFBSTrainingData(multiScaleFootprints, motifMatches, 
+                                TFChIPRanges, regions, percentBoundThreshold=0.1)
 
 #####################
 # Save data to file #
 #####################
-
 # Write TFBS training data to a file
-h5_path <- paste0("../../data/", projectName, "/TFBSData", ChIPDataset, ".h5")
+h5_path <- paste0("./data/", projectName, "/TFBSData", ChIPDataset, ".h5")
 if(file.exists(h5_path)){
-  system(paste0("rm ../../data/", projectName, "/TFBSData", ChIPDataset, ".h5"))
+  system(paste0("rm ./data/", projectName, "/TFBSData", ChIPDataset, ".h5"))
 }
-h5file <- H5File$new(h5_path, mode="w")
+h5file <- hdf5r::H5File$new(h5_path, mode="w")
 h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
 h5file[["metadata"]] <- TFBSData[["metadata"]]
 h5file$close_all()
+
+#### generate pred_data.tsv (from footprint_to_TF.ipynb)
+import h5py
+import numpy as np
+import pandas as pd
+
+external_dataset = "HepG2"
+external_hf = h5py.File("./data/" + external_dataset + "/TFBSDataUnibind.h5", 'r')
+
+external_metadata = external_hf['metadata']
+external_metadata = np.array(external_metadata)
+
+external_TF_bound = np.array([i[0] for i in external_metadata])
+external_motif_scores = np.array([i[1] for i in external_metadata])
+external_TF_labels = np.array([i[2].decode('ascii') for i in external_metadata])
+external_kept_TFs = np.unique(external_TF_labels)
+
+external_metadata = pd.DataFrame(external_metadata)
+external_metadata["range"] = [i.decode('ascii') for i in external_metadata["range"]]
+external_metadata["TF"] = [i.decode('ascii') for i in external_metadata["TF"]]
+# external_metadata["predScore"] = external_pred
+external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.tsv", sep="\t")  # mkdir ./data/TFBSPrediction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
