@@ -37,6 +37,8 @@ gzip PBMC_bulk_ATAC_tutorial_Bcell_1_frags_chr21.tsv
 
 import pandas as pd
 import scprinter as scp
+import re
+import json
 
 main_dir = '/fs/home/jiluzhang/TF_grammar/scPrinter/test'
 work_dir = '/fs/home/jiluzhang/TF_grammar/scPrinter/test'
@@ -81,7 +83,43 @@ for sample in samples:
                             gpus=0, wandb_project='scPrinter_seq_PBMC_bulkATAC',
                             verbose=False, launch=False)
 
-scp.tl.seq_tfbs_seq2print()
+regions_dict = {'chr11:47378230-47379030': 'SPI1', # Highly expressed in monocytes and B cells
+                'chr5:140633035-140633835': 'CD14', # Monocyte marker
+                'chr19:41876833-41877633': 'CD79a', # B cell marker
+                'chr11:118342294-118343094': 'CD3D', # T cell marker
+                'chr17:58281312-58282112': 'MPO', # Monocyte marker
+                'chr16:31259594-31260394': 'ITGAM', # Expressed in myeloid cells (including monocyte)
+                'chr3:39281281-39282081': 'CX3CR1', # A pretty important gene driving disease-related monocyte cell states
+               }
+
+# Save example regions to a bed file
+regions_df = []
+for region in regions_dict:
+    regions_df.append(re.split("[:-]", region))
+regions_df = pd.DataFrame(regions_df)
+regions_df.to_csv(f'{work_dir}/regions_test.bed', sep='\t', header=False, index=False)
+
+model_path_dict = {'B_cell_0':'/fs/home/jiluzhang/TF_grammar/scPrinter/test/model/PBMC_bulkATAC_Bcell_0_fold0-lemon-cosmos-16.pt',
+                   'B_cell_1':}
+adata_tfbs = {}
+for sample_ind, sample in enumerate(samples):
+    adata_tfbs[sample] = scp.tl.seq_tfbs_seq2print(seq_attr_count=None,
+                          seq_attr_footprint=None,
+                          genome=printer.genome,
+                          region_path=f'{work_dir}/regions_test.bed',
+                          gpus=[7], # change it to the available gpus
+                          model_type='seq2print',
+                          model_path=model_path_dict[sample], # For now we just run on one fold but you can provide a list of paths to all 5 folds
+                          lora_config=json.load(open(f'{work_dir}/configs/PBMC_bulkATAC_{sample}_fold0.JSON', 'r')),
+                          group_names=[sample],
+                          verbose=False,
+                          launch=True,
+                          return_adata=True, # turn this as True
+                          overwrite_seqattr=True,
+                          post_normalize=False,
+                          save_key=f'PBMC_bulkATAC_{sample}_roi', # and input a save_key
+                          save_path=work_dir)
+
 ##########################################
 ##########################################
 ############### HERE #####################
