@@ -97,11 +97,12 @@ regions_df = []
 for region in regions_dict:
     regions_df.append(re.split("[:-]", region))
 regions_df = pd.DataFrame(regions_df)
-regions_df.to_csv(f'{work_dir}/regions_test.bed', sep='\t', header=False, index=False)
+regions_df.to_csv(f'{work_dir}/regions_test.bed', sep='\t', header=False, index=False)   # change all chroms to chr21 to keep running & first number set to 1
 
-model_path_dict = {'B_cell_0':'/fs/home/jiluzhang/TF_grammar/scPrinter/test/model/PBMC_bulkATAC_Bcell_0_fold0-lemon-cosmos-16.pt',
-                   'B_cell_1':}
+model_path_dict = {'Bcell_0':'/fs/home/jiluzhang/TF_grammar/scPrinter/test/model/PBMC_bulkATAC_Bcell_0_fold0-lemon-cosmos-16.pt',
+                   'Bcell_1':'/fs/home/jiluzhang/TF_grammar/scPrinter/test/model/PBMC_bulkATAC_Bcell_0_fold0-worthy-energy-17.pt'}
 adata_tfbs = {}
+# tools.py (line 2491 "seq2print_tfbs" -> "python", "/fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/generate_TFBS_bigwig.py") !!!!!!
 for sample_ind, sample in enumerate(samples):
     adata_tfbs[sample] = scp.tl.seq_tfbs_seq2print(seq_attr_count=None,
                           seq_attr_footprint=None,
@@ -110,7 +111,7 @@ for sample_ind, sample in enumerate(samples):
                           gpus=[7], # change it to the available gpus
                           model_type='seq2print',
                           model_path=model_path_dict[sample], # For now we just run on one fold but you can provide a list of paths to all 5 folds
-                          lora_config=json.load(open(f'{work_dir}/configs/PBMC_bulkATAC_{sample}_fold0.JSON', 'r')),
+                          lora_config=json.load(open(f'PBMC_bulkATAC_{sample}_fold0.JSON', 'r')),
                           group_names=[sample],
                           verbose=False,
                           launch=True,
@@ -120,12 +121,71 @@ for sample_ind, sample in enumerate(samples):
                           save_key=f'PBMC_bulkATAC_{sample}_roi', # and input a save_key
                           save_path=work_dir)
 
-##########################################
-##########################################
-############### HERE #####################
-##########################################
-##########################################
-##########################################
+# We first scan TF motifs across all regions to find motif matched sites
+# Initialize motif set object
+motifs = scp.motifs.FigR_Human_Motifs(genome=printer.genome, bg=[0.25] * 4)
+
+# Prepare motif scanner. Here you can specify which TF motifs you want to scan using tf_genes. If tf_genes=None then use all motifs
+motifs.prep_scanner()
+
+# Scan motif sites. This will return the exact genomic coordinates of motif matches
+regions_df = pd.read_table('regions_test.bed', header=None)
+motif_sites = motifs.scan_motif(regions_df, verbose=True, clean=True)
+
+# Reformat motif matches to a pandas DataFrame
+motif_sites = pd.DataFrame(motif_sites)
+motif_sites.iloc[:, 2] = motif_sites.iloc[:, 1] + motif_sites.iloc[:, 8]
+motif_sites.iloc[:, 1] = motif_sites.iloc[:, 1] + motif_sites.iloc[:, 7]
+motif_sites = motif_sites.iloc[:, [0,1,2,4]]
+motif_sites.columns=["chrom", "start", "end", "TF"]
+
+# We then extract the TF binding scores at those motif sites
+import pyBigWig as pw
+
+def fetch_bw(args):
+    TFBS, bw, genome = args
+    chroms, starts, ends = np.array(TFBS['chrom']),np.array(TFBS['start']),np.array(TFBS['end'])
+    res_all = {}
+    with pw.open(bw, 'r') as f:
+        for chrom in tqdm(['chr21']): #Luz for chrom in tqdm(genome.chrom_sizes):
+            if chrom == 'chrY':
+                continue
+            res_all[chrom] = f.values(chrom, 0, genome.chrom_sizes[chrom], numpy=True)
+
+    vs = []
+    for chr, left, right in zip(tqdm(chroms, mininterval=1), starts, ends):
+        vs.append(np.nanmean(res_all[chr][left:right]))
+    return vs
+
+# Multi-process loading of TF binding scores
+for sample_ind, sample in enumerate(samples):
+    scp.tl.seq_tfbs_seq2print(seq_attr_count=None, seq_attr_footprint=None, genome=printer.genome,
+                          region_path=f'{work_dir}/regions_test.bed', gpus=[7], # change it to the available gpus
+                          model_type='seq2print',
+                          model_path=model_path_dict[sample], # For now we just run on one fold but you can provide a list of paths to all 5 folds
+                          lora_config=json.load(open(f'PBMC_bulkATAC_{sample}_fold0.JSON', 'r')),
+                          group_names=[sample], verbose=False,
+                          launch=True, return_adata=False, # turn this as False to generate TFBS.bigwig files
+                          overwrite_seqattr=True, post_normalize=False,
+                          save_key=f'PBMC_bulkATAC_{sample}_roi', # and input a save_key
+                          save_path=work_dir)
+
+bigwig_dict = {sample:f"{work_dir}/{sample}_TFBS.bigwig" for sample in samples}
+args = [[motif_sites, bigwig_dict[sample], printer.genome] for sample in samples]
+n_jobs = 1
+
+import multiprocessing as mp
+import numpy as np
+from tqdm import tqdm
+
+with mp.Pool(n_jobs) as pool:
+    TFBS_scores = list(pool.imap(fetch_bw, args))
+TFBS_scores = np.array(TFBS_scores).T
+TFBS_scores = pd.DataFrame(TFBS_scores, columns=[f"TFBS_{sample}" for sample in samples])
+TFBS_scores = pd.concat([motif_sites, TFBS_scores], axis=1)
+
+
+
 
 
 import h5py
