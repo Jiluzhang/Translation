@@ -211,6 +211,8 @@ CUDA_VISIBLE_DEVICES=3 python /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-
                               --data_dir . \
                               --project scPrinter_seq_PBMC_bulkATAC_Bcell_0
 
+
+
 # dispersion model: /data/home/jiluzhang/.cache/scprinter/dispersion_model_py_v2.h5
 # "peaks": "seq2print_cleaned_narrowPeak.bed"
 # "signals": "Bcell_0.bw"
