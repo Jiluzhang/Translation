@@ -605,11 +605,6 @@ names(unibindTFBS) <- sort(unique(ChIPTFs))
 saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
 
 
-
-
-
-
-
 #### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
 #### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
 ## conda activate PRINT
@@ -677,71 +672,54 @@ for(footprintRadius in footprintRadii){
   multiScaleFootprints[[as.character(footprintRadius)]] <- as.matrix(scaleFootprints)
 }
 
-## Load PWM data
 cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))  # wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
+TFChIPRanges <- readRDS(paste0(projectDataDir, projectName, "ChIPRanges.rds"))
 
-
-
-
-# Load TF ChIP ranges
-TFChIPRanges <- readRDS(paste0("./", projectName, "ChIPRanges.rds"))
-
-# Only keep TFs with both motif and ChIP data
+## Only keep TFs with both motif and ChIP data
 keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
 cisBPMotifs <- cisBPMotifs[keptTFs]
 TFChIPRanges <- TFChIPRanges[keptTFs]
 
-# Find motif matches across all regions
-path <- paste0(dataDir(project), "motifPositionsList.rds")
-nCores <- 3
-combineTFs <- FALSE
-if(file.exists(path)){
-  motifMatches <- readRDS(path)
-}else{
-  regions <- regionRanges(project)
-  # Find motif matches across all regions
-  print("Getting TF motif matches within CREs")
-  motifMatches <- pbmcapply::pbmclapply(
-    names(cisBPMotifs),
+## Find motif matches across all regions
+motifMatches <- pbmcapply::pbmclapply(names(cisBPMotifs),
     function(TF){
-      TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], subject=regions, 
-                                                   genome=refGenome(project), out="positions")[[1]]
-      if(length(TFMotifPositions) > 0){
-        TFMotifPositions$TF <- TF
-        TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
-        TFMotifPositions <- mergeRegions(TFMotifPositions)
-        TFMotifPositions
-      }
+        TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], 
+                                                     subject=regionRanges(project), 
+                                                     genome=refGenome(project),
+                                                     out="positions")[[1]]
+        if(length(TFMotifPositions)>0){
+            TFMotifPositions$TF <- TF
+            TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
+            TFMotifPositions <- mergeRegions(TFMotifPositions)
+            TFMotifPositions
+        }
     },
-    mc.cores = nCores
-  )
-  names(motifMatches) <- names(cisBPMotifs)
-  if(combineTFs){motifMatches <- Reduce(c, motifMatches)}
-  saveRDS(motifMatches, path)
-}
+    mc.cores=3)
+
+names(motifMatches) <- names(cisBPMotifs)
+saveRDS(motifMatches, paste0(projectDataDir, "motifPositionsList.rds"))
 
 # Get ATAC tracks for each region
 project <- getATACTracks(project)
 regionATAC <- ATACTracks(project)
 
-##########################################
-# Get multi-scale footprints around TFBS #
-##########################################
-TFBSData <- getTFBSTrainingData(multiScaleFootprints, motifMatches, 
-                                TFChIPRanges, regions, percentBoundThreshold=0.1)
+## Get multi-scale footprints around TFBS
+TFBSData <- getTFBSTrainingData(multiScaleFootprints, motifMatches, TFChIPRanges,
+                                regions, percentBoundThreshold=0.1)
 
-#####################
-# Save data to file #
-#####################
 # Write TFBS training data to a file
-h5_path <- paste0("./data/", projectName, "/TFBSData", ChIPDataset, ".h5")
-if(file.exists(h5_path)){
-  system(paste0("rm ./data/", projectName, "/TFBSData", ChIPDataset, ".h5"))
-}
-h5file <- hdf5r::H5File$new(h5_path, mode="w")
+h5file <- hdf5r::H5File$new(paste0(projectDataDir, "TFBSData", ChIPDataset, ".h5"), mode="w")
 h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
 h5file[["metadata"]] <- TFBSData[["metadata"]]
 h5file$close_all()
+
+###################################################
+###################################################
+################### HERE ##########################
+###################################################
+###################################################
+###################################################
+
 
 #### generate pred_data.tsv (from footprint_to_TF.ipynb)
 import h5py
