@@ -21,6 +21,7 @@
 # files for seq2print model training: hg38_bias_v2.h5 gencode_v41_GRCh38.fa.gz
 
 CUDA_VISIBLE_DEVICES=7 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
+                                                      --data_dir . --project 20160114
 ####################################################################################################################################################################################
 
 ################################################################################ train TFBS model ################################################################################
@@ -134,7 +135,6 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
         labels = np.array(tsv['bound'])
 
         for c,s,sd,tf, start,end in zip(tqdm(chrom, disable=not verbose), summit, strands, tfs, starts, ends):
-            
             try:
                 v = f.values(c, s-flank, s+flank+1, numpy=True)
             except:
@@ -142,7 +142,7 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
                 v = np.zeros((int(2*flank+1)))
             if sd != '+':
                 v = v[::-1]
-
+            
             seq = fasta[c][start-1:end].seq
             seq = scp.utils.DNA_one_hot(seq).numpy()
             seq_trend = f.values(c, start-1, end, numpy=True)
@@ -153,15 +153,14 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
             motif_match = cosine(motif2matrix[tf].reshape((-1)), seq.reshape((-1)))
             
             signals.append(v)
-            similarity.append([cosine(seq_trend, motif_trend), 
-                               # motif_match,
+            similarity.append([cosine(seq_trend, motif_trend), # motif_match,
                                ((seq_trend - median) / (high - low)).mean()])
     
     signals = np.array(signals)
     similarity = np.array(similarity)
     signals = np.nan_to_num(signals)
     similarity =  np.nan_to_num(similarity)
-
+    
     signals = (signals - median) / (high - low)
     return signals, similarity, tsv
 
@@ -331,11 +330,7 @@ class TFConv_translate(nn.Module):
         self.with_motif = flag
 
     def forward(self, x):
-        # if not self.with_motif:
-        #     x = F.conv1d(x, self.conv1.weight[:, :, 3:], self.conv1.bias)
-        # else:
         x = F.conv1d(x, self.conv1.weight, self.conv1.bias)
-
         xx = self.dropout1(self.activation1(x))
         xx = self.dropout2(self.activation2(self.conv2(xx)))
         xx = self.dropout3(self.activation3(self.conv3(xx)))
@@ -521,20 +516,278 @@ for feats in [[0], [1]]:
 
 
 
+################################################################################ TF training data ################################################################################
+## Rscript peak_bed2rds.R
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfdata/data/HepG2
+## Download GSM6672041_HepG2_peaks.bed from GSE216464 (SHARE-Seq of HepG2 cells) (extended to 1kb)
+## generate "regionsRanges.rds"
+## shuf GSM6672041_HepG2_peaks.bed | head -n 1000 > test_peaks.bed
+suppressPackageStartupMessages(library(GenomicRanges))
+regionBed <- read.table("test_peaks.bed")
+regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
+regions <- resize(regions, 1000, fix="center")
+saveRDS(regions, "regionRanges.rds")
 
 
+## Rscript disp_rds.R
+## h5 to rds for dispersion model
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfdata/dispersionModel
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/dispModelData/dispModelData2bp.txt .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/shared/dispModel/dispersionModel2bp.h5 .
+library(reticulate)
+use_condaenv('PRINT')
+Sys.setenv(CUDA_VISIBLE_DEVICES='7')
+keras <- import("keras")
+for(footprintRadius in 2:2){
+  dispModelData <- read.table(paste0("dispModelData", footprintRadius, "bp.txt"), sep="\t")
+  dispersionModel <- keras$models$load_model(paste0("dispersionModel", footprintRadius, "bp.h5"))
+  modelWeights <- dispersionModel$get_weights()
+  modelFeatures <- dispModelData[, c("leftFlankBias", "rightFlankBias", "centerBias", "leftTotalInsertion", "rightTotalInsertion")]
+  modelTargets <- dispModelData[, c("leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD")]
+  dispersionModel <- list(modelWeights=modelWeights,
+                          featureMean=colMeans(modelFeatures), featureSD=apply(modelFeatures, 2, sd),
+                          targetMean=colMeans(modelTargets), targetSD=apply(modelTargets, 2, sd))
+  saveRDS(dispersionModel, paste0("dispersionModel", footprintRadius, "bp.rds"))
+}
 
 
+#### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
+#### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
+## conda activate PRINT
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/code
+
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getAggregateFootprint.R")
+source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getTFBS.R")
+use_condaenv('PRINT')
+
+projectName <- "HepG2"    # One of "K562", "GM12878", "HepG2"
+ChIPDataset <- "Unibind"  # One of "ENCODE", "Unibind"
+project <- footprintingProject(projectName=projectName, refGenome="hg38")
+projectMainDir <- "./"
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")  # mkdir data
+dataDir(project) <- projectDataDir
+mainDir(project) <- projectMainDir
+regionRanges(project) <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
+dispModel(project, 2) <- readRDS(paste0(projectMainDir, "dispersionModel/dispersionModel", '2', "bp.rds"))
+
+tmpDir <- dataDir(project)
+chunkSize <- regionChunkSize(project)
+dispersionModel <- project@dispModel[[2]]
+
+# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+# groups(project) <- mixedsort(unique(barcodeGroups$group))
+# zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
+# pathToFrags <- paste0("./data/HepG2/test.fragments.tsv.gz")
+# projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=5000, nCores=32))  # generate chunk files
+
+groups(project) <- as.character(groups(project))
+groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
+cellTypeLabels <- groupCellType(project)
+chunkSize = 5000
+
+project <- getRegionBias(project, nCores=16)
+
+footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
+                                  tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
+                                  cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
+                                  returnCellTypeScores=FALSE, nCores=8)
+
+# Load footprints
+footprintRadii <- c(2) #footprintRadii <- c(10, 20, 30, 50, 80, 100)
+multiScaleFootprints <- list()
+for(footprintRadius in footprintRadii){
+  
+  print(paste0("Loading data for footprint radius = ", footprintRadius))  
+  chunkDir <- paste0("./data/", projectName, "/chunkedFootprintResults/", footprintRadius, "/")
+  chunkFiles <- gtools::mixedsort(list.files(chunkDir))
+  scaleFootprints <- pbmcapply::pbmclapply(
+    chunkFiles,
+    function(chunkFile){
+      chunkData <- readRDS(paste0(chunkDir, chunkFile))
+      as.data.frame(t(sapply(
+        chunkData,
+        function(regionData){
+          regionData$aggregateScores
+        }
+      )))
+    },
+    mc.cores = 16
+  )
+  scaleFootprints <- data.table::rbindlist(scaleFootprints)
+  multiScaleFootprints[[as.character(footprintRadius)]] <- as.matrix(scaleFootprints)
+}
+
+# Load PWM data
+cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))  # wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
+
+#### generate TF ChIP ranges ####
+# see 'getUnibindData.R'
+# If running in Rstudio, set the working directory to current path
+
+library(GenomicRanges)
+
+dataset <- "HepG2"
+
+# Get dataset metadata
+ChIPDir <- "/fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/damo_hg38_all_TFBS/"
+ChIPSubDirs <- list.files(ChIPDir)
+ChIPMeta <- as.data.frame(t(sapply(
+  ChIPSubDirs, 
+  function(ChIPSubDir){
+    strsplit(ChIPSubDir, "\\.")[[1]]
+  }
+)))
+rownames(ChIPMeta) <- NULL
+colnames(ChIPMeta) <- c("ID", "dataset", "TF")
+ChIPMeta$Dir <- ChIPSubDirs
+
+# Select cell types
+# datasetName <- list("K562" = "K562_myelogenous_leukemia",
+#                     "HepG2" = "HepG2_hepatoblastoma",
+#                     "GM12878" = "GM12878_female_B-cells_lymphoblastoid_cell_line",
+#                     "A549" = "A549_lung_carcinoma")
+datasetName <- list("HepG2"="HepG2_hepatoblastoma")
+ChIPMeta <- ChIPMeta[ChIPMeta$dataset == datasetName[[dataset]], ]
+ChIPTFs <- ChIPMeta$TF
+
+# If we have multiple files for the same TF, decide whether to keep the intersection or union of sites
+mode <- "intersect"
+
+# Extract TFBS ChIP ranges
+unibindTFBS <- pbmcapply::pbmclapply(
+  sort(unique(ChIPTFs)),
+  function(TF){
+    
+    # Retrieve the list of ChIP Ranges
+    ChIPRangeList <- lapply(
+      which(ChIPTFs %in% TF),
+      function(entry){
+        ChIPSubDir <- ChIPMeta$Dir[entry]
+        ChIPFiles <- list.files(paste0(ChIPDir, ChIPSubDir))
+        ChIPRanges <- lapply(
+          ChIPFiles,
+          function(ChIPFile){
+            ChIPBed <- read.table(paste0(ChIPDir, ChIPSubDir, "/", ChIPFile))
+            ChIPRange <- GRanges(seqnames = ChIPBed$V1, ranges = IRanges(start = ChIPBed$V2, end = ChIPBed$V3))
+            ChIPRange$score <- ChIPBed$V5
+            ChIPRange
+          }
+        )
+        if(mode == "intersect"){
+          ChIPRanges <- Reduce(subsetByOverlaps, ChIPRanges)
+        }else if (mode == "union"){
+          ChIPRanges <- mergeRegions(Reduce(c, ChIPRanges))
+        }
+        
+        ChIPRanges
+      }
+    )
+    
+    # For TFs with more than one ChIP files, take the intersection or union of regions in all files
+    if(mode == "intersect"){
+      ChIPRanges <- Reduce(subsetByOverlaps, ChIPRangeList)
+    }else if (mode == "union"){
+      ChIPRanges <- mergeRegions(Reduce(c, ChIPRangeList))
+    }
+    ChIPRanges
+  },
+  mc.cores = 3
+)
+names(unibindTFBS) <- sort(unique(ChIPTFs))
+
+# Save results to file
+# if(mode == "intersect"){
+#   saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "ChIPRanges.rds"))
+# }else if (mode == "union"){
+#   saveRDS(unibindTFBS, paste0("../../../data/shared/unibind/", dataset, "UnionChIPRanges.rds"))
+# }
+saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
+##########
 
 
+# Load TF ChIP ranges
+TFChIPRanges <- readRDS(paste0("./", projectName, "ChIPRanges.rds"))
 
+# Only keep TFs with both motif and ChIP data
+keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
+cisBPMotifs <- cisBPMotifs[keptTFs]
+TFChIPRanges <- TFChIPRanges[keptTFs]
 
+# Find motif matches across all regions
+path <- paste0(dataDir(project), "motifPositionsList.rds")
+nCores <- 3
+combineTFs <- FALSE
+if(file.exists(path)){
+  motifMatches <- readRDS(path)
+}else{
+  regions <- regionRanges(project)
+  # Find motif matches across all regions
+  print("Getting TF motif matches within CREs")
+  motifMatches <- pbmcapply::pbmclapply(
+    names(cisBPMotifs),
+    function(TF){
+      TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], subject=regions, 
+                                                   genome=refGenome(project), out="positions")[[1]]
+      if(length(TFMotifPositions) > 0){
+        TFMotifPositions$TF <- TF
+        TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
+        TFMotifPositions <- mergeRegions(TFMotifPositions)
+        TFMotifPositions
+      }
+    },
+    mc.cores = nCores
+  )
+  names(motifMatches) <- names(cisBPMotifs)
+  if(combineTFs){motifMatches <- Reduce(c, motifMatches)}
+  saveRDS(motifMatches, path)
+}
 
+# Get ATAC tracks for each region
+project <- getATACTracks(project)
+regionATAC <- ATACTracks(project)
 
+##########################################
+# Get multi-scale footprints around TFBS #
+##########################################
+TFBSData <- getTFBSTrainingData(multiScaleFootprints, motifMatches, 
+                                TFChIPRanges, regions, percentBoundThreshold=0.1)
 
+#####################
+# Save data to file #
+#####################
+# Write TFBS training data to a file
+h5_path <- paste0("./data/", projectName, "/TFBSData", ChIPDataset, ".h5")
+if(file.exists(h5_path)){
+  system(paste0("rm ./data/", projectName, "/TFBSData", ChIPDataset, ".h5"))
+}
+h5file <- hdf5r::H5File$new(h5_path, mode="w")
+h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
+h5file[["metadata"]] <- TFBSData[["metadata"]]
+h5file$close_all()
 
+#### generate pred_data.tsv (from footprint_to_TF.ipynb)
+import h5py
+import numpy as np
+import pandas as pd
 
+external_dataset = "HepG2"
+external_hf = h5py.File("./data/" + external_dataset + "/TFBSDataUnibind.h5", 'r')
 
+external_metadata = external_hf['metadata']
+external_metadata = np.array(external_metadata)
 
+external_TF_bound = np.array([i[0] for i in external_metadata])
+external_motif_scores = np.array([i[1] for i in external_metadata])
+external_TF_labels = np.array([i[2].decode('ascii') for i in external_metadata])
+external_kept_TFs = np.unique(external_TF_labels)
 
-                                                      --data_dir . --project 20160114
+external_metadata = pd.DataFrame(external_metadata)
+external_metadata["range"] = [i.decode('ascii') for i in external_metadata["range"]]
+external_metadata["TF"] = [i.decode('ascii') for i in external_metadata["TF"]]
+# external_metadata["predScore"] = external_pred
+external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.tsv", sep="\t")  # mkdir ./data/TFBSPrediction
+########################################################################################################################################################################
