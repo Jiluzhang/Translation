@@ -554,7 +554,10 @@ for(footprintRadius in 2:2){
 #### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
 #### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
 ## conda activate PRINT
-# cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/code
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfdata
+# cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code
+# zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/shared/Tn5_NN_model.h5 ./data/shared
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
@@ -568,33 +571,42 @@ projectName <- "HepG2"    # One of "K562", "GM12878", "HepG2"
 ChIPDataset <- "Unibind"  # One of "ENCODE", "Unibind"
 project <- footprintingProject(projectName=projectName, refGenome="hg38")
 projectMainDir <- "./"
-projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")  # mkdir data
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
 dataDir(project) <- projectDataDir
 mainDir(project) <- projectMainDir
-regionRanges(project) <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
-dispModel(project, 2) <- readRDS(paste0(projectMainDir, "dispersionModel/dispersionModel", '2', "bp.rds"))
 
 tmpDir <- dataDir(project)
 chunkSize <- regionChunkSize(project)
+
+regionRanges(project) <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
+
+dispModel(project, 2) <- readRDS(paste0(projectMainDir, "dispersionModel/dispersionModel", '2', "bp.rds"))
 dispersionModel <- project@dispModel[[2]]
 
-# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
-# groups(project) <- mixedsort(unique(barcodeGroups$group))
-# zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
-# pathToFrags <- paste0("./data/HepG2/test.fragments.tsv.gz")
-# projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=5000, nCores=32))  # generate chunk files
-
-groups(project) <- as.character(groups(project))
+barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+groups(project) <- as.character(mixedsort(unique(barcodeGroups$group)))
 groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
 cellTypeLabels <- groupCellType(project)
-chunkSize = 5000
 
-project <- getRegionBias(project, nCores=16)
+pathToFrags <- paste0(projectDataDir, "test.fragments.tsv.gz")
+projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T,
+                                                 chunkSize=chunkSize, nCores=32))  # region  position  group  count
+
+project <- getRegionBias(project, nCores=16)  # Tn5_NN_model.h5 in shared dir
+saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
+
+################################################################################
+################################################################################
+################################ HERE ##########################################
+################################################################################
+################################################################################
+################################################################################
+
 
 footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
-                                  tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
-                                  cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
-                                  returnCellTypeScores=FALSE, nCores=8)
+                                   tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
+                                   cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
+                                   returnCellTypeScores=FALSE, nCores=8)
 
 # Load footprints
 footprintRadii <- c(2) #footprintRadii <- c(10, 20, 30, 50, 80, 100)
