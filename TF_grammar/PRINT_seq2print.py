@@ -732,6 +732,10 @@ external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.t
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/conversion_rate_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_conv_rate.bw
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/coverage_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_count.bw
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam HepG2_ATAC-cFOOT.bam
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam.bai HepG2_ATAC-cFOOT.bam.bai
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/110.251216_JM110_gDNA_cFOOT/2_5g_merge/02.align/jm110_gDNA_cFOOT_0.6U.sort.bam jm110_gDNA_cFOOT_0.6U.sort.bam
+## Rscript gen_dispersion_training_data.R
 
 library(GenomicRanges)
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
@@ -739,90 +743,96 @@ source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
 use_condaenv('PRINT')  # not use python installed by uv
-Sys.setenv(CUDA_VISIBLE_DEVICES='3')
+Sys.setenv(CUDA_VISIBLE_DEVICES='1')
 
 ## Get and bin genomic ranges
-hg38_pos <- read.table("hg38.chrom.sizes")
-hg38_pos$start <- 1
-hg38_pos <- hg38_pos[, c(1, 3, 2)]
-colnames(hg38_pos) <- c('chr', 'start', 'end')
-hg38_pos <- hg38_pos[hg38_pos$chr%in%paste0('chr', 1:22), ]
-hg38_pos <- hg38_pos[mixedorder(hg38_pos$chr), ]
-hg38_pos <- hg38_pos[hg38_pos$chr=='chr21', ]
-hg38_pos$start <- 45709983  # select part of chr21 for testing
-hg38_pos$end <- 46009983 
-hg38_pos <- GRanges(seqnames=hg38_pos$chr, ranges=IRanges(start=hg38_pos$start, end=hg38_pos$end))
+# bedtools random -l 500000 -n 20 -seed 0 -g hg38.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
+# DNA in BAC is from human!!!
+# bedtools random -l 100000 -n 40 -seed 0 -g ecoli.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
+selectedBACs <- read.table("selectedBACs.txt")
+colnames(selectedBACs) <- c("ID", "chr", "start", "end")
 
-tileRanges <- Reduce("c", GenomicRanges::slidingWindows(hg38_pos, width=1000, step=1000))
+# only keep the ecoli one record
+######################################################
+######################################################
+###################### HERE ##########################
+######################################################
+######################################################
+######################################################
+
+BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
+names(BACRanges) <- selectedBACs$ID
+
+tileRanges <- Reduce("c", GenomicRanges::slidingWindows(BACRanges, width=1000, step=1000))
 tileRanges <- tileRanges[width(tileRanges)==1000] 
+tileBACs <- names(tileRanges)
 
 ## Get predicted bias and Tn5 insertion track
-projectName <- "hg38"
+projectName <- "BAC"
 project <- footprintingProject(projectName=projectName, refGenome="hg38")
 projectMainDir <- "./"
 projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
-system('mkdir ./data')
+if(!dir.exists("./data"))
+    system('mkdir ./data')
 dataDir(project) <- projectDataDir
 mainDir(project) <- projectMainDir
 
 regionRanges(project) <- tileRanges
-project <- getRegionBias(project, nCores=16)
-# mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
-# mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
-saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
 
+# project <- getRegionBias(project, nCores=16)  # maybe extracting from pre-computed bias is more convenient
+# # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
+# # mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
+# saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
 
-################################################
-################################################
-################## HERE ########################
-################################################
-################################################
-################################################
+regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
 
-
-# Load barcodes for each replicate
-barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+#### Load barcodes for each replicate
+# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+# groups(project) <- mixedsort(unique(barcodeGroups$group))
+barcodeGroups <- data.frame(barcode='rep1', group='1')
 groups(project) <- mixedsort(unique(barcodeGroups$group))
 
 # Get position-by-tile-by-replicate ATAC insertion count tensor
 # We go through all down-sampling rates and get a count tensor for each of them
+# conda install bioconda::sinto
+# conda create --name samtools && conda install bioconda::samtools && ln -s libncurses.so.6 libncurses.so.5 (/data/home/jiluzhang/miniconda3/envs/samtools/lib)
+# sinto fragments -b HepG2_ATAC-cFOOT.bam -f HepG2_ATAC-cFOOT.fragments.tsv --barcode_regex "^([^/]+)" -p 8  # using the first part of read name as barcode (~6 min)
+# grep chr21 HepG2_ATAC-cFOOT.fragments.tsv > HepG2_ATAC-cFOOT.fragments_chr21.tsv
+# awk '{print $1 "\t" $2 "\t" $3 "\t" "rep1" "\t" $5}' HepG2_ATAC-cFOOT.fragments_chr21.tsv > HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv
 counts <- list()
-pathToFrags <- paste0(projectDataDir, "rawData/test.fragments.tsv.gz")  # zcat all.fragments.tsv.gz | shuf | head -n 1000000 > test.fragments.tsv # pathToFrags <- paste0(projectDataDir, "rawData/all.fragments.tsv.gz")    
-# wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE216nnn/GSE216403/suppl/GSE216403_BAC.fragments.tsv.gz  529Mb
-# mv GSE216403_BAC.fragments.tsv.gz all.fragments.tsv.gz
-counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T, chunkSize=100, nCores=3))  # set chunkSize!!!!!!
+pathToFrags <- paste0(projectMainDir, "HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv") 
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=100, nCores=3))  # set chunkSize!!!!!!
 
-# Down-sample fragments data (from getObservedBias.R)
-frags <- data.table::fread(paste0(projectDataDir, "rawData/test.fragments.tsv.gz")) # frags <- data.table::fread(paste0(projectDataDir, "rawData/all.fragments.tsv.gz"))
+## Down-sample fragments data (from getObservedBias.R)
+frags <- data.table::fread(pathToFrags)
 nFrags <- dim(frags)[1]
-if(!dir.exists("./data/BAC/downSampledFragments/")){
-  system("mkdir ./data/BAC/downSampledFragments")
+if(!dir.exists("./data/hg38/downSampledFragments/")){
+  system("mkdir ./data/hg38/downSampledFragments")
 }
 for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
   print(paste0("Downsampling rate: ", downSampleRate))
   downSampleInd <- sample(1:nFrags, as.integer(nFrags*downSampleRate))
   downSampledFrags <- frags[downSampleInd, ]
-  gz <- gzfile(paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
-  write.table(downSampledFrags, gz, quote=F, row.names=F, col.names=F, sep="\t")
+  gz <- gzfile(paste0("./data/hg38/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
+  write.table(downSampledFrags, gz, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
   close(gz)
 }
 
 for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
   print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
-  system("rm -r ./data/BAC/chunkedCountTensor")
-  pathToFrags <- paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
-  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T))
+  system("rm -r ./data/hg38/chunkedCountTensor")
+  pathToFrags <- paste0("./data/hg38/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE))
 }
-system("rm -r ./data/BAC/chunkedCountTensor")
-saveRDS(counts, "./data/BAC/tileCounts.rds")
-
+system("rm -r ./data/hg38/chunkedCountTensor")
+saveRDS(counts, "./data/hg38/tileCounts.rds")
 
 #### Get background dispersion data
-if(!dir.exists("./data/BAC/dispModelData")){
-  system("mkdir ./data/BAC/dispModelData")
+if(!dir.exists("./data/hg38/dispModelData")){
+  system("mkdir ./data/hg38/dispModelData")
 }
 
-for(footprintRadius in seq(2, 3, 1)){
+for(footprintRadius in seq(2, 5, 1)){
 # for(footprintRadius in seq(2, 100, 1)){
   
   #### Get naked DNA Tn5 observations
@@ -842,7 +852,7 @@ for(footprintRadius in seq(2, 3, 1)){
           
           # Get Tn5 insertion
           tileCountTensor <- counts[[downSampleRate]][[tileInd]]
-          tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion = sum(count))
+          tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion=sum(count))
           
           Tn5Insertion <- rep(0, length(predBias))
           Tn5Insertion[tileCountTensor$position] <- tileCountTensor$insertion
@@ -854,12 +864,12 @@ for(footprintRadius in seq(2, 3, 1)){
           insertionWindowSums <- footprintWindowSum(Tn5Insertion, footprintRadius, flankRadius)
           
           # Combine results into a data.frame
-          tileObsData <- data.frame(leftFlankBias = biasWindowSums$leftFlank,
-                                    leftFlankInsertion = round(insertionWindowSums$leftFlank),
-                                    centerBias = biasWindowSums$center,
-                                    centerInsertion = round(insertionWindowSums$center),
-                                    rightFlankBias = biasWindowSums$rightFlank,
-                                    rightFlankInsertion = round(insertionWindowSums$rightFlank))
+          tileObsData <- data.frame(leftFlankBias=biasWindowSums$leftFlank,
+                                    leftFlankInsertion=round(insertionWindowSums$leftFlank),
+                                    centerBias=biasWindowSums$center,
+                                    centerInsertion=round(insertionWindowSums$center),
+                                    rightFlankBias=biasWindowSums$rightFlank,
+                                    rightFlankInsertion=round(insertionWindowSums$rightFlank))
           tileObsData$leftTotalInsertion <- tileObsData$leftFlankInsertion + tileObsData$centerInsertion
           tileObsData$rightTotalInsertion <- tileObsData$rightFlankInsertion + tileObsData$centerInsertion
           tileObsData$BACInd <- tileBACs[tileInd]
@@ -895,7 +905,7 @@ for(footprintRadius in seq(2, 3, 1)){
   ##### Match background KNN observations and calculate distribution of center / (center + flank) ratio
   # We sample 1e5 data points
   set.seed(123)
-  sampleInds <- sample(1:dim(bgObsData)[1], 1e5)
+  sampleInds <- sample(1:dim(bgObsData)[1], 1e4)  # 1e5
   sampleObsData <- bgObsData[sampleInds, ]
   sampleLeftFeatures <- bgLeftFeatures[sampleInds, ]
   sampleRightFeatures <- bgRightFeatures[sampleInds, ]
@@ -915,7 +925,7 @@ for(footprintRadius in seq(2, 3, 1)){
   leftRatioParams <- as.data.frame(leftRatioParams)
   colnames(leftRatioParams) <- c("leftRatioMean", "leftRatioSD")
   
-  rightKNN <- FNN::get.knnx(bgRightFeatures, sampleRightFeatures, k = 500)$nn.index
+  rightKNN <- FNN::get.knnx(bgRightFeatures, sampleRightFeatures, k=500)$nn.index
   rightRatioParams <- t(sapply(
     1:dim(rightKNN)[1],
     function(i){
@@ -935,8 +945,7 @@ for(footprintRadius in seq(2, 3, 1)){
   dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
   
   # Save background observations to file
-  write.table(dispModelData, paste0("./data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=F, sep="\t")
-  # paste0("../../data/BAC/dispModelData/dispModelData", footprintRadius
+  write.table(dispModelData, paste0("./data/hg38/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=FALSE, sep="\t")
 }
 
 
@@ -961,19 +970,18 @@ from keras.models import Model
 from keras import backend as K
 import tensorflow as tf  #Luz
 
-np.random.seed(42)
-for footprint_radius in range(2, 101):
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     
+np.random.seed(42)
+#for footprint_radius in range(2, 101):
+for footprint_radius in range(2, 3):
     print("Training model for footprint radius = " + str(footprint_radius))
-
-    dispersion_data = pd.read_csv("./data/BAC/dispModelData/dispModelData" +\
-                                  str(footprint_radius) + "bp.txt", sep = "\t")
+    dispersion_data = pd.read_csv("./data/hg38/dispModelData/dispModelData"+str(footprint_radius)+"bp.txt", sep="\t")
 
     # Get model input data and prediction target
-    data = copy.deepcopy(dispersion_data.loc[:,["leftFlankBias", "rightFlankBias", "centerBias", 
-                                                "leftTotalInsertion", "rightTotalInsertion"]])
-    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", 
-                                 "rightRatioSD"]])
+    data = copy.deepcopy(dispersion_data.loc[:, ["leftFlankBias", "rightFlankBias", "centerBias", 
+                                                 "leftTotalInsertion", "rightTotalInsertion"]])
+    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]])
     data = data.values
     target = target.values
     
@@ -991,9 +999,9 @@ for footprint_radius in range(2, 101):
     inds = np.arange(len(BACs))
     np.random.shuffle(inds)
     n_inds = len(inds)
-    training_BACs = BACs[inds[:int(n_inds * 0.5)]]               #Luz training_BACs = BACs[inds[:int(n_inds * 0.8)]]
-    val_BACs = BACs[inds[int(n_inds * 0.5):int(n_inds * 0.8)]]   #Luz val_BACs = BACs[inds[int(n_inds * 0.8):int(n_inds * 0.9)]]
-    test_BACs = BACs[inds[int(n_inds * 0.8):]]                   #Luz test_BACs = BACs[inds[int(n_inds * 0.9):]]
+    training_BACs = BACs[inds[:int(n_inds * 0.8)]]
+    val_BACs = BACs[inds[int(n_inds * 0.8):int(n_inds * 0.9)]]
+    test_BACs = BACs[inds[int(n_inds * 0.9):]]
 
     # Split individual observations by BAC into training, validation and test
     training_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in training_BACs]
@@ -1037,10 +1045,7 @@ for footprint_radius in range(2, 101):
     for n_epoch in range(500):
 
         # New training epoch
-        model.fit(training_data, 
-                  training_target, 
-                  batch_size=32, epochs = 1, 
-                  validation_data=(val_data, val_target))  
+        model.fit(training_data, training_target, batch_size=32, epochs=1, validation_data=(val_data, val_target))  
 
         # Get MSE loss on the valdation set after current epoch
         val_pred = model.predict(val_data)
@@ -1048,8 +1053,7 @@ for footprint_radius in range(2, 101):
         print("MSE on validation set" + str(mse_loss))
 
         # Get pred-target correlation on the validation set after current epoch
-        pred_corrs = [ss.pearsonr(val_target[:, i], val_pred[:, i])[0]
-                      for i in range(np.shape(target)[1])]
+        pred_corrs = [ss.pearsonr(val_target[:, i], val_pred[:, i])[0] for i in range(np.shape(target)[1])]
         print("Pred-target correlation " + " ".join([str(i) for i in pred_corrs]))
 
         # If loss on validation set stops decreasing quickly, stop training and adopt the previous saved version
