@@ -1,5 +1,395 @@
-################################################################## train seq2print model #######################################################################################
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/seq2print
+##################################### cfoot-atac #####################################
+
+######################## prepare files for dispersion model training ########################
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/conversion_rate_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_conv_rate.bw
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/coverage_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_count.bw
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam HepG2_ATAC-cFOOT.bam
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam.bai HepG2_ATAC-cFOOT.bam.bai
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/110.251216_JM110_gDNA_cFOOT/2_5g_merge/02.align/jm110_gDNA_cFOOT_0.6U.sort.bam ecoli_cFOOT.bam
+# samtools index ecoli_cFOOT.bam
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/e_coli.fna /data/home/jiluzhang/.cache/scprinter/ecoli.fa
+
+## Rscript gen_dispersion_training_data.R
+
+suppressPackageStartupMessages(library(GenomicRanges))
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
+use_condaenv('PRINT')  # not use python installed by uv
+Sys.setenv(CUDA_VISIBLE_DEVICES='1')
+
+## Get and bin genomic ranges
+# bedtools random -l 500000 -n 20 -seed 0 -g hg38.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
+# DNA in BAC is from human!!!
+# bedtools random -l 100000 -n 40 -seed 0 -g ecoli.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
+# awk '{print "region_1" "\t" $1 "\t" 1 "\t" $2}' ecoli.chrom.sizes > selectedBACs.txt
+selectedBACs <- read.table("selectedBACs.txt")
+colnames(selectedBACs) <- c("ID", "chr", "start", "end")
+selectedBACs$start <- 1000
+selectedBACs$end <- 100000
+
+BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
+names(BACRanges) <- selectedBACs$ID
+
+tileRanges <- Reduce("c", GenomicRanges::slidingWindows(BACRanges, width=1000, step=1000))
+tileRanges <- tileRanges[width(tileRanges)==1000] 
+tileBACs <- names(tileRanges)
+
+## Get predicted bias and Tn5 insertion track
+projectName <- "BAC"
+project <- footprintingProject(projectName=projectName, refGenome="ecoli")
+projectMainDir <- "./"
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
+if(!dir.exists("./data"))
+    system('mkdir ./data')
+dataDir(project) <- projectDataDir
+mainDir(project) <- projectMainDir
+
+regionRanges(project) <- tileRanges
+
+# getBias.R (add "ecoli" info)  "genome <- BSgenome.Ecoli.NCBI.K12.MG1655::BSgenome.Ecoli.NCBI.K12.MG1655"
+# install.packages("devtools")  # failed
+# conda install r-devtools      # done
+# devtools::install_github("utubun/BSgenome.Ecoli.NCBI.K12.MG1655")  # https://github.com/utubun/BSgenome.Ecoli.NCBI.K12.MG1655
+
+# project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
+# # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
+# # mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
+# saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
+
+regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
+
+#### Load barcodes for each replicate
+# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
+# groups(project) <- mixedsort(unique(barcodeGroups$group))
+barcodeGroups <- data.frame(barcode='region_1', group='1')
+groups(project) <- mixedsort(unique(barcodeGroups$group))
+
+# Get position-by-tile-by-replicate ATAC insertion count tensor
+# We go through all down-sampling rates and get a count tensor for each of them
+# conda install bioconda::sinto
+# conda create --name samtools && conda install bioconda::samtools && ln -s libncurses.so.6 libncurses.so.5 (/data/home/jiluzhang/miniconda3/envs/samtools/lib)
+# sinto fragments -b HepG2_ATAC-cFOOT.bam -f HepG2_ATAC-cFOOT.fragments.tsv --barcode_regex "^([^/]+)" -p 8  # using the first part of read name as barcode (~6 min)
+# grep chr21 HepG2_ATAC-cFOOT.fragments.tsv > HepG2_ATAC-cFOOT.fragments_chr21.tsv
+# awk '{print $1 "\t" $2 "\t" $3 "\t" "rep1" "\t" $5}' HepG2_ATAC-cFOOT.fragments_chr21.tsv > HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv
+
+# sinto fragments -b ecoli_cFOOT.bam -f ecoli_cFOOT.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
+# samtools view -h ecoli_cFOOT.bam | head -n 1000000 > test.sam
+# samtools view -b test.sam > test.bam
+# samtools index test.bam
+# sinto fragments -b test.bam -f test.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
+# awk '{print $1 "\t" $2 "\t" $3 "\t" "region_1" "\t" $5}' test.fragments.tsv > test.fragments.region_1.tsv
+counts <- list()
+pathToFrags <- paste0(projectMainDir, "test.fragments.region_1.tsv") 
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=5, nCores=3))  # set chunkSize!!!!!!
+
+## Down-sample fragments data (from getObservedBias.R)
+frags <- data.table::fread(pathToFrags)
+nFrags <- dim(frags)[1]
+if(!dir.exists("./data/BAC/downSampledFragments/")){
+  system("mkdir ./data/BAC/downSampledFragments")
+}
+for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
+  print(paste0("Downsampling rate: ", downSampleRate))
+  downSampleInd <- sample(1:nFrags, as.integer(nFrags*downSampleRate))
+  downSampledFrags <- frags[downSampleInd, ]
+  gz <- gzfile(paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
+  write.table(downSampledFrags, gz, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
+  close(gz)
+}
+
+for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
+  print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
+  system("rm -r ./data/BAC/chunkedCountTensor")
+  pathToFrags <- paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE))
+}
+system("rm -r ./data/BAC/chunkedCountTensor")
+saveRDS(counts, "./data/BAC/tileCounts.rds")
+
+#### Get background dispersion data
+if(!dir.exists("./data/BAC/dispModelData")){
+  system("mkdir ./data/BAC/dispModelData")
+}
+
+for(footprintRadius in seq(2, 100, 1)){
+  
+  #### Get naked DNA Tn5 observations
+  print(paste0("Generating background dispersion data for footprintRadius = ", footprintRadius))
+  flankRadius <- footprintRadius
+  
+  # Record background observations of Tn5 bias and insertion density in the BAC data
+  bgObsData <- NULL
+  for(downSampleRate in names(counts)){
+    bgObsData <- rbind(bgObsData, data.table::rbindlist(
+      pbmcapply::pbmclapply(
+        1:length(counts[[downSampleRate]]),
+        function(tileInd){
+          
+          # Get predicted bias
+          predBias <- regionBias(project)[tileInd, ]
+          
+          # Get Tn5 insertion
+          tileCountTensor <- counts[[downSampleRate]][[tileInd]]
+          tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion=sum(count))
+          
+          Tn5Insertion <- rep(0, length(predBias))
+          Tn5Insertion[tileCountTensor$position] <- tileCountTensor$insertion
+          
+          # Get sum of predicted bias in left flanking, center, and right flanking windows
+          biasWindowSums <- footprintWindowSum(predBias, footprintRadius, flankRadius)
+          
+          # Get sum of insertion counts in left flanking, center, and right flanking windows
+          insertionWindowSums <- footprintWindowSum(Tn5Insertion, footprintRadius, flankRadius)
+          
+          # Combine results into a data.frame
+          tileObsData <- data.frame(leftFlankBias=biasWindowSums$leftFlank,
+                                    leftFlankInsertion=round(insertionWindowSums$leftFlank),
+                                    centerBias=biasWindowSums$center,
+                                    centerInsertion=round(insertionWindowSums$center),
+                                    rightFlankBias=biasWindowSums$rightFlank,
+                                    rightFlankInsertion=round(insertionWindowSums$rightFlank))
+          tileObsData$leftTotalInsertion <- tileObsData$leftFlankInsertion + tileObsData$centerInsertion
+          tileObsData$rightTotalInsertion <- tileObsData$rightFlankInsertion + tileObsData$centerInsertion
+          tileObsData$BACInd <- tileBACs[tileInd]
+          
+          tileObsData
+        },
+        mc.cores=2  #Luz
+      )
+    ))
+  }
+  
+  # Filter out regions with zero reads
+  bgObsData <- bgObsData[(bgObsData$leftTotalInsertion>=1) & (bgObsData$rightTotalInsertion>=1), ]
+  
+  # Get features of background observations for left-side testing
+  bgLeftFeatures <- as.data.frame(bgObsData[, c("leftFlankBias", "centerBias", "leftTotalInsertion")])
+  bgLeftFeatures <- data.frame(bgLeftFeatures)
+  bgLeftFeatures$leftTotalInsertion <- log10(bgLeftFeatures$leftTotalInsertion)
+  leftFeatureMean <- colMeans(bgLeftFeatures)
+  leftFeatureSD <- apply(bgLeftFeatures, 2, sd)
+  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureMean)
+  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureSD, "/")
+  
+  # Get features of background observations for right-side testing
+  bgRightFeatures <- as.data.frame(bgObsData[,c("rightFlankBias", "centerBias", "rightTotalInsertion")])
+  bgRightFeatures <- data.frame(bgRightFeatures)
+  bgRightFeatures$rightTotalInsertion <- log10(bgRightFeatures$rightTotalInsertion)
+  rightFeatureMean <- colMeans(bgRightFeatures)
+  rightFeatureSD <- apply(bgRightFeatures, 2, sd)
+  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureMean)
+  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureSD, "/")
+  
+  ##### Match background KNN observations and calculate distribution of center / (center + flank) ratio
+  # We sample 1e5 data points
+  set.seed(123)
+  sampleInds <- sample(1:dim(bgObsData)[1], 1e4)  # 1e5
+  sampleObsData <- bgObsData[sampleInds, ]
+  sampleLeftFeatures <- bgLeftFeatures[sampleInds, ]
+  sampleRightFeatures <- bgRightFeatures[sampleInds, ]
+  
+  # Match KNN observations in (flank bias, center bias, count sum) 3-dimensional space 
+  leftKNN <- FNN::get.knnx(bgLeftFeatures, sampleLeftFeatures, k=500)$nn.index
+  leftRatioParams <- t(sapply(
+    1:dim(leftKNN)[1],
+    function(i){
+      KNNObsData <- bgObsData[leftKNN[i,],]
+      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$leftTotalInsertion
+      ratioMean <- mean(KNNRatio)
+      ratioSD <- sd(KNNRatio)
+      c(ratioMean, ratioSD)
+    }
+  ))
+  leftRatioParams <- as.data.frame(leftRatioParams)
+  colnames(leftRatioParams) <- c("leftRatioMean", "leftRatioSD")
+  
+  rightKNN <- FNN::get.knnx(bgRightFeatures, sampleRightFeatures, k=500)$nn.index
+  rightRatioParams <- t(sapply(
+    1:dim(rightKNN)[1],
+    function(i){
+      KNNObsData <- bgObsData[rightKNN[i,],]
+      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$rightTotalInsertion
+      ratioMean <- mean(KNNRatio)
+      ratioSD <- sd(KNNRatio)
+      c(ratioMean, ratioSD)
+    }
+  ))
+  rightRatioParams <- as.data.frame(rightRatioParams)
+  colnames(rightRatioParams) <- c("rightRatioMean", "rightRatioSD")
+  
+  # Combine background observations on both sides
+  dispModelData <- cbind(sampleObsData, leftRatioParams, rightRatioParams)
+  dispModelData$leftTotalInsertion <- log10(dispModelData$leftTotalInsertion)
+  dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
+  
+  # Save background observations to file
+  write.table(dispModelData, paste0("./data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=FALSE, sep="\t")
+}
+
+
+#################################### dispersionModel.ipynb ####################################
+## python train_disp_model.py
+import os
+import sys
+import h5py
+import pandas as pd
+import numpy as np
+import copy
+import tqdm
+import pickle
+import matplotlib
+import matplotlib.pyplot as plt
+import multiprocessing as mp
+import scipy.stats as ss
+from datetime import datetime
+from keras.models import load_model
+from keras.models import Sequential
+from keras.layers import *
+from keras.models import Model
+from keras import backend as K
+import tensorflow as tf  #Luz
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    
+np.random.seed(42)
+for footprint_radius in range(2, 101):
+    print("Training model for footprint radius = " + str(footprint_radius))
+    dispersion_data = pd.read_csv("./data/BAC/dispModelData/dispModelData"+str(footprint_radius)+"bp.txt", sep="\t")
+
+    # Get model input data and prediction target
+    data = copy.deepcopy(dispersion_data.loc[:, ["leftFlankBias", "rightFlankBias", "centerBias", 
+                                                 "leftTotalInsertion", "rightTotalInsertion"]])
+    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]])
+    data = data.values
+    target = target.values
+    
+    # Remove infinite values
+    filter = np.isfinite(np.sum(target, axis=1))
+    data = data[filter, :]
+    target = target[filter, :]
+    dispersion_data = dispersion_data.loc[filter, :]
+
+    # Split data into training, validation and test
+    idx = np.arange(data.shape[0])
+    np.random.shuffle(idx)
+    n_idx = len(idx)
+    training_idx = idx[:int(n_idx*0.8)]
+    val_idx = idx[int(n_idx*0.8):int(n_idx*0.9)]
+    test_idx = idx[int(n_idx*0.9):]
+    training_data = data[training_idx]
+    val_data = data[val_idx]
+    test_data = data[test_idx]
+
+    # Split targets into training, validation and test
+    training_target = target[training_idx, :]
+    val_target = target[val_idx, :]
+    test_target = target[test_idx, :]
+
+    # Model Initialization
+    #print("Training Tn5 dispersion model")
+    inputs = Input(shape=(np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
+    fc1 = Dense(32, activation="relu")(inputs)
+    out = Dense(np.shape(target)[1], activation="linear")(fc1)
+    model = Model(inputs=inputs, outputs=out)  
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
+
+    # Model training
+    mse = tf.keras.losses.MeanSquaredError()
+    prev_loss = np.inf
+    tol = 0
+    for n_epoch in range(500):
+        model.fit(training_data, training_target, batch_size=32, epochs=1, validation_data=(val_data, val_target))  
+
+        # Get MSE loss on the valdation set after current epoch
+        val_pred = model.predict(val_data)
+        mse_loss = mse(val_target, val_pred).numpy()
+        print("MSE on validation set: "+str(mse_loss))
+
+        # Get pred-target correlation on the validation set after current epoch
+        pred_corrs = [ss.pearsonr(val_target[:, i], val_pred[:, i])[0] for i in range(np.shape(target)[1])]
+        print("Pred-target correlation " + " ".join([str(i) for i in pred_corrs]))
+
+        # If loss on validation set stops decreasing quickly, stop training and adopt the previous saved version
+        #print(mse_loss, prev_loss)
+        if mse_loss>prev_loss:
+            if tol<5:
+                tol += 1
+            else:
+                break
+        else:
+            prev_loss = mse_loss
+            tol = 0
+            model.save("./data/shared/dispModel/dispersionModel" + str(footprint_radius) + "bp.h5")
+
+
+
+
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+# nohup Rscript gen_dispersion_training_data.R && python train_disp_model.py > 20260121.log &
+#2217200
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+################################################################################################
+
+#### merge models with different footprint_radius ####
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model/data/shared/dispModel
+import h5py
+import numpy as np
+import pandas as pd
+
+h5_out = h5py.File('dispersionModel.h5', 'w')
+n = '29'
+for i in range(2, 6):
+    h5_in = h5py.File('dispersionModel'+str(i)+'bp.h5')
+    G = h5_out.create_group(str(i))
+    
+    ## add model weights
+    g = G.create_group('modelWeights')
+    n = str(int(n)+1)
+    g.create_dataset('ELT1', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['kernel']).T)
+    g.create_dataset('ELT2', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['bias']))
+    
+    n = str(int(n)+1)
+    g.create_dataset('ELT3', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['kernel']).T)
+    g.create_dataset('ELT4', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['bias']))
+    h5_in.close()
+    
+    ## add model data
+    dispModelData = pd.read_table('../../BAC/dispModelData/dispModelData'+str(i)+'bp.txt', sep="\t")
+    
+    modelFeatures = dispModelData[["leftFlankBias", "rightFlankBias", "centerBias", "leftTotalInsertion", "rightTotalInsertion"]]
+    featureMean = modelFeatures.mean().values
+    G.create_dataset('featureMean', data=featureMean)
+    featureSD = modelFeatures.std().values
+    G.create_dataset('featureSD', data=featureSD)
+    
+    modelTargets = dispModelData[["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]]
+    targetMean = modelTargets.mean().values
+    G.create_dataset('targetMean', data=targetMean)
+    targetSD = modelTargets.std().values
+    G.create_dataset('targetSD', data=targetSD)    
+    
+    print('footprint_radius = '+str(i)+' done')
+
+h5_out.close()
+
+
+
+####################################### train seq2print model ################################################################
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print
 ## datasets.py (mask some code)
 ## env: scPrinter
 # cp /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py .
@@ -14,15 +404,30 @@
 # chr21	14240957	14241957
 # chr21	14253357	14254357
 # chr21	14259364	14260364
-# cp ../test/PBMC_bulkATAC_Bcell_0_fold0.JSON config.JSON
 # cp ../test/PBMC_bulkATAC_scprinter_supp_raw/Bcell_0.bw .
 
 # files in cache dir for import scprinter: CisBP_Human_FigR  CisBP_Human_FigR_meme  CisBP_Mouse_FigR  CisBP_Mouse_FigR_meme TFBS_0_conv_v2.pt  TFBS_1_conv_v2.pt
 # files for seq2print model training: hg38_bias_v2.h5 gencode_v41_GRCh38.fa.gz
 
-CUDA_VISIBLE_DEVICES=7 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
-                                                      --data_dir . --project 20160114
-####################################################################################################################################################################################
+## extract chr21 from the bigwig file
+import pyBigWig
+
+bw_in = pyBigWig.open('../disp_model/HepG2_ATAC-cFOOT_conv_rate.bw')
+chr_name = 'chr21'
+intervals = bw_in.intervals(chr_name)
+bw_out = pyBigWig.open('HepG2_ATAC-cFOOT_conv_rate_chr21.bw', 'w')
+bw_out.addHeader([(chr_name, bw_in.chroms()[chr_name])])
+bw_out.addEntries(chroms=[chr_name]*len(intervals), starts=[i[0] for i in intervals],
+                  ends=[i[1] for i in intervals], values=[i[2] for i in intervals])
+bw_in.close()
+bw_out.close()
+###############
+
+CUDA_VISIBLE_DEVICES=2 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
+                                                      --data_dir . --project HepG2
+#######################################################################################################################################
+
+
 
 ################################################################################ train TFBS model ################################################################################
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfbs
@@ -728,352 +1133,7 @@ external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.t
 ########################################################################################################################################################################
 
 
-############################ cfoot-atac ############################ 
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/conversion_rate_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_conv_rate.bw
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/coverage_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_count.bw
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam HepG2_ATAC-cFOOT.bam
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam.bai HepG2_ATAC-cFOOT.bam.bai
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/110.251216_JM110_gDNA_cFOOT/2_5g_merge/02.align/jm110_gDNA_cFOOT_0.6U.sort.bam ecoli_cFOOT.bam
-# samtools index ecoli_cFOOT.bam
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/e_coli.fna /data/home/jiluzhang/.cache/scprinter/ecoli.fa
-## Rscript gen_dispersion_training_data.R
 
-suppressPackageStartupMessages(library(GenomicRanges))
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
-use_condaenv('PRINT')  # not use python installed by uv
-Sys.setenv(CUDA_VISIBLE_DEVICES='1')
-
-## Get and bin genomic ranges
-# bedtools random -l 500000 -n 20 -seed 0 -g hg38.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
-# DNA in BAC is from human!!!
-# bedtools random -l 100000 -n 40 -seed 0 -g ecoli.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
-# awk '{print "region_1" "\t" $1 "\t" 1 "\t" $2}' ecoli.chrom.sizes > selectedBACs.txt
-selectedBACs <- read.table("selectedBACs.txt")
-colnames(selectedBACs) <- c("ID", "chr", "start", "end")
-selectedBACs$start <- 1000
-selectedBACs$end <- 100000
-
-BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
-names(BACRanges) <- selectedBACs$ID
-
-tileRanges <- Reduce("c", GenomicRanges::slidingWindows(BACRanges, width=1000, step=1000))
-tileRanges <- tileRanges[width(tileRanges)==1000] 
-tileBACs <- names(tileRanges)
-
-## Get predicted bias and Tn5 insertion track
-projectName <- "BAC"
-project <- footprintingProject(projectName=projectName, refGenome="ecoli")
-projectMainDir <- "./"
-projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
-if(!dir.exists("./data"))
-    system('mkdir ./data')
-dataDir(project) <- projectDataDir
-mainDir(project) <- projectMainDir
-
-regionRanges(project) <- tileRanges
-
-# getBias.R (add "ecoli" info)  "genome <- BSgenome.Ecoli.NCBI.K12.MG1655::BSgenome.Ecoli.NCBI.K12.MG1655"
-# install.packages("devtools")  # failed
-# conda install r-devtools      # done
-# devtools::install_github("utubun/BSgenome.Ecoli.NCBI.K12.MG1655")  # https://github.com/utubun/BSgenome.Ecoli.NCBI.K12.MG1655
-
-# project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
-# # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
-# # mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
-# saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
-
-regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
-
-#### Load barcodes for each replicate
-# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
-# groups(project) <- mixedsort(unique(barcodeGroups$group))
-barcodeGroups <- data.frame(barcode='region_1', group='1')
-groups(project) <- mixedsort(unique(barcodeGroups$group))
-
-# Get position-by-tile-by-replicate ATAC insertion count tensor
-# We go through all down-sampling rates and get a count tensor for each of them
-# conda install bioconda::sinto
-# conda create --name samtools && conda install bioconda::samtools && ln -s libncurses.so.6 libncurses.so.5 (/data/home/jiluzhang/miniconda3/envs/samtools/lib)
-# sinto fragments -b HepG2_ATAC-cFOOT.bam -f HepG2_ATAC-cFOOT.fragments.tsv --barcode_regex "^([^/]+)" -p 8  # using the first part of read name as barcode (~6 min)
-# grep chr21 HepG2_ATAC-cFOOT.fragments.tsv > HepG2_ATAC-cFOOT.fragments_chr21.tsv
-# awk '{print $1 "\t" $2 "\t" $3 "\t" "rep1" "\t" $5}' HepG2_ATAC-cFOOT.fragments_chr21.tsv > HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv
-
-# sinto fragments -b ecoli_cFOOT.bam -f ecoli_cFOOT.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
-# samtools view -h ecoli_cFOOT.bam | head -n 1000000 > test.sam
-# samtools view -b test.sam > test.bam
-# samtools index test.bam
-# sinto fragments -b test.bam -f test.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
-# awk '{print $1 "\t" $2 "\t" $3 "\t" "region_1" "\t" $5}' test.fragments.tsv > test.fragments.region_1.tsv
-counts <- list()
-pathToFrags <- paste0(projectMainDir, "test.fragments.region_1.tsv") 
-counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=5, nCores=3))  # set chunkSize!!!!!!
-
-## Down-sample fragments data (from getObservedBias.R)
-frags <- data.table::fread(pathToFrags)
-nFrags <- dim(frags)[1]
-if(!dir.exists("./data/BAC/downSampledFragments/")){
-  system("mkdir ./data/BAC/downSampledFragments")
-}
-for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
-  print(paste0("Downsampling rate: ", downSampleRate))
-  downSampleInd <- sample(1:nFrags, as.integer(nFrags*downSampleRate))
-  downSampledFrags <- frags[downSampleInd, ]
-  gz <- gzfile(paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
-  write.table(downSampledFrags, gz, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
-  close(gz)
-}
-
-for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
-  print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
-  system("rm -r ./data/BAC/chunkedCountTensor")
-  pathToFrags <- paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
-  counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE))
-}
-system("rm -r ./data/BAC/chunkedCountTensor")
-saveRDS(counts, "./data/BAC/tileCounts.rds")
-
-#### Get background dispersion data
-if(!dir.exists("./data/BAC/dispModelData")){
-  system("mkdir ./data/BAC/dispModelData")
-}
-
-for(footprintRadius in seq(2, 5, 1)){
-# for(footprintRadius in seq(2, 100, 1)){
-  
-  #### Get naked DNA Tn5 observations
-  print(paste0("Generating background dispersion data for footprintRadius = ", footprintRadius))
-  flankRadius <- footprintRadius
-  
-  # Record background observations of Tn5 bias and insertion density in the BAC data
-  bgObsData <- NULL
-  for(downSampleRate in names(counts)){
-    bgObsData <- rbind(bgObsData, data.table::rbindlist(
-      pbmcapply::pbmclapply(
-        1:length(counts[[downSampleRate]]),
-        function(tileInd){
-          
-          # Get predicted bias
-          predBias <- regionBias(project)[tileInd, ]
-          
-          # Get Tn5 insertion
-          tileCountTensor <- counts[[downSampleRate]][[tileInd]]
-          tileCountTensor <- tileCountTensor %>% group_by(position) %>% summarize(insertion=sum(count))
-          
-          Tn5Insertion <- rep(0, length(predBias))
-          Tn5Insertion[tileCountTensor$position] <- tileCountTensor$insertion
-          
-          # Get sum of predicted bias in left flanking, center, and right flanking windows
-          biasWindowSums <- footprintWindowSum(predBias, footprintRadius, flankRadius)
-          
-          # Get sum of insertion counts in left flanking, center, and right flanking windows
-          insertionWindowSums <- footprintWindowSum(Tn5Insertion, footprintRadius, flankRadius)
-          
-          # Combine results into a data.frame
-          tileObsData <- data.frame(leftFlankBias=biasWindowSums$leftFlank,
-                                    leftFlankInsertion=round(insertionWindowSums$leftFlank),
-                                    centerBias=biasWindowSums$center,
-                                    centerInsertion=round(insertionWindowSums$center),
-                                    rightFlankBias=biasWindowSums$rightFlank,
-                                    rightFlankInsertion=round(insertionWindowSums$rightFlank))
-          tileObsData$leftTotalInsertion <- tileObsData$leftFlankInsertion + tileObsData$centerInsertion
-          tileObsData$rightTotalInsertion <- tileObsData$rightFlankInsertion + tileObsData$centerInsertion
-          tileObsData$BACInd <- tileBACs[tileInd]
-          
-          tileObsData
-        },
-        mc.cores=2  #Luz
-      )
-    ))
-  }
-  
-  # Filter out regions with zero reads
-  bgObsData <- bgObsData[(bgObsData$leftTotalInsertion>=1) & (bgObsData$rightTotalInsertion>=1), ]
-  
-  # Get features of background observations for left-side testing
-  bgLeftFeatures <- as.data.frame(bgObsData[, c("leftFlankBias", "centerBias", "leftTotalInsertion")])
-  bgLeftFeatures <- data.frame(bgLeftFeatures)
-  bgLeftFeatures$leftTotalInsertion <- log10(bgLeftFeatures$leftTotalInsertion)
-  leftFeatureMean <- colMeans(bgLeftFeatures)
-  leftFeatureSD <- apply(bgLeftFeatures, 2, sd)
-  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureMean)
-  bgLeftFeatures <- sweep(bgLeftFeatures, 2, leftFeatureSD, "/")
-  
-  # Get features of background observations for right-side testing
-  bgRightFeatures <- as.data.frame(bgObsData[,c("rightFlankBias", "centerBias", "rightTotalInsertion")])
-  bgRightFeatures <- data.frame(bgRightFeatures)
-  bgRightFeatures$rightTotalInsertion <- log10(bgRightFeatures$rightTotalInsertion)
-  rightFeatureMean <- colMeans(bgRightFeatures)
-  rightFeatureSD <- apply(bgRightFeatures, 2, sd)
-  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureMean)
-  bgRightFeatures <- sweep(bgRightFeatures, 2, rightFeatureSD, "/")
-  
-  ##### Match background KNN observations and calculate distribution of center / (center + flank) ratio
-  # We sample 1e5 data points
-  set.seed(123)
-  sampleInds <- sample(1:dim(bgObsData)[1], 1e4)  # 1e5
-  sampleObsData <- bgObsData[sampleInds, ]
-  sampleLeftFeatures <- bgLeftFeatures[sampleInds, ]
-  sampleRightFeatures <- bgRightFeatures[sampleInds, ]
-  
-  # Match KNN observations in (flank bias, center bias, count sum) 3-dimensional space 
-  leftKNN <- FNN::get.knnx(bgLeftFeatures, sampleLeftFeatures, k=500)$nn.index
-  leftRatioParams <- t(sapply(
-    1:dim(leftKNN)[1],
-    function(i){
-      KNNObsData <- bgObsData[leftKNN[i,],]
-      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$leftTotalInsertion
-      ratioMean <- mean(KNNRatio)
-      ratioSD <- sd(KNNRatio)
-      c(ratioMean, ratioSD)
-    }
-  ))
-  leftRatioParams <- as.data.frame(leftRatioParams)
-  colnames(leftRatioParams) <- c("leftRatioMean", "leftRatioSD")
-  
-  rightKNN <- FNN::get.knnx(bgRightFeatures, sampleRightFeatures, k=500)$nn.index
-  rightRatioParams <- t(sapply(
-    1:dim(rightKNN)[1],
-    function(i){
-      KNNObsData <- bgObsData[rightKNN[i,],]
-      KNNRatio <- KNNObsData$centerInsertion / KNNObsData$rightTotalInsertion
-      ratioMean <- mean(KNNRatio)
-      ratioSD <- sd(KNNRatio)
-      c(ratioMean, ratioSD)
-    }
-  ))
-  rightRatioParams <- as.data.frame(rightRatioParams)
-  colnames(rightRatioParams) <- c("rightRatioMean", "rightRatioSD")
-  
-  # Combine background observations on both sides
-  dispModelData <- cbind(sampleObsData, leftRatioParams, rightRatioParams)
-  dispModelData$leftTotalInsertion <- log10(dispModelData$leftTotalInsertion)
-  dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
-  
-  # Save background observations to file
-  write.table(dispModelData, paste0("./data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=FALSE, sep="\t")
-}
-
-
-## dispersionModel.ipynb
-import os
-import sys
-import h5py
-import pandas as pd
-import numpy as np
-import copy
-import tqdm
-import pickle
-import matplotlib
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-import scipy.stats as ss
-from datetime import datetime
-from keras.models import load_model
-from keras.models import Sequential
-from keras.layers import *
-from keras.models import Model
-from keras import backend as K
-import tensorflow as tf  #Luz
-
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    
-np.random.seed(42)
-#for footprint_radius in range(2, 101):
-for footprint_radius in range(2, 3):
-    print("Training model for footprint radius = " + str(footprint_radius))
-    dispersion_data = pd.read_csv("./data/hg38/dispModelData/dispModelData"+str(footprint_radius)+"bp.txt", sep="\t")
-
-    # Get model input data and prediction target
-    data = copy.deepcopy(dispersion_data.loc[:, ["leftFlankBias", "rightFlankBias", "centerBias", 
-                                                 "leftTotalInsertion", "rightTotalInsertion"]])
-    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]])
-    data = data.values
-    target = target.values
-    
-    # Remove infinite values
-    filter = np.isfinite(np.sum(target, axis = 1))
-    data = data[filter, :]
-    target = target[filter, :]
-    dispersion_data = dispersion_data.loc[filter, :]
-
-    # Get BAC indices for each observation
-    BAC_inds = dispersion_data.loc[:, "BACInd"].values
-    BACs = np.unique(BAC_inds)
-
-    # Randomly split BACs into training, validation and test
-    inds = np.arange(len(BACs))
-    np.random.shuffle(inds)
-    n_inds = len(inds)
-    training_BACs = BACs[inds[:int(n_inds * 0.8)]]
-    val_BACs = BACs[inds[int(n_inds * 0.8):int(n_inds * 0.9)]]
-    test_BACs = BACs[inds[int(n_inds * 0.9):]]
-
-    # Split individual observations by BAC into training, validation and test
-    training_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in training_BACs]
-    val_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in val_BACs]
-    test_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in test_BACs]
-
-    # Rescale the data and target values
-    data_mean = np.mean(data, axis=0)
-    data_sd = np.std(data, axis=0)
-    data = (data - data_mean) / data_sd
-    target_mean = np.mean(target, axis=0)
-    target_sd = np.std(target, axis=0)
-    target = (target - target_mean) / target_sd
-
-    # Randomly shuffle training data
-    training_inds = np.array(training_inds)
-    np.random.shuffle(training_inds)
-
-    # Split data into training, validation and test
-    training_data = data[training_inds, :]
-    val_data = data[val_inds, :]
-    test_data = data[test_inds, :]
-
-    # Split targets into training, validation and test
-    training_target = target[training_inds, :]
-    val_target = target[val_inds, :]
-    test_target = target[test_inds, :]
-
-    # Model Initialization
-    print("Training Tn5 dispersion model")
-    inputs = Input(shape=(np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
-    fc1 = Dense(32,activation="relu")(inputs)
-    out = Dense(np.shape(target)[1], activation="linear")(fc1)
-    model = Model(inputs=inputs,outputs=out)  
-    model.summary()
-    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
-
-    # Model training
-    mse = tf.keras.losses.MeanSquaredError()
-    prev_loss = np.inf
-    for n_epoch in range(500):
-
-        # New training epoch
-        model.fit(training_data, training_target, batch_size=32, epochs=1, validation_data=(val_data, val_target))  
-
-        # Get MSE loss on the valdation set after current epoch
-        val_pred = model.predict(val_data)
-        mse_loss = mse(val_target, val_pred).numpy()
-        print("MSE on validation set" + str(mse_loss))
-
-        # Get pred-target correlation on the validation set after current epoch
-        pred_corrs = [ss.pearsonr(val_target[:, i], val_pred[:, i])[0] for i in range(np.shape(target)[1])]
-        print("Pred-target correlation " + " ".join([str(i) for i in pred_corrs]))
-
-        # If loss on validation set stops decreasing quickly, stop training and adopt the previous saved version
-        print(mse_loss, prev_loss)
-        if mse_loss - prev_loss > -0.001 and n_epoch > 5:
-            break
-        else:
-            prev_loss = mse_loss
-
-    # Save model to file
-    model.save("./data/shared/dispModel/dispersionModel" + str(footprint_radius) + "bp.h5")
 
 
 
