@@ -734,10 +734,12 @@ external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.t
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/coverage_bw/HepG2_ATAC-cFOOT.bw HepG2_ATAC-cFOOT_count.bw
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam HepG2_ATAC-cFOOT.bam
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/yangmengchen/22.240314_HepG2_ATAC_cFOOT_diff_SsdA/1_28g/02.align/HepG2_Tn5100_SsdA5_ATAC.sort.bam.bai HepG2_ATAC-cFOOT.bam.bai
-# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/110.251216_JM110_gDNA_cFOOT/2_5g_merge/02.align/jm110_gDNA_cFOOT_0.6U.sort.bam jm110_gDNA_cFOOT_0.6U.sort.bam
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wangheng/110.251216_JM110_gDNA_cFOOT/2_5g_merge/02.align/jm110_gDNA_cFOOT_0.6U.sort.bam ecoli_cFOOT.bam
+# samtools index ecoli_cFOOT.bam
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/e_coli.fna /data/home/jiluzhang/.cache/scprinter/ecoli.fa
 ## Rscript gen_dispersion_training_data.R
 
-library(GenomicRanges)
+suppressPackageStartupMessages(library(GenomicRanges))
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
@@ -749,16 +751,11 @@ Sys.setenv(CUDA_VISIBLE_DEVICES='1')
 # bedtools random -l 500000 -n 20 -seed 0 -g hg38.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
 # DNA in BAC is from human!!!
 # bedtools random -l 100000 -n 40 -seed 0 -g ecoli.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
+# awk '{print "region_1" "\t" $1 "\t" 1 "\t" $2}' ecoli.chrom.sizes > selectedBACs.txt
 selectedBACs <- read.table("selectedBACs.txt")
 colnames(selectedBACs) <- c("ID", "chr", "start", "end")
-
-# only keep the ecoli one record
-######################################################
-######################################################
-###################### HERE ##########################
-######################################################
-######################################################
-######################################################
+selectedBACs$start <- 1000
+selectedBACs$end <- 100000
 
 BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
 names(BACRanges) <- selectedBACs$ID
@@ -769,7 +766,7 @@ tileBACs <- names(tileRanges)
 
 ## Get predicted bias and Tn5 insertion track
 projectName <- "BAC"
-project <- footprintingProject(projectName=projectName, refGenome="hg38")
+project <- footprintingProject(projectName=projectName, refGenome="ecoli")
 projectMainDir <- "./"
 projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
 if(!dir.exists("./data"))
@@ -779,7 +776,12 @@ mainDir(project) <- projectMainDir
 
 regionRanges(project) <- tileRanges
 
-# project <- getRegionBias(project, nCores=16)  # maybe extracting from pre-computed bias is more convenient
+# getBias.R (add "ecoli" info)  "genome <- BSgenome.Ecoli.NCBI.K12.MG1655::BSgenome.Ecoli.NCBI.K12.MG1655"
+# install.packages("devtools")  # failed
+# conda install r-devtools      # done
+# devtools::install_github("utubun/BSgenome.Ecoli.NCBI.K12.MG1655")  # https://github.com/utubun/BSgenome.Ecoli.NCBI.K12.MG1655
+
+# project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
 # # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
 # # mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
 # saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
@@ -789,7 +791,7 @@ regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
 #### Load barcodes for each replicate
 # barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
 # groups(project) <- mixedsort(unique(barcodeGroups$group))
-barcodeGroups <- data.frame(barcode='rep1', group='1')
+barcodeGroups <- data.frame(barcode='region_1', group='1')
 groups(project) <- mixedsort(unique(barcodeGroups$group))
 
 # Get position-by-tile-by-replicate ATAC insertion count tensor
@@ -799,37 +801,44 @@ groups(project) <- mixedsort(unique(barcodeGroups$group))
 # sinto fragments -b HepG2_ATAC-cFOOT.bam -f HepG2_ATAC-cFOOT.fragments.tsv --barcode_regex "^([^/]+)" -p 8  # using the first part of read name as barcode (~6 min)
 # grep chr21 HepG2_ATAC-cFOOT.fragments.tsv > HepG2_ATAC-cFOOT.fragments_chr21.tsv
 # awk '{print $1 "\t" $2 "\t" $3 "\t" "rep1" "\t" $5}' HepG2_ATAC-cFOOT.fragments_chr21.tsv > HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv
+
+# sinto fragments -b ecoli_cFOOT.bam -f ecoli_cFOOT.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
+# samtools view -h ecoli_cFOOT.bam | head -n 1000000 > test.sam
+# samtools view -b test.sam > test.bam
+# samtools index test.bam
+# sinto fragments -b test.bam -f test.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
+# awk '{print $1 "\t" $2 "\t" $3 "\t" "region_1" "\t" $5}' test.fragments.tsv > test.fragments.region_1.tsv
 counts <- list()
-pathToFrags <- paste0(projectMainDir, "HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv") 
-counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=100, nCores=3))  # set chunkSize!!!!!!
+pathToFrags <- paste0(projectMainDir, "test.fragments.region_1.tsv") 
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=5, nCores=3))  # set chunkSize!!!!!!
 
 ## Down-sample fragments data (from getObservedBias.R)
 frags <- data.table::fread(pathToFrags)
 nFrags <- dim(frags)[1]
-if(!dir.exists("./data/hg38/downSampledFragments/")){
-  system("mkdir ./data/hg38/downSampledFragments")
+if(!dir.exists("./data/BAC/downSampledFragments/")){
+  system("mkdir ./data/BAC/downSampledFragments")
 }
 for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
   print(paste0("Downsampling rate: ", downSampleRate))
   downSampleInd <- sample(1:nFrags, as.integer(nFrags*downSampleRate))
   downSampledFrags <- frags[downSampleInd, ]
-  gz <- gzfile(paste0("./data/hg38/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
+  gz <- gzfile(paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz"), "w")
   write.table(downSampledFrags, gz, quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\t")
   close(gz)
 }
 
 for(downSampleRate in c(0.5, 0.2, 0.1, 0.05, 0.02, 0.01)){
   print(paste0("Getting count tensor for down-sampling rate = ", downSampleRate))
-  system("rm -r ./data/hg38/chunkedCountTensor")
-  pathToFrags <- paste0("./data/hg38/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
+  system("rm -r ./data/BAC/chunkedCountTensor")
+  pathToFrags <- paste0("./data/BAC/downSampledFragments/fragmentsDownsample", downSampleRate, ".tsv.gz")
   counts[[as.character(downSampleRate)]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE))
 }
-system("rm -r ./data/hg38/chunkedCountTensor")
-saveRDS(counts, "./data/hg38/tileCounts.rds")
+system("rm -r ./data/BAC/chunkedCountTensor")
+saveRDS(counts, "./data/BAC/tileCounts.rds")
 
 #### Get background dispersion data
-if(!dir.exists("./data/hg38/dispModelData")){
-  system("mkdir ./data/hg38/dispModelData")
+if(!dir.exists("./data/BAC/dispModelData")){
+  system("mkdir ./data/BAC/dispModelData")
 }
 
 for(footprintRadius in seq(2, 5, 1)){
@@ -945,7 +954,7 @@ for(footprintRadius in seq(2, 5, 1)){
   dispModelData$rightTotalInsertion <- log10(dispModelData$rightTotalInsertion)
   
   # Save background observations to file
-  write.table(dispModelData, paste0("./data/hg38/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=FALSE, sep="\t")
+  write.table(dispModelData, paste0("./data/BAC/dispModelData/dispModelData", footprintRadius, "bp.txt"), quote=FALSE, sep="\t")
 }
 
 
@@ -1009,11 +1018,11 @@ for footprint_radius in range(2, 3):
     test_inds = [i for i in range(len(BAC_inds)) if BAC_inds[i] in test_BACs]
 
     # Rescale the data and target values
-    data_mean = np.mean(data, axis = 0)
-    data_sd = np.std(data, axis = 0)
+    data_mean = np.mean(data, axis=0)
+    data_sd = np.std(data, axis=0)
     data = (data - data_mean) / data_sd
-    target_mean = np.mean(target, axis = 0)
-    target_sd = np.std(target, axis = 0)
+    target_mean = np.mean(target, axis=0)
+    target_sd = np.std(target, axis=0)
     target = (target - target_mean) / target_sd
 
     # Randomly shuffle training data
@@ -1032,9 +1041,9 @@ for footprint_radius in range(2, 3):
 
     # Model Initialization
     print("Training Tn5 dispersion model")
-    inputs = Input(shape = (np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
-    fc1 = Dense(32,activation = "relu")(inputs)
-    out = Dense(np.shape(target)[1],activation = "linear")(fc1)
+    inputs = Input(shape=(np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
+    fc1 = Dense(32,activation="relu")(inputs)
+    out = Dense(np.shape(target)[1], activation="linear")(fc1)
     model = Model(inputs=inputs,outputs=out)  
     model.summary()
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
