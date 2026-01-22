@@ -324,26 +324,6 @@ for footprint_radius in range(2, 101):
             tol = 0
             model.save("./data/shared/dispModel/dispersionModel" + str(footprint_radius) + "bp.h5")
 
-
-
-
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-# nohup Rscript gen_dispersion_training_data.R && python train_disp_model.py > 20260121.log &
-#2217200
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-################################################################################################
-
 #### merge models with different footprint_radius ####
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model/data/shared/dispModel
 import h5py
@@ -351,16 +331,20 @@ import numpy as np
 import pandas as pd
 
 h5_out = h5py.File('dispersionModel.h5', 'w')
-n = '29'
-for i in range(2, 6):
+n = '-1'
+for i in range(2, 101):
     h5_in = h5py.File('dispersionModel'+str(i)+'bp.h5')
     G = h5_out.create_group(str(i))
     
     ## add model weights
     g = G.create_group('modelWeights')
     n = str(int(n)+1)
-    g.create_dataset('ELT1', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['kernel']).T)
-    g.create_dataset('ELT2', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['bias']))
+    if n=='0':
+        g.create_dataset('ELT1', data=np.array(h5_in['model_weights']['dense']['dense']['kernel']).T)
+        g.create_dataset('ELT2', data=np.array(h5_in['model_weights']['dense']['dense']['bias']))
+    else:
+        g.create_dataset('ELT1', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['kernel']).T)
+        g.create_dataset('ELT2', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['bias']))
     
     n = str(int(n)+1)
     g.create_dataset('ELT3', data=np.array(h5_in['model_weights']['dense_'+n]['dense_'+n]['kernel']).T)
@@ -423,7 +407,44 @@ bw_in.close()
 bw_out.close()
 ###############
 
-CUDA_VISIBLE_DEVICES=2 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
+
+#### calculate hg38 bias
+suppressPackageStartupMessages(library(GenomicRanges))
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
+use_condaenv('PRINT')  # not use python installed by uv
+Sys.setenv(CUDA_VISIBLE_DEVICES='1')
+
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
+
+
+## Get and bin genomic ranges
+selectedBACs <- data.frame(ID='region_1', chr='chr21', start=13969412, end=14270364)
+BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
+names(BACRanges) <- selectedBACs$ID
+
+tileRanges <- Reduce("c", GenomicRanges::slidingWindows(BACRanges, width=1000, step=1000))
+tileRanges <- tileRanges[width(tileRanges)==1000] 
+tileBACs <- names(tileRanges)
+
+## Get predicted bias and Tn5 insertion track
+projectName = 'BAC'
+project <- footprintingProject(projectName=projectName, refGenome="hg38")
+projectMainDir <- "./"
+projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
+if(!dir.exists("./data"))
+    system('mkdir ./data')
+dataDir(project) <- projectDataDir
+mainDir(project) <- projectMainDir
+
+regionRanges(project) <- tileRanges
+
+project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
+
+
+# rename custome bias file to hg38_bias_v2.h5 in workdir
+CUDA_VISIBLE_DEVICES=0 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
                                                       --data_dir . --project HepG2
 #######################################################################################################################################
 
