@@ -580,36 +580,45 @@ saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
 ## modify from getTFBSTrainingData function in getTFBS.R
 # For each motif matched site, get local multi-kernel footprints and bound/unbound labels
 
-## motifMatches
-# Find motif matches across all regions
-path <- paste0(dataDir(project), "motifPositionsList.rds")
-nCores <- 3
-combineTFs <- FALSE
-if(file.exists(path)){
-  motifMatches <- readRDS(path)
-}else{
-  regions <- regionRanges(project)
-  # Find motif matches across all regions
-  print("Getting TF motif matches within CREs")
-  motifMatches <- pbmcapply::pbmclapply(
-    names(cisBPMotifs),
-    function(TF){
-      TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], subject=regions, 
-                                                   genome=refGenome(project), out="positions")[[1]]
-      if(length(TFMotifPositions) > 0){
-        TFMotifPositions$TF <- TF
-        TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
-        TFMotifPositions <- mergeRegions(TFMotifPositions)
-        TFMotifPositions
-      }
-    },
-    mc.cores = nCores
-  )
-  names(motifMatches) <- names(cisBPMotifs)
-  if(combineTFs){motifMatches <- Reduce(c, motifMatches)}
-  saveRDS(motifMatches, path)
-}
+DataDir <- './data/HepG2/'
+MainDir <- './'
 
+cisBPMotifs <- readRDS(paste0(MainDir, "/data/shared/cisBP_human_pwms_2021.rds"))
+# wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
+TFChIPRanges <- readRDS(paste0(DataDir, 'HepG2', "ChIPRanges.rds"))
+keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
+cisBPMotifs <- cisBPMotifs[keptTFs]
+TFChIPRanges <- TFChIPRanges[keptTFs]
+
+
+## motifMatches
+## Find motif matches across all regions
+motifMatches <- pbmcapply::pbmclapply(names(cisBPMotifs),
+    function(TF){
+        TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], 
+                                                     subject=regionRanges(project), 
+                                                     genome=refGenome(project),
+                                                     out="positions")[[1]]
+        if(length(TFMotifPositions)>0){
+            TFMotifPositions$TF <- TF
+            TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
+            TFMotifPositions <- mergeRegions(TFMotifPositions)
+            TFMotifPositions
+        }
+    },
+    mc.cores=3)
+
+names(motifMatches) <- names(cisBPMotifs)
+saveRDS(motifMatches, paste0(projectDataDir, "motifPositionsList.rds"))
+
+
+
+######################################################################
+######################################################################
+######################### HERE #######################################
+######################################################################
+######################################################################
+######################################################################
 
 
 
@@ -662,109 +671,6 @@ for(TF in names(motifMatches)){
 }
 
 colnames(metadata) <- c("bound", "motifMatchScore", "TF", "range")
-
-
-
-
-
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
-source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R")
-source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R")
-source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R")
-source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getAggregateFootprint.R")
-source("/fs/home/jiluzhang/TF_grammar/PRINT/code/getTFBS.R")
-use_condaenv('PRINT')
-
-projectName <- "HepG2"    # One of "K562", "GM12878", "HepG2"
-ChIPDataset <- "Unibind"  # One of "ENCODE", "Unibind"
-project <- footprintingProject(projectName=projectName, refGenome="hg38")
-projectMainDir <- "./"
-projectDataDir <- paste0(projectMainDir, "data/", projectName, "/")
-dataDir(project) <- projectDataDir
-mainDir(project) <- projectMainDir
-
-tmpDir <- dataDir(project)
-chunkSize <- regionChunkSize(project)
-
-regionRanges(project) <- readRDS(paste0(projectDataDir, "regionRanges.rds"))
-
-dispModel(project, 2) <- readRDS(paste0(projectMainDir, "dispersionModel/dispersionModel", '2', "bp.rds"))
-dispersionModel <- project@dispModel[[2]]
-
-barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
-groups(project) <- as.character(mixedsort(unique(barcodeGroups$group)))
-groupCellType(project) <- c('1', '2')  # maybe 'HepG2'
-cellTypeLabels <- groupCellType(project)
-
-pathToFrags <- paste0(projectDataDir, "test.fragments.tsv.gz")
-projectCountTensor <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=T,
-                                                 chunkSize=chunkSize, nCores=32))  # region  position  group  count
-
-project <- getRegionBias(project, nCores=16)  # Tn5_NN_model.h5 in shared dir
-saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
-
-## calculate footprint
-footprintResults <- get_footprints(projectCountTensor=projectCountTensor, dispersionModel=dispersionModel,
-                                   tmpDir=tmpDir, mode='2', footprintRadius=2, flankRadius=2,
-                                   cellTypeLabels=cellTypeLabels, chunkSize=chunkSize,
-                                   returnCellTypeScores=FALSE, nCores=8)
-
-## Load footprints
-footprintRadii <- c(2)  # footprintRadii <- c(10, 20, 30, 50, 80, 100)
-multiScaleFootprints <- list()
-for(footprintRadius in footprintRadii){
-  print(paste0("Loading data for footprint radius = ", footprintRadius))  
-  chunkDir <- paste0(projectDataDir, "/chunkedFootprintResults/", footprintRadius, "/")
-  chunkFiles <- gtools::mixedsort(list.files(chunkDir))
-  scaleFootprints <- pbmcapply::pbmclapply(chunkFiles, 
-                                           function(chunkFile){
-                                               chunkData <- readRDS(paste0(chunkDir, chunkFile))
-                                               as.data.frame(t(sapply(chunkData, function(regionData){regionData$aggregateScores})))
-                                           }, mc.cores=16)
-  scaleFootprints <- data.table::rbindlist(scaleFootprints)
-  multiScaleFootprints[[as.character(footprintRadius)]] <- as.matrix(scaleFootprints)
-}
-
-cisBPMotifs <- readRDS(paste0(projectMainDir, "/data/shared/cisBP_human_pwms_2021.rds"))  # wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
-TFChIPRanges <- readRDS(paste0(projectDataDir, projectName, "ChIPRanges.rds"))
-
-## Only keep TFs with both motif and ChIP data
-keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
-cisBPMotifs <- cisBPMotifs[keptTFs]
-TFChIPRanges <- TFChIPRanges[keptTFs]
-
-## Find motif matches across all regions
-motifMatches <- pbmcapply::pbmclapply(names(cisBPMotifs),
-    function(TF){
-        TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], 
-                                                     subject=regionRanges(project), 
-                                                     genome=refGenome(project),
-                                                     out="positions")[[1]]
-        if(length(TFMotifPositions)>0){
-            TFMotifPositions$TF <- TF
-            TFMotifPositions$score <- rank(TFMotifPositions$score) / length(TFMotifPositions$score)
-            TFMotifPositions <- mergeRegions(TFMotifPositions)
-            TFMotifPositions
-        }
-    },
-    mc.cores=3)
-
-names(motifMatches) <- names(cisBPMotifs)
-saveRDS(motifMatches, paste0(projectDataDir, "motifPositionsList.rds"))
-
-# Get ATAC tracks for each region
-project <- getATACTracks(project)
-regionATAC <- ATACTracks(project)
-
-## Get multi-scale footprints around TFBS
-TFBSData <- getTFBSTrainingData(multiScaleFootprints, motifMatches, TFChIPRanges,
-                                regions, percentBoundThreshold=0.1)
-
-# Write TFBS training data to a file
-h5file <- hdf5r::H5File$new(paste0(projectDataDir, "TFBSData", ChIPDataset, ".h5"), mode="w")
-h5file[["motifFootprints"]] <- TFBSData[["motifFootprints"]]
-h5file[["metadata"]] <- TFBSData[["metadata"]]
-h5file$close_all()
 
 
 #### generate pred_data.tsv (from footprint_to_TF.ipynb)
