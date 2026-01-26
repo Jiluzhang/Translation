@@ -471,9 +471,11 @@ CUDA_VISIBLE_DEVICES=0 python seq2print_lora_train.py --config ./config.JSON --t
 ##################################################### TF training data ##########################################################
 ## Rscript peak_bed2rds.R
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2
+## cut -f 3 /fs/home/jiluzhang/TF_grammar/scPrinter/test/regions.bed > peaks.bed
 ## generate "regionsRanges.rds"
 suppressPackageStartupMessages(library(GenomicRanges))
-regionBed <- read.table("/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/peaks.bed")
+regionBed <- read.table("./peaks.bed")
+#regionBed <- read.table("/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/peaks.bed")
 regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
 regions <- resize(regions, 1000, fix="center")
 saveRDS(regions, "regionRanges.rds")
@@ -570,18 +572,21 @@ saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
 #### https://github.com/buenrostrolab/PRINT/blob/main/analyses/TFBSPrediction/
 #### TFBSTrainingData.R (for generate TFBSDataUnibind.h5 file)
 ## conda activate PRINT
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfdata
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata
 # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code
 # zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
 # cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/shared/Tn5_NN_model.h5 ./data/shared
 # cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/shared/cisBP_human_pwms_2021.rds ./data/shared
 
-
 ## modify from getTFBSTrainingData function in getTFBS.R
 # For each motif matched site, get local multi-kernel footprints and bound/unbound labels
 
+source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
+
 DataDir <- './data/HepG2/'
 MainDir <- './'
+
+regions <- readRDS(paste0(DataDir, "regionRanges.rds"))
 
 cisBPMotifs <- readRDS(paste0(MainDir, "/data/shared/cisBP_human_pwms_2021.rds"))
 # wget -c https://zenodo.org/records/15224770/files/cisBP_human_pwms_2021.rds?download=1
@@ -590,14 +595,12 @@ keptTFs <- intersect(names(TFChIPRanges), names(cisBPMotifs))
 cisBPMotifs <- cisBPMotifs[keptTFs]
 TFChIPRanges <- TFChIPRanges[keptTFs]
 
-
-## motifMatches
 ## Find motif matches across all regions
 motifMatches <- pbmcapply::pbmclapply(names(cisBPMotifs),
     function(TF){
         TFMotifPositions <- motifmatchr::matchMotifs(pwms=cisBPMotifs[[TF]], 
-                                                     subject=regionRanges(project), 
-                                                     genome=refGenome(project),
+                                                     subject=regions, 
+                                                     genome='hg38',
                                                      out="positions")[[1]]
         if(length(TFMotifPositions)>0){
             TFMotifPositions$TF <- TF
@@ -609,20 +612,11 @@ motifMatches <- pbmcapply::pbmclapply(names(cisBPMotifs),
     mc.cores=3)
 
 names(motifMatches) <- names(cisBPMotifs)
-saveRDS(motifMatches, paste0(projectDataDir, "motifPositionsList.rds"))
-
-
-
-######################################################################
-######################################################################
-######################### HERE #######################################
-######################################################################
-######################################################################
-######################################################################
-
-
+# saveRDS(motifMatches, paste0(projectDataDir, "motifPositionsList.rds"))
 
 metadata <- NULL
+percentBoundThreshold <- 0.1
+contextRadius <- 100
 for(TF in names(motifMatches)){
   print(paste("Getting TFBS for ", TF))
   
@@ -661,7 +655,7 @@ for(TF in names(motifMatches)){
         NULL
       }
     },
-    mc.cores=16
+    mc.cores=3
   )
   footprintContext <- footprintContext[!sapply(footprintContext, is.null)]
   TFMatchScores <- sapply(footprintContext, function(x){x[[1]]})
@@ -672,6 +666,11 @@ for(TF in names(motifMatches)){
 
 colnames(metadata) <- c("bound", "motifMatchScore", "TF", "range")
 
+## save data to h5 file
+h5_path <- paste0(DataDir, "/TFBSDataUnibind.h5")
+h5file <- hdf5r::H5File$new(h5_path, mode="w")
+h5file[["metadata"]] <- metadata
+h5file$close_all()
 
 #### generate pred_data.tsv (from footprint_to_TF.ipynb)
 ## h5 to tsv
@@ -680,10 +679,12 @@ import numpy as np
 import pandas as pd
 
 external_dataset = "HepG2"
-external_hf = h5py.File("./data/" + external_dataset + "/TFBSDataUnibind.h5", 'r')
-external_metadata = np.array(external_hf['metadata'])
-external_metadata = pd.DataFrame(external_metadata)
-external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.tsv", sep="\t")  # mkdir ./data/TFBSPrediction
+external_hf = h5py.File("./data/"+external_dataset+"/TFBSDataUnibind.h5", 'r')
+external_metadata = pd.DataFrame(external_hf['metadata'][:])
+external_metadata['TF'] = external_metadata['TF'].astype(str)
+external_metadata['range'] = external_metadata['range'].astype(str)
+external_metadata.to_csv("./data/HepG2/"+external_dataset+"_TFBSdata.tsv", sep="\t")
+external_hf.close()
 ########################################################################################################################################################################
 
 
@@ -691,10 +692,11 @@ external_metadata.to_csv("./data/TFBSPrediction/"+external_dataset+"_pred_data.t
 
 
 ################################################################################ train TFBS model ################################################################################
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfbs
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/TFBSPrediction/HepG2_pred_data.tsv .
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/HepG2/test_peaks.bed .
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/seq2print/model/Bcell_0_fold0-hmxm767i.pt_deepshap_sample30000/*bigwig .
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfbs
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2/HepG2_TFBSdata.tsv .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2/peaks.bed .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/model/HepG2_fold0-ydv5y15z.pt_deepshap_sample30000/*bigwig .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/model/HepG2_fold0-ydv5y15z.pt .
 #### TFBS_finetune.ipynb
 ## conda activate scPrinter
 # reload imported modules
@@ -1004,6 +1006,7 @@ class TFConv_translate(nn.Module):
         return xx
 
 # wget -c https://raw.githubusercontent.com/ruochiz/FigRmotifs/main/human_pfms_v4.txt
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/20260114/tfbs/human_pfms_v4.txt .
 motifs = scp.motifs.Motifs("./human_pfms_v4.txt", scp.genome.hg38.fetch_fa(), scp.genome.hg38.bg)
 motif2matrix = {motif.name.split("_")[2]: np.array([motif.counts['A'], motif.counts['C'], motif.counts['G'], motif.counts['T']]) for motif in motifs.all_motifs}
 
@@ -1013,12 +1016,22 @@ for m in motif2matrix:
     mm = mm / np.sum(mm, axis=0, keepdims=True)
     motif2matrix[m] = mm
 
-tsv_paths = {'HepG2': "./HepG2_pred_data.tsv"}
-peaks_path = {'HepG2': "./test_peaks.bed"}
+tsv_paths = {'HepG2': "./HepG2_TFBSdata.tsv"}
+peaks_path = {'HepG2': "./peaks.bed"}
 
 tsvs = {cell:read_TF_loci(tsv_paths[cell]) for cell in tsv_paths}
 peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
 model_name = {'HepG2': ["./"]}
+
+#######################################################
+#######################################################
+#######################################################
+#################### HERE #############################
+#######################################################
+#######################################################
+#######################################################
+
+
 
 feats = ['attr.count.shap_hypo_0_.0.85.bigwig', 'attr.just_sum.shap_hypo_0-30_.0.85.bigwig']  # bigwig generated after seq2print model training finishied
 
@@ -1135,7 +1148,7 @@ for feats in [[0], [1]]:
     num_epochs = 1000  # Number of epochs can be adjusted
     val_freq = 1000
     best_val_loss = 0
-    no_improv_thres = 10
+    no_improv_thres = 20
     for epoch in range(num_epochs):
         model.train()  # Set the model to training mode
         ct = 0
@@ -1169,6 +1182,7 @@ for feats in [[0], [1]]:
         ema.train()
     m2 = TFConv_translate(m)
     print(m2)
+    
     m = m.eval()
     m2 = m2.eval()
     a, b = m(inputs), m2(inputs)
