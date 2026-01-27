@@ -1,4 +1,4 @@
-##################################### cfoot-atac #####################################
+##################################### atac-cfoot #####################################
 
 ######################## prepare files for dispersion model training ########################
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model
@@ -786,9 +786,8 @@ def cosine(x,y):
 def get_feats(model, feat, tsv, flank, low=None, median=None, high=None, 
               chroms=None, verbose=False):
     if low is None:
-        low = 0
-        median = 0
-        high = 1
+        low, median, high = 0, 0, 1
+    
     fasta = Fasta(scp.genome.hg38.fetch_fa())
     signals = []
     similarity = []
@@ -802,7 +801,7 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
         tfs = np.array(tsv['TF'])
         labels = np.array(tsv['bound'])
 
-        for c,s,sd,tf, start,end in zip(tqdm(chrom, disable=not verbose), summit, strands, tfs, starts, ends):
+        for c,s,sd,tf,start,end in zip(tqdm(chrom, disable=not verbose), summit, strands, tfs, starts, ends):
             try:
                 v = f.values(c, s-flank, s+flank+1, numpy=True)
             except:
@@ -814,7 +813,7 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
             seq = fasta[c][start-1:end].seq
             seq = scp.utils.DNA_one_hot(seq).numpy()
             seq_trend = f.values(c, start-1, end, numpy=True)
-            if sd == '-':
+            if sd=='-':
                 seq = seq[::-1][:, ::-1]
                 seq_trend = seq_trend[::-1]
             motif_trend = (motif2matrix[tf] * seq).sum(axis=0)
@@ -822,7 +821,7 @@ def get_feats(model, feat, tsv, flank, low=None, median=None, high=None,
             
             signals.append(v)
             similarity.append([cosine(seq_trend, motif_trend), # motif_match,
-                               ((seq_trend - median) / (high - low)).mean()])
+                               ((seq_trend-median)/(high-low)).mean()])
     
     signals = np.array(signals)
     similarity = np.array(similarity)
@@ -1021,41 +1020,11 @@ peaks_path = {'HepG2': "./peaks.bed"}
 
 tsvs = {cell:read_TF_loci(tsv_paths[cell]) for cell in tsv_paths}
 peaks = {cell:read_peaks(peaks_path[cell]) for cell in peaks_path}
-model_name = {'HepG2': ["./"]}
-
-#######################################################
-#######################################################
-#######################################################
-#################### HERE #############################
-#######################################################
-#######################################################
-#######################################################
-
-
-
+model_name = {'HepG2': ['./']}
 feats = ['attr.count.shap_hypo_0_.0.85.bigwig', 'attr.just_sum.shap_hypo_0-30_.0.85.bigwig']  # bigwig generated after seq2print model training finishied
 
-pool= ProcessPoolExecutor(max_workers=2)
-norm_factor = {}
-p_list = []
-for cell in model_name:
-    norm_factor[cell] = {}
-    for feat in feats:
-        norm_factor[cell][feat] = []
-        for model in model_name[cell]:
-            p = pool.submit(get_normalization_factor, model, feat, peaks[cell], sample_num=-1)
-            norm_factor[cell][feat].append(p)
-            p_list.append(p)
+pool = ProcessPoolExecutor(max_workers=2)
 
-for cell in model_name:
-    for feat in feats:
-        for i, model in enumerate(model_name[cell]):
-            norm_factor[cell][feat][i] = norm_factor[cell][feat][i].result()
-            lo, mid, hi = norm_factor[cell][feat][i]
-            print(cell, feat, i, "%.2f" % mid, "%.2f"%(hi-lo))
-
-feats_all = {}
-labels_all = {}
 p_list = []
 for cell in model_name:
     for feat in feats:
@@ -1063,6 +1032,8 @@ for cell in model_name:
             lo, mid, hi = None, None, None
             p_list.append(pool.submit(get_feats, model, feat, tsvs[cell], 100, lo, mid, hi))
 
+feats_all = {}
+labels_all = {}
 ct = 0
 for cell in model_name:
     feats_cell = []
