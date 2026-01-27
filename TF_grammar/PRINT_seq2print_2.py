@@ -10,7 +10,7 @@
 # samtools index ecoli_cFOOT.bam
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/reference/e_coli/e_coli.fna /data/home/jiluzhang/.cache/scprinter/ecoli.fa
 
-## Rscript gen_dispersion_training_data.R
+## Rscript gen_dispersion_training_data.R  # ~30 min
 
 suppressPackageStartupMessages(library(GenomicRanges))
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
@@ -66,7 +66,7 @@ groups(project) <- mixedsort(unique(barcodeGroups$group))
 # samtools view ecoli_cFOOT.bam | wc -l # 35834880
 
 # samtools view -b ecoli_cFOOT.bam NC_000913.3:1000000-1500000 > test_1.bam  # 1 min
-# samtools view -h -s 0.02 -b test_1.bam > test.bam  # randomly select 2%
+# samtools view -h -s 0.02 -b test_1.bam > test.bam  # randomly select 2%    99,027 reads
 # samtools index test.bam
 # sinto fragments -b test.bam -f test.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
 # awk '{print $1 "\t" $2 "\t" $3 "\t" "region_1" "\t" $5}' test.fragments.tsv > test.fragments.region_1.tsv
@@ -220,7 +220,7 @@ for(footprintRadius in seq(2, 100, 1)){
 
 
 #################################### dispersionModel.ipynb ####################################
-## python train_disp_model.py
+## python train_disp_model.py  # 1 min each model
 import os
 import sys
 import h5py
@@ -241,7 +241,7 @@ from keras.models import Model
 from keras import backend as K
 import tensorflow as tf  #Luz
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
     
 np.random.seed(42)
 for footprint_radius in range(2, 101):
@@ -251,7 +251,7 @@ for footprint_radius in range(2, 101):
     # Get model input data and prediction target
     data = copy.deepcopy(dispersion_data.loc[:, ["leftFlankBias", "rightFlankBias", "centerBias", 
                                                  "leftTotalInsertion", "rightTotalInsertion"]])
-    target = copy.deepcopy(dispersion_data.loc[:,["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]])
+    target = copy.deepcopy(dispersion_data.loc[:, ["leftRatioMean", "leftRatioSD", "rightRatioMean", "rightRatioSD"]])
     data = data.values
     target = target.values
     
@@ -282,8 +282,9 @@ for footprint_radius in range(2, 101):
     inputs = Input(shape=(np.shape(data)[1], ))  #Luz inputs = Input(shape = (np.shape(data)[1]))
     fc1 = Dense(32, activation="relu")(inputs)
     out = Dense(np.shape(target)[1], activation="linear")(fc1)
-    model = Model(inputs=inputs, outputs=out)  
-    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
+    model = Model(inputs=inputs, outputs=out)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)  # Luz
+    model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['mse']) # model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mse'])
 
     # Model training
     mse = tf.keras.losses.MeanSquaredError()
@@ -304,7 +305,7 @@ for footprint_radius in range(2, 101):
         # If loss on validation set stops decreasing quickly, stop training and adopt the previous saved version
         #print(mse_loss, prev_loss)
         if mse_loss>prev_loss:
-            if tol<5:
+            if tol<10:
                 tol += 1
             else:
                 break
@@ -362,22 +363,11 @@ h5_out.close()
 
 
 ####################################### train seq2print model ################################################################
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print
 ## datasets.py (mask some code)
 ## env: scPrinter
 # cp /fs/home/jiluzhang/TF_grammar/scPrinter/scPrinter-main/scprinter/seq/scripts/seq2print_lora_train.py .
-# peaks.bed 
-# chr21	13979412	13980412
-# chr21	13979754	13980754
-# chr21	14026837	14027837
-# chr21	14115899	14116899
-# chr21	14119816	14120816
-# chr21	14121452	14122452
-# chr21	14215610	14216610
-# chr21	14240957	14241957
-# chr21	14253357	14254357
-# chr21	14259364	14260364
-# cp ../test/PBMC_bulkATAC_scprinter_supp_raw/Bcell_0.bw .
+# awk '{if($1=="chr21" || $1=="chr22") print$0}' /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/HepG2/GSM6672041_HepG2_peaks.bed > peaks.bed  # 4541
 
 # files in cache dir for import scprinter: CisBP_Human_FigR  CisBP_Human_FigR_meme  CisBP_Mouse_FigR  CisBP_Mouse_FigR_meme TFBS_0_conv_v2.pt  TFBS_1_conv_v2.pt
 # files for seq2print model training: hg38_bias_v2.h5 gencode_v41_GRCh38.fa.gz
@@ -385,13 +375,19 @@ h5_out.close()
 ## extract chr21 from the bigwig file
 import pyBigWig
 
-bw_in = pyBigWig.open('../disp_model/HepG2_ATAC-cFOOT_conv_rate.bw')
-chr_name = 'chr21'
-intervals = bw_in.intervals(chr_name)
-bw_out = pyBigWig.open('HepG2_ATAC-cFOOT_conv_rate_chr21.bw', 'w')
-bw_out.addHeader([(chr_name, bw_in.chroms()[chr_name])])
-bw_out.addEntries(chroms=[chr_name]*len(intervals), starts=[i[0] for i in intervals],
-                  ends=[i[1] for i in intervals], values=[i[2] for i in intervals])
+bw_in = pyBigWig.open('./HepG2_ATAC-cFOOT_conv_rate.bw')
+bw_out = pyBigWig.open('HepG2_ATAC-cFOOT_conv_rate_chr21_chr22.bw', 'w')
+
+header_lst = []
+for chr_name in ['chr21', 'chr22']:
+    header_lst.append((chr_name, bw_in.chroms()[chr_name])) 
+bw_out.addHeader(header_lst)
+
+for chr_name in ['chr21', 'chr22']:
+    intervals = bw_in.intervals(chr_name)
+    bw_out.addEntries(chroms=[chr_name]*len(intervals), starts=[i[0] for i in intervals],
+                      ends=[i[1] for i in intervals], values=[i[2] for i in intervals])
+
 bw_in.close()
 bw_out.close()
 ###############
@@ -399,19 +395,20 @@ bw_out.close()
 
 #### calculate hg38 bias
 # cp -r ../disp_model/code/ .
+# mkdir -p data/shared
 # cp ../disp_model/data/shared/Tn5_NN_model.h5 data/shared/
+
 suppressPackageStartupMessages(library(GenomicRanges))
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
 use_condaenv('PRINT')  # not use python installed by uv
-Sys.setenv(CUDA_VISIBLE_DEVICES='1')
-
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
-source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
-
+Sys.setenv(CUDA_VISIBLE_DEVICES='2')
 
 ## Get and bin genomic ranges
-selectedBACs <- data.frame(ID='region_1', chr='chr21', start=13969412, end=14270364)
+selectedBACs <- read.table("peaks.bed")
+colnames(selectedBACs) <- c("chr", "start", "end")
+selectedBACs$ID <- 'region_1'
+selectedBACs <- selectedBACs[c('ID', 'chr', 'start', 'end')]
 BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
 names(BACRanges) <- selectedBACs$ID
 
@@ -431,19 +428,28 @@ mainDir(project) <- projectMainDir
 
 regionRanges(project) <- tileRanges
 
-project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
+project <- getRegionBias(project, nCores=8)  # maybe extracting from pre-computed bias is more convenient  ~10 min
 ###########
 
 #### modify bias h5 file
 # cp data/BAC/predBias.h5 hg38_bias_v2_raw.h5
 import h5py
 import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
+peaks = pd.read_table('peaks.bed', header=None)
+chrom_sizes = pd.read_table('hg38.chrom.sizes', header=None)
 h5_in = h5py.File('hg38_bias_v2_raw.h5')
 h5_out = h5py.File('hg38_bias_v2.h5', 'w')
-dat = np.zeros(46709983)  # the length of chr21
-dat[13969412:(13969412+300000)] = h5_in['predBias'][:].flatten()
-h5_out.create_dataset('chr21', data=dat)
+
+for chrom in ['chr21', 'chr22']:
+    dat = np.zeros(chrom_sizes[chrom_sizes[0]==chrom][1])  # the length of chrom
+    peaks_chrom = peaks[peaks[0]==chrom]
+    h5_in_chrom = h5_in['predBias'][peaks[0]==chrom]
+    for i in tqdm(range(peaks_chrom.shape[0]), ncols=80):
+        dat[(peaks_chrom.iloc[i, 1]-1):(peaks_chrom.iloc[i, 2]-1)] = h5_in_chrom[i]
+    h5_out.create_dataset(chrom, data=dat)
 
 h5_in.close()
 h5_out.close()
@@ -451,8 +457,20 @@ h5_out.close()
 
 # rename custome bias file to hg38_bias_v2.h5 in workdir
 # config.JSON (add "early_stopping")
-CUDA_VISIBLE_DEVICES=0 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
+CUDA_VISIBLE_DEVICES=2 python seq2print_lora_train.py --config ./config.JSON --temp_dir ./temp  --model_dir ./model \
                                                       --data_dir . --project HepG2
+
+nohup ./seq2print_lora_train.sh > seq2print_lora_train.log &
+# 3089470
+
+#############################################
+#############################################
+#############################################
+################# HERE ######################
+#############################################
+#############################################
+#############################################
+
 #######################################################################################################################################
 
 
