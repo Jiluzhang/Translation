@@ -18,17 +18,15 @@ source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getBias.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getFootprints.R')
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/getCounts.R')
 use_condaenv('PRINT')  # not use python installed by uv
-Sys.setenv(CUDA_VISIBLE_DEVICES='1')
+Sys.setenv(CUDA_VISIBLE_DEVICES='2')
 
 ## Get and bin genomic ranges
-# bedtools random -l 500000 -n 20 -seed 0 -g hg38.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
 # DNA in BAC is from human!!!
-# bedtools random -l 100000 -n 40 -seed 0 -g ecoli.chrom.sizes | awk '{print "region_" $4 "\t" $1 "\t" $2 "\t" $3}' > selectedBACs.txt
 # awk '{print "region_1" "\t" $1 "\t" 1 "\t" $2}' ecoli.chrom.sizes > selectedBACs.txt
 selectedBACs <- read.table("selectedBACs.txt")
 colnames(selectedBACs) <- c("ID", "chr", "start", "end")
-selectedBACs$start <- 1000
-selectedBACs$end <- 100000
+selectedBACs$start <- 1000000  #selectedBACs$start <- 51                # min index
+selectedBACs$end <- 1500000  #selectedBACs$end <- selectedBACs$end-2  # max index
 
 BACRanges <- GRanges(seqnames=selectedBACs$chr, ranges=IRanges(start=selectedBACs$start, end=selectedBACs$end))
 names(BACRanges) <- selectedBACs$ID
@@ -49,41 +47,32 @@ mainDir(project) <- projectMainDir
 
 regionRanges(project) <- tileRanges
 
-# getBias.R (add "ecoli" info)  "genome <- BSgenome.Ecoli.NCBI.K12.MG1655::BSgenome.Ecoli.NCBI.K12.MG1655"
-# install.packages("devtools")  # failed
-# conda install r-devtools      # done
-# devtools::install_github("utubun/BSgenome.Ecoli.NCBI.K12.MG1655")  # https://github.com/utubun/BSgenome.Ecoli.NCBI.K12.MG1655
-
-# project <- getRegionBias(project, nCores=3)  # maybe extracting from pre-computed bias is more convenient
-# # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
-# # mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
+# mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code/
+# mkdir ./data/shared && cp /fs/home/jiluzhang/TF_grammar/To_wuang/print_test/Tn5_NN_model.h5 ./data/shared
+# project <- getRegionBias(project, nCores=10)  # ~15 min
+# maybe extracting from pre-computed bias is more convenient (need Tn5Bias.h5 file)
 # saveRDS(regionBias(project), paste0(projectDataDir, "predBias.rds"))
 
-regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))
+regionBias(project) <- readRDS(paste0(projectDataDir, "predBias.rds"))  # 4641*1000
 
 #### Load barcodes for each replicate
-# barcodeGroups <- data.frame(barcode=paste("rep", 1:5, sep=""), group=1:5)
-# groups(project) <- mixedsort(unique(barcodeGroups$group))
-barcodeGroups <- data.frame(barcode='region_1', group='1')
+barcodeGroups <- data.frame(barcode='region_1', group='1')  # only one replicate
 groups(project) <- mixedsort(unique(barcodeGroups$group))
 
 # Get position-by-tile-by-replicate ATAC insertion count tensor
 # We go through all down-sampling rates and get a count tensor for each of them
-# conda install bioconda::sinto
-# conda create --name samtools && conda install bioconda::samtools && ln -s libncurses.so.6 libncurses.so.5 (/data/home/jiluzhang/miniconda3/envs/samtools/lib)
-# sinto fragments -b HepG2_ATAC-cFOOT.bam -f HepG2_ATAC-cFOOT.fragments.tsv --barcode_regex "^([^/]+)" -p 8  # using the first part of read name as barcode (~6 min)
-# grep chr21 HepG2_ATAC-cFOOT.fragments.tsv > HepG2_ATAC-cFOOT.fragments_chr21.tsv
-# awk '{print $1 "\t" $2 "\t" $3 "\t" "rep1" "\t" $5}' HepG2_ATAC-cFOOT.fragments_chr21.tsv > HepG2_ATAC-cFOOT.fragments_chr21_rep1.tsv
-
 # sinto fragments -b ecoli_cFOOT.bam -f ecoli_cFOOT.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
-# samtools view -h ecoli_cFOOT.bam | head -n 1000000 > test.sam
-# samtools view -b test.sam > test.bam
+# maybe no need to shift read position!
+# samtools view ecoli_cFOOT.bam | wc -l # 35834880
+
+# samtools view -b ecoli_cFOOT.bam NC_000913.3:1000000-1500000 > test_1.bam  # 1 min
+# samtools view -h -s 0.02 -b test_1.bam > test.bam  # randomly select 2%
 # samtools index test.bam
 # sinto fragments -b test.bam -f test.fragments.tsv --use_chrom NC_000913.3 --barcode_regex "^([^/]+)" -p 8
 # awk '{print $1 "\t" $2 "\t" $3 "\t" "region_1" "\t" $5}' test.fragments.tsv > test.fragments.region_1.tsv
 counts <- list()
 pathToFrags <- paste0(projectMainDir, "test.fragments.region_1.tsv") 
-counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, chunkSize=5, nCores=3))  # set chunkSize!!!!!!
+counts[["all"]] <- countTensor(getCountTensor(project, pathToFrags, barcodeGroups, returnCombined=TRUE, nCores=5))  # set chunkSize!!!!!!
 
 ## Down-sample fragments data (from getObservedBias.R)
 frags <- data.table::fread(pathToFrags)
@@ -157,7 +146,7 @@ for(footprintRadius in seq(2, 100, 1)){
           
           tileObsData
         },
-        mc.cores=2  #Luz
+        mc.cores=8  #Luz
       )
     ))
   }
