@@ -463,26 +463,17 @@ CUDA_VISIBLE_DEVICES=2 python seq2print_lora_train.py --config ./config.JSON --t
 nohup ./seq2print_lora_train.sh > seq2print_lora_train.log &
 # 3089470
 
-#############################################
-#############################################
-#############################################
-################# HERE ######################
-#############################################
-#############################################
-#############################################
-
 #######################################################################################################################################
 
 
 
 ##################################################### TF training data ##########################################################
 ## Rscript peak_bed2rds.R
-## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2
-## cut -f 3 /fs/home/jiluzhang/TF_grammar/scPrinter/test/regions.bed > peaks.bed
+## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/tfdata/data/HepG2
+## cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print/peaks.bed .
 ## generate "regionsRanges.rds"
 suppressPackageStartupMessages(library(GenomicRanges))
 regionBed <- read.table("./peaks.bed")
-#regionBed <- read.table("/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/peaks.bed")
 regions <- GRanges(paste0(regionBed$V1, ":", regionBed$V2, "-", regionBed$V3))
 regions <- resize(regions, 1000, fix="center")
 saveRDS(regions, "regionRanges.rds")
@@ -493,11 +484,11 @@ saveRDS(regions, "regionRanges.rds")
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/dispersionModel
 library(reticulate)
 use_condaenv('PRINT')
-Sys.setenv(CUDA_VISIBLE_DEVICES='0')
+Sys.setenv(CUDA_VISIBLE_DEVICES='3')
 keras <- import("keras")
 
-path_dispModelData <- '/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model/data/BAC/dispModelData/'
-path_dispersionModel <- '/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/disp_model/data/shared/dispModel/'
+path_dispModelData <- '/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/disp_model/data/BAC/dispModelData/'
+path_dispersionModel <- '/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/disp_model/data/shared/dispModel/'
 for(footprintRadius in 2:100){
   dispModelData <- read.table(paste0(path_dispModelData, "dispModelData", footprintRadius, "bp.txt"), sep="\t")
   dispersionModel <- keras$models$load_model(paste0(path_dispersionModel, "dispersionModel", footprintRadius, "bp.h5"))
@@ -581,12 +572,11 @@ saveRDS(unibindTFBS, paste0("./", dataset, "ChIPRanges.rds"))
 ## conda activate PRINT
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata
 # mkdir code && cp /fs/home/jiluzhang/TF_grammar/PRINT/code/predictBias.py ./code
-# zcat /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/data/BAC/rawData/test.fragments.tsv.gz | head -n 10000 > test.fragments.tsv && gzip test.fragments.tsv
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/shared/Tn5_NN_model.h5 ./data/shared
+# mkdir data/shared && cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print/data/shared/Tn5_NN_model.h5 ./data/shared
 # cp /fs/home/jiluzhang/TF_grammar/scPrinter/test/luz/Unibind/data/shared/cisBP_human_pwms_2021.rds ./data/shared
 
 ## modify from getTFBSTrainingData function in getTFBS.R
-# For each motif matched site, get local multi-kernel footprints and bound/unbound labels
+# For each motif matched site, get bound/unbound labels
 
 source('/fs/home/jiluzhang/TF_grammar/PRINT/code/utils.R')
 
@@ -695,15 +685,13 @@ external_hf.close()
 ########################################################################################################################################################################
 
 
-
-
-
 ################################################################################ train TFBS model ################################################################################
+## env: scPrinter
 ## workdir: /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfbs
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2/HepG2_TFBSdata.tsv .
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/tfdata/data/HepG2/peaks.bed .
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/model/HepG2_fold0-ydv5y15z.pt_deepshap_sample30000/*bigwig .
-# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot/seq2print/model/HepG2_fold0-ydv5y15z.pt .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/tfdata/data/HepG2/HepG2_TFBSdata.tsv .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/tfdata/data/HepG2/peaks.bed .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print/model/HepG2_fold0-d2uvm5fd.pt_deepshap_sample30000/*bigwig .
+# cp /fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print/model/HepG2_fold0-d2uvm5fd.pt .
 #### TFBS_finetune.ipynb
 ## conda activate scPrinter
 # reload imported modules
@@ -847,7 +835,7 @@ def feats_for_cell(feats_all, labels_all, cell, window=201, n_feats=np.arange(8)
     motifs = np.asarray(labels_all[cell]['motifMatchScore'])[:, None]
     motifs = np.stack([motifs] * len(n_feats), axis=1)
     feats = np.concatenate([motifs, seq_motif_sim, seq_attr], axis=-1)
-    print (motifs.shape, seq_motif_sim.shape, seq_attr.shape)
+    #Luz print (motifs.shape, seq_motif_sim.shape, seq_attr.shape)
     return feats
 
 # Validation step with AUPR reporting
@@ -1064,19 +1052,27 @@ for cell in model_name:
 
 pool.shutdown(wait=True)
 
-hepg2_train, hepg2_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=42)
-gm_train, gm_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=0)
+# hepg2_train, hepg2_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=42)
+# gm_train, gm_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=0)
 
+# train_cells_hepg2 = ['HepG2']
+# train_cells_gm12878 = ['HepG2']
+# train_feats = np.concatenate([feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_train] for cell in train_cells_hepg2] + 
+#                              [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[gm_train] for cell in train_cells_gm12878], axis=0)
+# valid_feats = np.concatenate([feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_val] for cell in train_cells_hepg2] + 
+#                              [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[gm_val] for cell in train_cells_gm12878], axis=0)
+# train_labels = np.concatenate([np.asarray(labels_all[cell]['bound'])[hepg2_train] for cell in train_cells_hepg2] + 
+#                               [np.asarray(labels_all[cell]['bound'])[gm_train] for cell in train_cells_gm12878], axis=0)
+# valid_labels = np.concatenate([np.asarray(labels_all[cell]['bound'])[hepg2_val] for cell in train_cells_hepg2] + 
+#                               [np.asarray(labels_all[cell]['bound'])[gm_val] for cell in train_cells_gm12878], axis=0)
+# pickle.dump([train_feats, valid_feats, train_labels, valid_labels], open("finetune_TFBS.pkl", "wb"))
+
+hepg2_train, hepg2_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=42)
 train_cells_hepg2 = ['HepG2']
-train_cells_gm12878 = ['HepG2']
-train_feats = np.concatenate([feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_train] for cell in train_cells_hepg2] + 
-                             [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[gm_train] for cell in train_cells_gm12878], axis=0)
-valid_feats = np.concatenate([feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_val] for cell in train_cells_hepg2] + 
-                             [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[gm_val] for cell in train_cells_gm12878], axis=0)
-train_labels = np.concatenate([np.asarray(labels_all[cell]['bound'])[hepg2_train] for cell in train_cells_hepg2] + 
-                              [np.asarray(labels_all[cell]['bound'])[gm_train] for cell in train_cells_gm12878], axis=0)
-valid_labels = np.concatenate([np.asarray(labels_all[cell]['bound'])[hepg2_val] for cell in train_cells_hepg2] + 
-                              [np.asarray(labels_all[cell]['bound'])[gm_val] for cell in train_cells_gm12878], axis=0)
+train_feats = [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_train] for cell in train_cells_hepg2][0]
+valid_feats = [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_val] for cell in train_cells_hepg2][0]
+train_labels = [np.asarray(labels_all[cell]['bound'])[hepg2_train] for cell in train_cells_hepg2][0]
+valid_labels = [np.asarray(labels_all[cell]['bound'])[hepg2_val] for cell in train_cells_hepg2][0]
 pickle.dump([train_feats, valid_feats, train_labels, valid_labels], open("finetune_TFBS.pkl", "wb"))
 
 torch.set_num_threads(3)
@@ -1122,7 +1118,7 @@ for feats in [[0], [1]]:
     
     # Training Loop
     criterion = nn.BCEWithLogitsLoss(weight=class_weights.cuda())
-    optimizer = optim.Adam(model.parameters(), lr=5e-4)  # Learning rate can be adjusted
+    optimizer = optim.Adam(model.parameters(), lr=2e-4)  # Learning rate can be adjusted
     num_epochs = 1000  # Number of epochs can be adjusted
     val_freq = 1000
     best_val_loss = 0
@@ -1170,4 +1166,114 @@ for feats in [[0], [1]]:
     
     # Save to file
     torch.jit.save(m2, f"TFBS_{feats[0]}_conv_v2.pt")
+
+# TFBS_0_conv_v2.pt: cosine(seq_trend, motif_trend)                # similarity between the motif of interest and sequence attribution score 
+# TFBS_1_conv_v2.pt: ((seq_trend - median) / (high - low)).mean()  # mean of attribution score
+# It seems that motif-matching score is not used!
+
+
+from sklearn.metrics import precision_score
+
+def cal_precision(model, val_loader, device="cpu"):
+    model.eval()  # Set the model to evaluation mode
+    all_preds = []
+    all_labels = []
+
+    with torch.no_grad():  # No need to compute gradient when evaluating
+        for inputs, labels in val_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)[..., 0, :]
+
+            # # Store predictions and labels
+            all_preds.extend(torch.sigmoid(outputs).cpu().numpy())  # Assuming binary classification
+            all_labels.extend(labels.cpu().numpy())
+
+    all_preds = all_preds>=np.quantile(all_preds, 0.7)
+    val_precision_score = precision_score(all_labels, all_preds)  # Compute precision score
+    total_cnt = len(all_preds)
+    pos_cnt = sum(all_preds==1)[0]
+    
+    return val_precision_score, total_cnt, pos_cnt
+
+
+feats = np.array([0])
+t = 0
+
+hepg2_train, hepg2_val = train_test_split(np.arange(len(labels_all['HepG2'])), test_size=0.1, random_state=42)
+train_cells_hepg2 = ['HepG2']
+
+tf_lst = list(set(labels_all['HepG2']['TF'].values))
+precision_score_df = pd.DataFrame({'TF':tf_lst, 'Precision_score':0,
+                                   'Total_cnt':0, 'Pos_cnt':0})
+
+for tf in tf_lst:
+    tf_idx = labels_all['HepG2'][labels_all['HepG2']['TF']==tf].index.values
+    hepg2_val_tf = np.intersect1d(hepg2_val, tf_idx)
+    
+    valid_feats = [feats_for_cell(feats_all, labels_all, cell, n_feats=np.arange(2))[hepg2_val_tf] for cell in train_cells_hepg2][0]
+    valid_feats = valid_feats[:, feats, 3:]
+    valid_labels = [np.asarray(labels_all[cell]['bound'])[hepg2_val_tf] for cell in train_cells_hepg2][0]
+    valid_shape = valid_feats.shape
+    valid_feats = valid_feats.reshape((len(valid_feats), len(feats), -1))
+    
+    scaler = StandardScaler().fit(valid_feats[:, 0, :])
+    mean, std = scaler.mean_, scaler.scale_
+    
+    X_val = torch.as_tensor(valid_feats).float()  # [:, 0, :]
+    y_val = torch.as_tensor(valid_labels[:, None]).long()
+    
+    val_dataset = TensorDataset(X_val, y_val)
+    batch_size = 512  # You can adjust the batch size
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+
+    if t==0:
+        model = TFConv(X_val.shape[-1], X_val.shape[-2], mean, std).cuda()
+        model = torch.jit.load(f"TFBS_{feats[0]}_conv_v2.pt")
+        t += 1
+
+    val_precision_score, total_cnt, pos_cnt = cal_precision(model, val_loader, "cuda")
+    precision_score_df.loc[precision_score_df['TF']==tf, 'Precision_score'] = val_precision_score #print(f"{tf}, Validation Precision score: {val_precision_score:.4f}")
+    precision_score_df.loc[precision_score_df['TF']==tf, 'Total_cnt'] = total_cnt
+    precision_score_df.loc[precision_score_df['TF']==tf, 'Pos_cnt'] = pos_cnt
+    print(tf, 'done')
+    
+precision_score_df['Precision_score'].median()  # 0.4117647058823529
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##########################################################################################################################################################################
