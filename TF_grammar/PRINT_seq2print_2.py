@@ -1172,6 +1172,7 @@ for feats in [[0], [1]]:
 # It seems that motif-matching score is not used!
 
 
+#### Evaluate model performance
 from sklearn.metrics import precision_score
 
 def cal_precision(model, val_loader, device="cpu"):
@@ -1238,42 +1239,4 @@ for tf in tf_lst:
     print(tf, 'done')
     
 precision_score_df['Precision_score'].median()  # 0.4117647058823529
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ##########################################################################################################################################################################
