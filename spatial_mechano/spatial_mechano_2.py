@@ -263,7 +263,53 @@ cytospace --single-cell \
           --number-of-processors 8   # ~20 min
 
 
+#### test for all genes
+import scanpy as sc
+import pandas as pd
+from tqdm import tqdm
+import numpy as np
 
+spatial_adata = sc.read_h5ad('./Merfish/overall_merfish_areas.h5ad')
+spatial_adata.obs.index = ['cell_'+i for i in spatial_adata.obs.index]
+
+scatac_adata = sc.read_h5ad('./scMultiome/Donors_atac.h5ad')
+scatac_adata.obs['idx'] = range(scatac_adata.n_obs)  # for number index searching
+m = scatac_adata.X.todense()
+
+aligned = pd.read_csv('./cytospace_results_crc/assigned_locations.csv')
+aligned.index = aligned['SpotID'].values
+
+
+# for ct in spatial_adata.obs['populations'].drop_duplicates():
+
+def test_cell(ct='VIC'):
+    s_ratio_lst = []
+    b_ratio_lst = []
+    fc_lst = []
+    ct_spatial_adata = spatial_adata[spatial_adata.obs.index[(spatial_adata.obs['populations']==ct) & (spatial_adata.obs['areas']<1000)]]
+    s_x_idx = scatac_adata[aligned.loc[ct_spatial_adata.obs.index.values[ct_spatial_adata.obs['areas']<ct_spatial_adata.obs['areas'].quantile(0.2).item()]]['OriginalCID'].values].obs['idx'].values
+    b_x_idx = scatac_adata[aligned.loc[ct_spatial_adata.obs.index.values[ct_spatial_adata.obs['areas']>ct_spatial_adata.obs['areas'].quantile(0.8).item()]]['OriginalCID'].values].obs['idx'].values
+
+    for i in tqdm(range(scatac_adata.n_vars), ncols=80, desc=ct):
+        s_peak_ratio = (m[s_x_idx, i].sum()/m[s_x_idx, i].shape[0]).item()
+        b_peak_ratio = (m[b_x_idx, i].sum()/m[b_x_idx, i].shape[0]).item()
+        s_ratio_lst.append(s_peak_ratio)
+        b_ratio_lst.append(b_peak_ratio)
+        fc_lst.append(np.log2((s_peak_ratio+0.00001)/(b_peak_ratio+0.00001)).item())
+    
+    res = pd.DataFrame({'ct':ct, 'peak':scatac_adata.var.index.values, 's_ratio':s_ratio_lst, 'b_ratio':b_ratio_lst, 'log2fc':fc_lst})
+    return res
+
+VIC = test_cell('VIC')
+
+peaks = pd.DataFrame({'id': VIC[(VIC['log2fc']>0.3) & (VIC['s_ratio']>0.1)]['peak'].values})
+peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+peaks.drop(columns='id', inplace=True)
+peaks.to_csv('VIC_s_b_peaks.bed', sep='\t', index=False, header=False)
+
+res.to_csv('log2fc_pvalue.txt', sep='\t', index=False)
 
 
 
