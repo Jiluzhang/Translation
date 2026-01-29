@@ -11,19 +11,9 @@ import scanpy as sc
 df = pd.read_csv('R1_R77_4C4_cell_metadata.csv')
 df = df[df['status']=='ok']  # 79088
 
-vor= Voronoi(df[['global_x', 'global_y']])
+vor = Voronoi(df[['global_x', 'global_y']])
 
-# fig = voronoi_plot_2d(vor, point_size=1, show_vertices=False, line_width=0.5)
-# plt.savefig('all_fov.pdf')
-# plt.close()
-
-# df_sub = df[(df['global_x']>1000) & (df['global_x']<1500) & (df['global_y']>1000) & (df['global_y']<1500)]
-# vor_sub= Voronoi(df_sub[['global_x', 'global_y']])
-# fig = voronoi_plot_2d(vor_sub, point_size=1, show_vertices=False, line_width=0.5)
-# plt.savefig('fov_1000_1500.pdf')
-# plt.close()
-
-# vertices should be ranked based on plot
+## vertices should be ranked based on plot
 def poly_area(vertices):
     x = vertices[:, 0]
     y = vertices[:, 1]
@@ -53,138 +43,190 @@ for point_idx, region_idx in enumerate(tqdm(vor.point_region, ncols=80)):
 
 df['areas'] = point_areas
 
-
 adata_raw = sc.read_h5ad('../cytospace_Luz/overall_merfish.h5ad')
 adata = adata_raw[adata_raw.obs['sample_id']=='R77_4C4'].copy()  # 72962 × 238
 adata.obs.index = [i.split('-')[0] for i in adata.obs.index]
 
-## renormalization
-# raw_cnt = pd.read_csv('../cytospace_Luz/R1_R77_4C4_single_cell_raw_counts.csv', index_col=0)
-# adata.X = np.array(raw_cnt.loc[adata.obs.index])
-# sc.pp.normalize_total(adata, target_sum=1e4)
-# sc.pp.log1p(adata)
-
 adata.obs['areas'] = np.nan
 df['cell_id'] = df['cell_id'].astype(str)
-idx =  np.intersect1d(df['cell_id'], adata.obs.index)
+idx = np.intersect1d(df['cell_id'], adata.obs.index)
 adata.obs.loc[idx, 'areas'] = df[df['cell_id'].isin(idx)]['areas'].values
 adata.write('overall_merfish_areas.h5ad')
 
-#### specifically for PIEZO2 (median is not significant)
-ct_lst = []
-s_gex_lst = []
-b_gex_lst = []
-p_value_lst = []
-for ct in adata.obs['populations'].drop_duplicates():
-    ct_lst.append(ct)
-    adata_ct = adata[(adata.obs['populations']==ct) & (adata.obs['areas']<1000), :].copy()
-    area_mid = adata_ct.obs['areas'].median().item()
-    s_gex_lst.append(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index=='PIEZO2'].mean().item())
-    b_gex_lst.append(adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index=='PIEZO2'].mean().item())
-    p_value_lst.append(stats.ttest_ind(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index=='PIEZO2'],
-                                       adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index=='PIEZO2'])[1].item())
 
-p_value_lst[0]   # 0.010926409206141654
-p_value_lst[-4]  # 0.011584681009410555
-ct_lst[0]        # VIC
-ct_lst[-4]       # Epicardial
+## single cell multiome (RNA+ATAC)
+## Targeting immune–fibroblast cell communication in heart failure (Nature, 2024)
+## GSE270788
 
-#### test for all genes
-ct_lst = []
-genes_lst = []
-fc_lst = []
-p_lst = []
-for ct in tqdm(adata.obs['populations'].drop_duplicates(), ncols=80):
-    adata_ct = adata[(adata.obs['populations']==ct) & (adata.obs['areas']<1000), :].copy()
-    for gene in adata_ct.var.index:
-        ct_lst.append(ct)
-        genes_lst.append(gene)
-        s_gex = adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index==gene].mean().item()
-        b_gex = adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index==gene].mean().item()
-        fc_lst.append(np.log2((s_gex+0.001)/(b_gex+0.001)).item())
-        p_value = stats.ttest_ind(adata_ct.X[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2).item(), adata_ct.var.index==gene],
-                                  adata_ct.X[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8).item(), adata_ct.var.index==gene])[1].item() 
-        p_lst.append(p_value)
+## workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_3/scMultiome
 
-res = pd.DataFrame({'ct':ct_lst, 'gene':genes_lst, 'log2fc':fc_lst, 'pvalue':p_lst})
-res.to_csv('log2fc_pvalue.txt', sep='\t', index=False)
+# MA5,Donor  √
+# MA6,Donor  √
+# MA7,ICM
+# MA8,ICM
+# MA9,AMI
+# MA10,NICM
+# MA11,AMI
+# MA13,Donor  √
+# MA14,NICM
+# MA19,AMI
+# MA20,AMI
+# MA22,NICM
+# MA23,Donor  √
+# MA24,NICM
+# MA25,NICM
+# MA26,Donor  √
+# MA27,ICM
+# MA28,NICM
+# MA29,Donor  √
+# MA30,ICM
+# MA31,AMI
+# MA32,ICM
+# MA33,Donor  √
 
-## plot volcano
+# MA5:   wget -c ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352048/suppl/GSM8352048_MA5_filtered_feature_bc_matrix.h5
+# MA6:   wget -c ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352049/suppl/GSM8352049_MA6_filtered_feature_bc_matrix.h5
+# MA13:  wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352055/suppl/GSM8352055_MA13_filtered_feature_bc_matrix.h5
+# MA23:  wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352060/suppl/GSM8352060_MA23_filtered_feature_bc_matrix.h5
+# MA26:  wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352063/suppl/GSM8352063_MA26_filtered_feature_bc_matrix.h5
+# MA29:  wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352066/suppl/GSM8352066_filtered_feature_bc_matrix.h5
+# MA33:  wget -c https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM8352nnn/GSM8352070/suppl/GSM8352070_MA33_filtered_feature_bc_matrix.h5
+# mv GSM8352048_MA5_filtered_feature_bc_matrix.h5 Donor_1.h5
+# mv GSM8352049_MA6_filtered_feature_bc_matrix.h5 Donor_2.h5
+# mv GSM8352055_MA13_filtered_feature_bc_matrix.h5 Donor_3.h5
+# mv GSM8352060_MA23_filtered_feature_bc_matrix.h5 Donor_4.h5
+# mv GSM8352063_MA26_filtered_feature_bc_matrix.h5 Donor_5.h5
+# mv GSM8352066_filtered_feature_bc_matrix.h5 Donor_6.h5
+# mv GSM8352070_MA33_filtered_feature_bc_matrix.h5 Donor_7.h5
+
+#### split RNA & ATAC
+import scanpy as sc
 import pandas as pd
-import numpy as np
-from plotnine import *
-import matplotlib.pyplot as plt
+import anndata as ad
 
-plt.rcParams['pdf.fonttype'] = 42
+adata = sc.read_10x_h5('Donor_1.h5', gex_only=False)
+## atac
+atac = adata[:, adata.var['feature_types']=='Peaks'].copy()             # 2197 × 88895
+atac.write('atac.h5ad')
 
-df = pd.read_table('log2fc_pvalue.txt')
-df['-log10(pvalue)'] = -np.log10(df['pvalue'])
-df['idx'] = 'not_sig'
-df.loc[(df['log2fc']>np.log2(1.2))  &  (df['-log10(pvalue)']>-np.log10(0.05)),  'idx'] = 'up'
-df.loc[(df['log2fc']<-np.log2(1.2))  &  (df['-log10(pvalue)']>-np.log10(0.05)), 'idx'] = 'down'
-df['idx'] = pd.Categorical(df['idx'], categories=['up', 'down', 'not_sig'])
+## rna
+d_1 = sc.read_10x_h5('Donor_1.h5', gex_only=False)  # 2197 × 125496
+d_2 = sc.read_10x_h5('Donor_2.h5', gex_only=False)  # 2298 × 168850
+d_3 = sc.read_10x_h5('Donor_3.h5', gex_only=False)  # 649 × 102376
+d_4 = sc.read_10x_h5('Donor_4.h5', gex_only=False)  # 5226 × 162267
+d_5 = sc.read_10x_h5('Donor_5.h5', gex_only=False)  # 1846 × 174078
+d_6 = sc.read_10x_h5('Donor_6.h5', gex_only=False)  # 7692 × 134988
+d_7 = sc.read_10x_h5('Donor_7.h5', gex_only=False)  # 5586 × 156529
 
-df['idx'].value_counts()
-# not_sig    6011
-# up          225
-# down        190
+d_1.var_names_make_unique()
+d_2.var_names_make_unique()
+d_3.var_names_make_unique()
+d_4.var_names_make_unique()
+d_5.var_names_make_unique()
+d_6.var_names_make_unique()
+d_7.var_names_make_unique()
 
-for ct in df['ct'].drop_duplicates():
-    df_ct = df[df['ct']==ct]
-    p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                          scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
-                                                                          geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
-                                                                                    size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                          # scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.4)) +\
-                                                                          # scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
-                                                                          # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                          # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-    p.save(filename=ct+'_volcano.pdf', dpi=600, height=4, width=5)
+d_1.obs_names = ['d-1_'+i for i in d_1.obs_names]
+d_2.obs_names = ['d-2_'+i for i in d_2.obs_names]
+d_3.obs_names = ['d-3_'+i for i in d_3.obs_names]
+d_4.obs_names = ['d-4_'+i for i in d_4.obs_names]
+d_5.obs_names = ['d-5_'+i for i in d_5.obs_names]
+d_6.obs_names = ['d-6_'+i for i in d_6.obs_names]
+d_7.obs_names = ['d-7_'+i for i in d_7.obs_names]
 
-## VIC
-df_ct = df[df['ct']=='VIC']
-p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
-                                                                      scale_x_continuous(limits=[-1.5, 1.5], breaks=np.arange(-1.5, 1.5+0.1, 0.5)) +\
-                                                                      scale_y_continuous(limits=[0, 4], breaks=np.arange(0, 4+0.1, 1.0)) +\
-                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
-                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-p.save(filename='VIC_volcano_mod.pdf', dpi=600, height=4, width=5)
+adata = ad.concat([d_1[:, d_1.var['feature_types']=='Gene Expression'], 
+                   d_2[:, d_2.var['feature_types']=='Gene Expression'],
+                   d_3[:, d_3.var['feature_types']=='Gene Expression'],
+                   d_4[:, d_4.var['feature_types']=='Gene Expression'],
+                   d_5[:, d_5.var['feature_types']=='Gene Expression'],
+                   d_6[:, d_6.var['feature_types']=='Gene Expression'],
+                   d_7[:, d_7.var['feature_types']=='Gene Expression']])   # 25494 × 36601
 
-## Epicardial
-df_ct = df[df['ct']=='Epicardial']
-p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
-                                                                      scale_x_continuous(limits=[-2, 2], breaks=np.arange(-2, 2+0.1, 1.0)) +\
-                                                                      scale_y_continuous(limits=[0, 5], breaks=np.arange(0, 5+0.1, 1.0)) +\
-                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
-                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-p.save(filename='Epicardial_volcano_mod.pdf', dpi=600, height=4, width=5)
+adata.var['gene_ids'] = d_1[:, d_1.var['feature_types']=='Gene Expression'].var['gene_ids'].values
+adata.write('Donors.h5')
 
-## BEC: blood endothelial cell
-df_ct = df[df['ct']=='BEC']
-p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
-                                                                      scale_x_continuous(limits=[-1, 1], breaks=np.arange(-1, 1+0.1, 0.5)) +\
-                                                                      scale_y_continuous(limits=[0, 3], breaks=np.arange(0, 3+0.1, 0.5)) +\
-                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
-                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-p.save(filename='BEC_volcano_mod.pdf', dpi=600, height=4, width=5)
 
-## aFibro: atria firoblast
-df_ct = df[df['ct']=='aFibro']
-p = ggplot(df_ct, aes(x='log2fc', y='-log10(pvalue)', color='idx')) + geom_point(size=0.5) +\
-                                                                      scale_color_manual(values={'up':'red', 'down':'blue', 'not_sig':'gray'}) +\
-                                                                      scale_x_continuous(limits=[-1.25, 1.25], breaks=np.arange(-1.25, 1.25+0.1, 0.25)) +\
-                                                                      scale_y_continuous(limits=[0, 9], breaks=np.arange(0, 9+0.1, 3)) +\
-                                                                      geom_text(data=df_ct[df_ct['idx']!='not_sig'], mapping=aes(label='gene'), 
-                                                                                size=8, color='black', nudge_x=0.1, nudge_y=0.1) + theme_bw()
-                                                                      # geom_vline(xintercept=[-np.log2(1.5), np.log2(1.5)], linetype='dashed', color='black', size=0.5) +\
-                                                                      # geom_hline(yintercept=-np.log10(0.05), linetype='dashed', color='black', size=0.5)
-p.save(filename='aFibro_volcano_mod.pdf', dpi=600, height=4, width=5)
+rna = adata[:, adata.var['feature_types']=='Gene Expression'].copy()    # 2197 × 36601
+gex = pd.DataFrame(rna.X.toarray().T)
+gex.index = rna.var.index.values
+gex.columns = ['s1_'+i for i in rna.obs.index.values]
+gex.index.name = 'GENES'
+
+## meta
+meta = pd.read_csv('GSE270788_metadata.csv.gz')
+ma5 = meta[meta['sample']=='MA5']
+ma5 = ma5[['barcode', 'cell.type']]
+ma5.columns = ['Cell IDs', 'CellType']
+ma5.to_csv('scrna_ct.tsv', index=False, sep='\t')
+
+gex.loc[:, ma5['barcode'].values].to_csv('scrna_gex.tsv', sep='\t')  # select cells with annotations
+
+# Adipocyte
+# Cardiomyocyte
+# Endocardium
+# Endothelium
+# Fibroblast
+# Glia
+# Lymphatic
+# Mast
+# Myeloid
+# Pericyte
+# TNKCells
+
+#### unify cell annotation
+import pandas as pd
+
+## scrna cell type
+scrna_ct = pd.read_table('scrna_ct.tsv')
+scrna_ct['CellType'] = scrna_ct['CellType'].replace({'Adipocyte':'Epicardium', 'Cardiomyocyte':'Cardiomyocyte', 'Endocardium':'Endocardium',
+                                                     'Endothelium':'Endothelium', 'Fibroblast':'Fibroblast', 'Glia':'Neuron',
+                                                     'Lymphatic':'Immune', 'Mast':'Immune', 'Myeloid':'Immune',
+                                                     'Pericyte':'Pericyte', 'TNKCells':'Immune'})
+scrna_ct.to_csv('scrna_ct_aligned.tsv', index=False, sep='\t')
+
+## st cell type
+st_ct = pd.read_table('st_ct.tsv')
+st_ct['CellType'] = st_ct['CellType'].replace({'BEC':'Endothelium', 'EPDC':'Epicardium', 'Epicardial':'Epicardium',
+                                               'LEC':'Endothelium', 'Neuronal':'Neuron', 'Pericyte':'Pericyte',
+                                               'VEC':'Endocardium', 'VIC':'Endocardium', 'VSMC':'Endothelium', 'WBC':'Immune',
+                                               'aCM-LA':'Cardiomyocyte', 'aCM-RA':'Cardiomyocyte', 'aEndocardial':'Endocardium',
+                                               'aFibro':'Fibroblast', 'adFibro':'Fibroblast', 'ncCM-AVC-like':'Cardiomyocyte',
+                                               'ncCM-IFT-like':'Cardiomyocyte', 'vCM-His-Purkinje':'Cardiomyocyte',
+                                               'vCM-LV-AV':'Cardiomyocyte', 'vCM-LV-Compact':'Cardiomyocyte',
+                                               'vCM-LV-Trabecular':'Cardiomyocyte', 'vCM-Proliferating':'Cardiomyocyte',
+                                               'vCM-RV-AV':'Cardiomyocyte', 'vCM-RV-Compact':'Cardiomyocyte',
+                                               'vCM-RV-Trabecular':'Cardiomyocyte', 'vEndocardial':'Endocardium', 'vFibro':'Fibroblast',})
+st_ct.to_csv('st_ct_aligned.tsv', index=False, sep='\t')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
