@@ -296,44 +296,20 @@ def test_cell(ct='VIC'):
         s_ratio_lst.append(s_peak_ratio)
         b_ratio_lst.append(b_peak_ratio)
         fc_lst.append(np.log2((s_peak_ratio+0.00001)/(b_peak_ratio+0.00001)).item())
-    
+
+    ## save ratio info
     res = pd.DataFrame({'ct':ct, 'peak':scatac_adata.var.index.values, 's_ratio':s_ratio_lst, 'b_ratio':b_ratio_lst, 'log2fc':fc_lst})
-    return res
+    res.to_csv(ct+'_s_b_log2fc.txt', sep='\t', index=False)
 
-VIC = test_cell('VIC')
+    ## save responsive peaks (only s > b)
+    s_b_peaks = pd.DataFrame({'id': res[(res['log2fc']>np.log2(1.2)) & (res['s_ratio']>0.1)]['peak'].values})
+    s_b_peaks['chr'] = s_b_peaks['id'].map(lambda x: x.split(':')[0])
+    s_b_peaks['start'] = s_b_peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+    s_b_peaks['end'] = s_b_peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+    s_b_peaks.drop(columns='id', inplace=True)
+    s_b_peaks.to_csv(ct+'_s_b_peaks.bed', sep='\t', index=False, header=False)
 
-peaks = pd.DataFrame({'id': VIC[(VIC['log2fc']>0.3) & (VIC['s_ratio']>0.1)]['peak'].values})
-peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
-peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
-peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
-peaks.drop(columns='id', inplace=True)
-peaks.to_csv('VIC_s_b_peaks.bed', sep='\t', index=False, header=False)
-
-res.to_csv('log2fc_pvalue.txt', sep='\t', index=False)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+test_cell('VIC')
+test_cell('Epicardial')
+test_cell('BEC')
+test_cell('aFibro')
