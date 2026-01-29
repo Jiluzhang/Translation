@@ -1,5 +1,5 @@
 #################### calculate Voronoi area for each cell ####################
-## workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_2
+## workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_3
 import pandas as pd
 import numpy as np
 from scipy.spatial import Voronoi, voronoi_plot_2d
@@ -103,11 +103,10 @@ adata.write('overall_merfish_areas.h5ad')
 import scanpy as sc
 import pandas as pd
 import anndata as ad
-
-adata = sc.read_10x_h5('Donor_1.h5', gex_only=False)
-## atac
-atac = adata[:, adata.var['feature_types']=='Peaks'].copy()             # 2197 × 88895
-atac.write('atac.h5ad')
+import pybedtools
+import numpy as np
+from tqdm import tqdm
+from scipy.sparse import csr_matrix
 
 ## rna
 d_1 = sc.read_10x_h5('Donor_1.h5', gex_only=False)  # 2197 × 125496
@@ -126,40 +125,92 @@ d_5.var_names_make_unique()
 d_6.var_names_make_unique()
 d_7.var_names_make_unique()
 
-d_1.obs_names = ['d-1_'+i for i in d_1.obs_names]
-d_2.obs_names = ['d-2_'+i for i in d_2.obs_names]
-d_3.obs_names = ['d-3_'+i for i in d_3.obs_names]
-d_4.obs_names = ['d-4_'+i for i in d_4.obs_names]
-d_5.obs_names = ['d-5_'+i for i in d_5.obs_names]
-d_6.obs_names = ['d-6_'+i for i in d_6.obs_names]
-d_7.obs_names = ['d-7_'+i for i in d_7.obs_names]
+# Donor_1  MA5   s1
+# Donor_2  MA6   s2
+# Donor_3  MA13  s8
+# Donor_4  MA23  s13
+# Donor_5  MA26  s16
+# Donor_6  MA29  s19
+# Donor_7  MA33  s23
+d_1.obs_names = ['s1_'+i for i in d_1.obs_names]
+d_2.obs_names = ['s2_'+i for i in d_2.obs_names]
+d_3.obs_names = ['s8_'+i for i in d_3.obs_names]
+d_4.obs_names = ['s13_'+i for i in d_4.obs_names]
+d_5.obs_names = ['s16_'+i for i in d_5.obs_names]
+d_6.obs_names = ['s19_'+i for i in d_6.obs_names]
+d_7.obs_names = ['s23_'+i for i in d_7.obs_names]
 
-adata = ad.concat([d_1[:, d_1.var['feature_types']=='Gene Expression'], 
-                   d_2[:, d_2.var['feature_types']=='Gene Expression'],
-                   d_3[:, d_3.var['feature_types']=='Gene Expression'],
-                   d_4[:, d_4.var['feature_types']=='Gene Expression'],
-                   d_5[:, d_5.var['feature_types']=='Gene Expression'],
-                   d_6[:, d_6.var['feature_types']=='Gene Expression'],
-                   d_7[:, d_7.var['feature_types']=='Gene Expression']])   # 25494 × 36601
+rna = ad.concat([d_1[:, d_1.var['feature_types']=='Gene Expression'], 
+                 d_2[:, d_2.var['feature_types']=='Gene Expression'],
+                 d_3[:, d_3.var['feature_types']=='Gene Expression'],
+                 d_4[:, d_4.var['feature_types']=='Gene Expression'],
+                 d_5[:, d_5.var['feature_types']=='Gene Expression'],
+                 d_6[:, d_6.var['feature_types']=='Gene Expression'],
+                 d_7[:, d_7.var['feature_types']=='Gene Expression']])   # 25494 × 36601
 
-adata.var['gene_ids'] = d_1[:, d_1.var['feature_types']=='Gene Expression'].var['gene_ids'].values
-adata.write('Donors.h5')
+rna.var['gene_ids'] = d_1[:, d_1.var['feature_types']=='Gene Expression'].var['gene_ids'].values
+rna.write('Donors_rna.h5ad')
 
 
-rna = adata[:, adata.var['feature_types']=='Gene Expression'].copy()    # 2197 × 36601
+## atac
+cCREs = pd.read_table('human_cCREs.bed', names=['chr', 'start', 'end'])
+cCREs['idx'] = range(cCREs.shape[0])
+cCREs_bed = pybedtools.BedTool.from_dataframe(cCREs)
+
+def map_to_cre(d_1):
+    atac = d_1[:, d_1.var['feature_types']=='Peaks'].copy()
+    atac.X = atac.X.toarray()
+    atac.X[atac.X>0] = 1  # binarization
+    
+    peaks = pd.DataFrame({'id': atac.var_names})
+    peaks['chr'] = peaks['id'].map(lambda x: x.split(':')[0])
+    peaks['start'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[0])
+    peaks['end'] = peaks['id'].map(lambda x: x.split(':')[1].split('-')[1])
+    peaks.drop(columns='id', inplace=True)
+    peaks['idx'] = range(peaks.shape[0])
+    peaks_bed = pybedtools.BedTool.from_dataframe(peaks)
+    idx_map = peaks_bed.intersect(cCREs_bed, wa=True, wb=True).to_dataframe().iloc[:, [3, 7]]
+    idx_map.columns = ['peaks_idx', 'cCREs_idx']
+    
+    m = np.zeros([atac.n_obs, cCREs_bed.to_dataframe().shape[0]], dtype='float32')
+    for i in tqdm(range(atac.X.shape[0]), ncols=80, desc='Aligning ATAC peaks'):
+        m[i][idx_map[idx_map['peaks_idx'].isin(peaks.iloc[np.nonzero(atac.X[i])]['idx'])]['cCREs_idx']] = 1
+    
+    atac_new = sc.AnnData(m, obs=atac.obs, var=pd.DataFrame({'gene_ids': cCREs['chr']+':'+cCREs['start'].map(str)+'-'+cCREs['end'].map(str), 'feature_types': 'Peaks'}))
+    atac_new.var.index = atac_new.var['gene_ids'].values
+    atac_new.X = csr_matrix(atac_new.X)  # speed up concatenating
+    
+    return atac_new
+
+atac_d1 = map_to_cre(d_1)  # 2197 × 1033239
+atac_d2 = map_to_cre(d_2)  # 2298 × 1033239
+atac_d3 = map_to_cre(d_3)  # 649  × 1033239
+atac_d4 = map_to_cre(d_4)  # 5226 × 1033239
+atac_d5 = map_to_cre(d_5)  # 1846 × 1033239
+atac_d6 = map_to_cre(d_6)  # 7692 × 1033239
+atac_d7 = map_to_cre(d_7)  # 5586 × 1033239
+
+atac = ad.concat([atac_d1, atac_d2, atac_d3, atac_d4, atac_d5, atac_d6, atac_d7])   # 25494 × 1033239   very fast for csr matrix
+atac.var['gene_ids'] = atac_d1.var['gene_ids'].values
+
+sc.pp.filter_genes(atac, min_cells=10)  # 25494 × 296743
+atac.write('Donors_atac.h5ad')
+
+## prepare files for cytospace
 gex = pd.DataFrame(rna.X.toarray().T)
 gex.index = rna.var.index.values
-gex.columns = ['s1_'+i for i in rna.obs.index.values]
+gex.columns = rna.obs.index.values
 gex.index.name = 'GENES'
 
 ## meta
 meta = pd.read_csv('GSE270788_metadata.csv.gz')
-ma5 = meta[meta['sample']=='MA5']
-ma5 = ma5[['barcode', 'cell.type']]
-ma5.columns = ['Cell IDs', 'CellType']
-ma5.to_csv('scrna_ct.tsv', index=False, sep='\t')
+ma = meta[meta['sample'].isin(['MA5', 'MA6', 'MA13', 'MA23', 'MA26', 'MA29', 'MA33'])]  # 10727 × 25
+ma = ma[['barcode', 'cell.type']]
+ma.columns = ['Cell IDs', 'CellType']
+ma.to_csv('scrna_ct.tsv', index=False, sep='\t')
 
-gex.loc[:, ma5['barcode'].values].to_csv('scrna_gex.tsv', sep='\t')  # select cells with annotations
+gex.loc[:, ma['Cell IDs'].values].to_csv('scrna_gex.tsv', sep='\t')  # select cells with annotations
+# 36601 genes & 10727 cells
 
 # Adipocyte
 # Cardiomyocyte
@@ -199,7 +250,17 @@ st_ct['CellType'] = st_ct['CellType'].replace({'BEC':'Endothelium', 'EPDC':'Epic
 st_ct.to_csv('st_ct_aligned.tsv', index=False, sep='\t')
 
 
-
+# scRNA cells: 10,727  &  st cells: 72,963
+cytospace --single-cell \
+          --scRNA-path ./scMultiome/scrna_gex.tsv \
+          --cell-type-path ./scMultiome/scrna_ct_aligned.tsv \
+          --st-path ./Merfish/st_gex.tsv \
+          --coordinates-path ./Merfish/st_pos.tsv \
+          --st-cell-type-path ./Merfish/st_ct_aligned.tsv \
+          --output-folder cytospace_results_crc \
+          --solver-method lap_CSPR \
+          --number-of-selected-sub-spots 10000 \
+          --number-of-processors 8   # ~20 min
 
 
 
