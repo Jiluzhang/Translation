@@ -1,4 +1,5 @@
 #### workdir: /fs/home/jiluzhang/TF_grammar/Chromnitron
+#### github: https://github.com/tanjimin/Chromnitron/tree/main/chromnitron
 
 # wget -c https://codeload.github.com/tanjimin/Chromnitron/zip/refs/heads/main
 # conda create -n chromnitron python==3.9
@@ -18,3 +19,8 @@
 
 # tar -xf model_weights_subset.tar
 # tar -xf input_resources.tar
+
+# Edit configuration and prepare for inference
+
+python ./Chromnitron-main/chromnitron/inference.py ./Chromnitron-main/chromnitron/examples/local_config.yaml
+
