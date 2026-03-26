@@ -24,5 +24,6 @@
 
 ## add class ConvTranspose1d to /fs/home/jiluzhang/softwares/miniconda3/envs/chromnitron/lib/python3.9/site-packages/loralib/layers.py
 
-python ./Chromnitron-main/chromnitron/inference.py ./Chromnitron-main/chromnitron/examples/local_config.yaml  # bug: Missing key(s) in state_dict
+python ./Chromnitron-main/chromnitron/inference.py ./Chromnitron-main/chromnitron/examples/local_config.yaml
 
+# "use_finetune: disable" (auto -> disable) in local_config.yaml
