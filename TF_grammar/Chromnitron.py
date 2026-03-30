@@ -41,6 +41,7 @@ import numpy as np
 import pandas as pd
 import torch
 from chromnitron_model.load_model import load_chromnitron
+from chromnitron_model.chromnitron_models import Chromnitron
 
 def load_yaml(path):
     with open(path, "r") as f:
@@ -52,22 +53,51 @@ def load_inputs(config):
     cap_list = read_list(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['cap_list_path']))
     return loci_info, chrs, celltype_list, cap_list
 
-def init_model(config):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    from chromnitron_model.chromnitron_models import Chromnitron
-    model = Chromnitron()
-    model = model.to(device)
-    return model
+def load_data(config, celltype, loci_info, cap, chr_sizes):
+    input_dict = config['input_resource']
+    input_seq_path = os.path.join(input_dict['root'], input_dict['sequence'], f'{config["inference_config"]["input"]["assembly"]}.zarr')
+    input_features_path = os.path.join(input_dict['root'], input_dict['atac'], f'{celltype}.zarr')
+    assembly = config['inference_config']['input']['assembly']
+    esm_feature_path = os.path.join(input_dict['root'], input_dict['cap'], f'{cap}.npz')
+
+    if config['inference_config']['input']['excluded_region_path'] == 'auto':
+        excluded_region_path = f"{config['input_resource']['root']}/{config['input_resource']['sequence']}/{assembly}-blacklist.v2.bed"
+    else:
+        excluded_region_path = config['inference_config']['input']['excluded_region_path']
+    if not os.path.exists(excluded_region_path):
+        print(f'WARNING: {excluded_region_path} does not exist, using all regions')
+
+    from chromnitron_data.chromnitron_dataset import InferenceDataset
+    data = InferenceDataset(loci_info, input_seq_path, input_features_path, esm_feature_path, assembly, chr_sizes, metadata_key = celltype, excluded_region_path = excluded_region_path)
+
+    batch_size = config['inference_config']['inference']['batch_size']
+    num_workers = config['inference_config']['inference']['num_workers']
+    batch_size = min(batch_size, len(data) // 2 + 1) # Ensure at least 2 batches
+    dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return dataloader
+
 
 config_path = sys.argv[1]
 config = load_yaml(config_path)
 loci_info, chrs, celltype_list, cap_list = load_inputs(config) # Load inputs
 
-## Training
+## Training  (similar to inference step)
 if config['training_config']['training']['enable']:
-    model = load_chromnitron(config, cap)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model.to(device)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = Chromnitron()
+    model = model.to(device)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    model.train()
+
+    ## load input
+    chr_sizes = get_chr_sizes(config, chrs)
+    dataloader = load_data(config, celltype, loci_info, cap, chr_sizes)
+    
+    pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
+    save_prediction(pred_cache, label_df, config, celltype, cap)
+    
+
     
     
 
