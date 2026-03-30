@@ -27,3 +27,75 @@
 python ./Chromnitron-main/chromnitron/inference.py ./Chromnitron-main/chromnitron/examples/local_config.yaml
 
 # "use_finetune: disable" (auto -> disable) in local_config.yaml
+
+
+
+
+
+## modify inference.py -> training.py
+import sys
+import os
+import argparse
+import yaml
+import numpy as np
+import pandas as pd
+import torch
+from chromnitron_model.load_model import load_chromnitron
+
+def load_yaml(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def load_inputs(config):
+    loci_info, chrs = read_region_bed(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['locus_list_path']))
+    celltype_list = read_list(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['celltype_list_path']))
+    cap_list = read_list(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['cap_list_path']))
+    return loci_info, chrs, celltype_list, cap_list
+
+def init_model(config):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    from chromnitron_model.chromnitron_models import Chromnitron
+    model = Chromnitron()
+    model = model.to(device)
+    return model
+
+config_path = sys.argv[1]
+config = load_yaml(config_path)
+loci_info, chrs, celltype_list, cap_list = load_inputs(config) # Load inputs
+
+## Training
+if config['training_config']['training']['enable']:
+    model = load_chromnitron(config, cap)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model.to(device)
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
