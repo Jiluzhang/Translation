@@ -77,55 +77,163 @@ def load_data(config, celltype, loci_info, cap, chr_sizes):
     return dataloader
 
 
+def run_inference(config, model, dataloader, celltype, cap, use_tqdm=True):
+    pred_cache = []
+    label_cache_dict = {'chr':[], 'start':[], 'end':[], 'region_id':[],
+                        'celltype':celltype, 'cap':cap}
+
+    # Use TF32
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
+    # Run inference
+    with torch.no_grad():
+        if use_tqdm:
+            from tqdm import tqdm
+            dataloader = tqdm(dataloader)
+        for batch in dataloader:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            seq, input_features, esm_embeddings, loc_info = batch
+            seq = seq.to(device)
+            input_features = input_features.to(device)
+            esm_embeddings = esm_embeddings.to(device)
+
+            esm_embeddings = esm_embeddings.float().transpose(-1, -2)
+
+            batch_size, mini_bs, seq_len, seq_dim = seq.shape
+            seq = seq.view(batch_size*mini_bs, seq_len, seq_dim)
+            input_features = input_features.view(batch_size*mini_bs, -1)
+            seq = seq.transpose(1, 2).float()
+            input_features = input_features.unsqueeze(2).transpose(1, 2).float()
+
+            inputs = (seq, input_features)
+
+            preds, confidence = model(inputs, esm_embeddings)
+            preds = preds.detach().cpu().numpy()[:, 0, :]
+            pred_cache.append(preds)
+            label_cache_dict['start'].extend(loc_info[0].tolist())
+            label_cache_dict['end'].extend(loc_info[1].tolist())
+            label_cache_dict['chr'].extend(loc_info[2])
+            label_cache_dict['region_id'].extend(loc_info[3])
+
+    pred_cache = np.concatenate(pred_cache, axis=0)
+    # Exponential transform
+    pred_cache = np.exp(pred_cache) - 1
+    label_df = pd.DataFrame(label_cache_dict)
+    return pred_cache, label_df
+
+
+def run_training(config, model, dataloader, celltype, cap, use_tqdm=True):
+    # Use TF32
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)
+    
+    criterion = nn.MSELoss()
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+    train_loss_history = []
+    
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_loss = 0.0
+        train_loader = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        
+        for batch_idx, batch in enumerate(train_loader):
+            seq, input_features, esm_embeddings, loc_info = batch
+            seq = seq.to(device)
+            input_features = input_features.to(device)
+            esm_embeddings = esm_embeddings.to(device)
+            esm_embeddings = esm_embeddings.float().transpose(-1, -2)
+            
+            batch_size, mini_bs, seq_len, seq_dim = seq.shape
+            seq = seq.view(batch_size*mini_bs, seq_len, seq_dim)
+            input_features = input_features.view(batch_size*mini_bs, -1)
+            seq = seq.transpose(1, 2).float()
+            input_features = input_features.unsqueeze(2).transpose(1, 2).float()
+            
+            inputs = (seq, input_features)
+
+            optimizer.zero_grad()
+            preds, confidence = model(inputs, esm_embeddings)
+            
+            y_true = torch.randn(preds.shape).to(device)  # 请替换为真实标签!!!!!!!!!!
+            total_loss = criterion(preds, y_true)
+            
+            total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            
+            epoch_loss += total_loss.item()
+            train_loader.set_postfix({"loss": total_loss.item()})  # show loss in the tqdm
+        
+        # 学习率更新
+        scheduler.step()
+        
+        # 记录平均损失
+        avg_loss = epoch_loss / len(train_dataloader)
+        train_loss_history.append(avg_loss)
+        print(f"Epoch {epoch+1} 平均训练损失: {avg_loss:.4f}")
+        
+        # ===================== 4. 可选：验证集 =====================
+        if val_dataloader is not None:
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for val_batch in val_dataloader:
+                    # 验证流程与训练/推理完全一致
+                    seq, input_features, esm_embeddings, _ = val_batch
+                    seq = seq.to(device)
+                    input_features = input_features.to(device)
+                    esm_embeddings = esm_embeddings.float().transpose(-1, -2).to(device)
+                    
+                    batch_size, mini_bs, seq_len, seq_dim = seq.shape
+                    seq = seq.view(batch_size*mini_bs, seq_len, seq_dim).transpose(1,2).float()
+                    input_features = input_features.view(batch_size*mini_bs, -1)
+                    input_features = input_features.unsqueeze(2).transpose(1,2).float()
+                    
+                    inputs = (seq, input_features)
+                    preds, confidence = model(inputs, esm_embeddings)
+                    
+                    y_true = torch.randn(preds.shape).to(device)
+                    val_loss += criterion(preds, y_true).item()
+            
+            print(f"验证集损失: {val_loss/len(val_dataloader):.4f}\n")
+    
+    # ===================== 训练完成 =====================
+    print("训练完成！")
+    return model, train_loss_history
+
+# ===================== 推理时调用的指数变换（训练对应逻辑）=====================
+def inference_post_process(preds):
+    """与推理代码一致的输出后处理"""
+    return np.exp(preds) - 1
+
+
 config_path = sys.argv[1]
 config = load_yaml(config_path)
 loci_info, chrs, celltype_list, cap_list = load_inputs(config) # Load inputs
 
 ## Training  (similar to inference step)
 if config['training_config']['training']['enable']:
+    ## init_model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = Chromnitron()
     model = model.to(device)
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    model.train()
+
+    model = load_model_weights(model, base_model_weights_path)
+    
+    # criterion = torch.nn.MSELoss()
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    # model.train()
 
     ## load input
+    celltype = 'HepG2'
     chr_sizes = get_chr_sizes(config, chrs)
     dataloader = load_data(config, celltype, loci_info, cap, chr_sizes)
     
     pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
     save_prediction(pred_cache, label_df, config, celltype, cap)
     
-
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
