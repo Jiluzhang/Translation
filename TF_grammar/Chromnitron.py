@@ -193,7 +193,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
             inputs = (seq, input_features)
 
             optimizer.zero_grad()
-            preds, confidence = model(inputs, esm_embeddings)  # shape: preds[8, 1, 8192], confidence[8, 1, 8192]
+            preds = model(inputs, esm_embeddings)  # preds, confidence = model(inputs, esm_embeddings)  # shape: preds[8, 1, 8192], confidence[8, 1, 8192]
             
             y_true = torch.randn(preds.shape).to(device)  # 请替换为真实标签!!!!!!!!!!
             total_loss = criterion(preds, y_true)
@@ -227,7 +227,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
                     input_features = input_features.unsqueeze(2).transpose(1,2).float()
                     
                     inputs = (seq, input_features)
-                    preds, confidence = model(inputs, esm_embeddings)
+                    preds = model(inputs, esm_embeddings) #preds, confidence = model(inputs, esm_embeddings)
                     
                     y_true = torch.randn(preds.shape).to(device)
                     val_loss += criterion(preds, y_true).item()
@@ -239,8 +239,6 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
     torch.save(model, 'chromnitron.pth')
 
 
-
-# config_path = sys.argv[1]
 config_path = './Chromnitron-main/chromnitron/examples/local_config.yaml'
 config = load_yaml(config_path)
 loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
@@ -255,13 +253,38 @@ model = model.to(device)
 
 ## load input
 celltype = 'HepG2'
-cap = 'CTCF'
+cap_1, cap_2 = 'CTCF', 'JUND'
 chr_sizes = get_chr_sizes(config, chrs)
-dataloader = load_data(config, celltype, loci_info, cap, chr_sizes)
+train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes)
+val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes)
 
 # pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
-run_training(config, model, train_dataloader=dataloader, val_dataloader=dataloader, num_epochs=3, lr=1e-4)
+run_training(config, model, train_dataloader, val_dataloader, num_epochs=3, lr=1e-4)
 
-# seq_tf_emb shape: [8, 384, 512]
-seq_tf_emb = x[:, :, :seq_emb_length]
-out = self.decoder(seq_tf_emb)
+include binary labels to dataloader!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
