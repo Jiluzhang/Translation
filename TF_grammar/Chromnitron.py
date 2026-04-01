@@ -263,6 +263,7 @@ run_training(config, model, train_dataloader, val_dataloader, num_epochs=3, lr=1
 
 include binary labels to dataloader!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+local_config.yaml "binding: /fs/home/jiluzhang/TF_grammar/Chromnitron/Chromnitron-main/chromnitron/examples/inputs/binding_CTCF.txt"
 
 
 
