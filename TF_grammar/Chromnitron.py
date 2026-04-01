@@ -193,7 +193,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
             inputs = (seq, input_features)
 
             optimizer.zero_grad()
-            preds, confidence = model(inputs, esm_embeddings)
+            preds, confidence = model(inputs, esm_embeddings)  # shape: preds[8, 1, 8192], confidence[8, 1, 8192]
             
             y_true = torch.randn(preds.shape).to(device)  # 请替换为真实标签!!!!!!!!!!
             total_loss = criterion(preds, y_true)
@@ -209,7 +209,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
         
         avg_loss = epoch_loss / len(train_dataloader)
         train_loss_history.append(avg_loss)
-        print(f"Epoch {epoch+1} 平均训练损失: {avg_loss:.4f}")
+        print(f"Epoch {epoch+1} average training loss: {avg_loss:.4f}")
         
         if val_dataloader is not None:
             model.eval()
@@ -232,34 +232,36 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
                     y_true = torch.randn(preds.shape).to(device)
                     val_loss += criterion(preds, y_true).item()
             
-            print(f"验证集损失: {val_loss/len(val_dataloader):.4f}\n")
+            print(f"Validating loss: {val_loss/len(val_dataloader):.4f}\n")
     
     print("Training done!!!")
-    return model, train_loss_history
+    # return model, train_loss_history
+    torch.save(model, 'chromnitron.pth')
 
 
 
 # config_path = sys.argv[1]
 config_path = './Chromnitron-main/chromnitron/examples/local_config.yaml'
 config = load_yaml(config_path)
-loci_info, chrs, celltype_list, cap_list = load_inputs(config) # Load inputs
+loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
 
 ## Training  (similar to inference step)
-if config['training_config']['training']['enable']:
-    ## init_model
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = Chromnitron()
-    model = model.to(device)
+# if config['training_config']['training']['enable']:
 
-    # model = load_model_weights(model, base_model_weights_path)
+## init_model
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = Chromnitron()
+model = model.to(device)
 
-    ## load input
-    celltype = 'HepG2'
-    cap = 'CTCF'
-    chr_sizes = get_chr_sizes(config, chrs)
-    dataloader = load_data(config, celltype, loci_info, cap, chr_sizes)
-    
-    # pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
-    run_training(config, model, train_dataloader=dataloader, val_dataloader=None, num_epochs=10, lr=1e-4)
+## load input
+celltype = 'HepG2'
+cap = 'CTCF'
+chr_sizes = get_chr_sizes(config, chrs)
+dataloader = load_data(config, celltype, loci_info, cap, chr_sizes)
 
-    
+# pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
+run_training(config, model, train_dataloader=dataloader, val_dataloader=dataloader, num_epochs=3, lr=1e-4)
+
+# seq_tf_emb shape: [8, 384, 512]
+seq_tf_emb = x[:, :, :seq_emb_length]
+out = self.decoder(seq_tf_emb)
