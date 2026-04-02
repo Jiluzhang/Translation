@@ -95,7 +95,8 @@ def get_chr_sizes(config, chrs):
     chr_sizes = {chr: chr_sizes[chr] for chr in chrs}
     return chr_sizes
 
-def load_data(config, celltype, loci_info, cap, chr_sizes):
+#Luz def load_data(config, celltype, loci_info, cap, chr_sizes):
+def load_data(config, celltype, loci_info, cap, chr_sizes, binding_label_path):
     input_dict = config['input_resource']
     input_seq_path = os.path.join(input_dict['root'], input_dict['sequence'], f'{config["inference_config"]["input"]["assembly"]}.zarr')
     input_features_path = os.path.join(input_dict['root'], input_dict['atac'], f'{celltype}.zarr')
@@ -110,7 +111,8 @@ def load_data(config, celltype, loci_info, cap, chr_sizes):
         print(f'WARNING: {excluded_region_path} does not exist, using all regions')
 
     from chromnitron_data.chromnitron_dataset import InferenceDataset
-    data = InferenceDataset(loci_info, input_seq_path, input_features_path, esm_feature_path, assembly, chr_sizes, metadata_key = celltype, excluded_region_path = excluded_region_path)
+    data = InferenceDataset(loci_info, input_seq_path, input_features_path, esm_feature_path, binding_label_path, assembly, chr_sizes, metadata_key = celltype, excluded_region_path = excluded_region_path)
+    #Luz data = InferenceDataset(loci_info, input_seq_path, input_features_path, esm_feature_path, assembly, chr_sizes, metadata_key = celltype, excluded_region_path = excluded_region_path)
 
     batch_size = config['inference_config']['inference']['batch_size']
     num_workers = config['inference_config']['inference']['num_workers']
@@ -178,7 +180,8 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
         train_loader = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
         
         for batch_idx, batch in enumerate(train_loader):
-            seq, input_features, esm_embeddings, loc_info = batch  # shape: seq[8, 1, 8192, 5], input_features[8, 1, 8192], esm_embeddings[8, 1, 4096, 2560], loc_info[5]
+            #Luz seq, input_features, esm_embeddings, loc_info = batch  # shape: seq[8, 1, 8192, 5], input_features[8, 1, 8192], esm_embeddings[8, 1, 4096, 2560], loc_info[5]
+            seq, input_features, esm_embeddings, loc_info, binding_label = batch
             seq = seq.to(device)
             input_features = input_features.to(device)
             esm_embeddings = esm_embeddings.to(device)
@@ -195,7 +198,9 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
             optimizer.zero_grad()
             preds = model(inputs, esm_embeddings)  # preds, confidence = model(inputs, esm_embeddings)  # shape: preds[8, 1, 8192], confidence[8, 1, 8192]
             
-            y_true = torch.randn(preds.shape).to(device)  # 请替换为真实标签!!!!!!!!!!
+            #Luz y_true = torch.randn(preds.shape).to(device)  # 请替换为真实标签!!!!!!!!!!
+            y_true = binding_label.to(device)
+            y_true = y_true.view(batch_size*mini_bs, -1)
             total_loss = criterion(preds, y_true)
             
             total_loss.backward()
@@ -216,7 +221,8 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
             val_loss = 0.0
             with torch.no_grad():
                 for val_batch in val_dataloader:
-                    seq, input_features, esm_embeddings, _ = val_batch
+                    seq, input_features, esm_embeddings, _, binding_label = val_batch
+                    #Luz seq, input_features, esm_embeddings, _ = val_batch
                     seq = seq.to(device)
                     input_features = input_features.to(device)
                     esm_embeddings = esm_embeddings.float().transpose(-1, -2).to(device)
@@ -229,7 +235,8 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
                     inputs = (seq, input_features)
                     preds = model(inputs, esm_embeddings) #preds, confidence = model(inputs, esm_embeddings)
                     
-                    y_true = torch.randn(preds.shape).to(device)
+                    y_true = binding_label.to(device) #Luz y_true = torch.randn(preds.shape).to(device)
+                    y_true = y_true.view(batch_size*mini_bs, -1)
                     val_loss += criterion(preds, y_true).item()
             
             print(f"Validating loss: {val_loss/len(val_dataloader):.4f}\n")
@@ -242,6 +249,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
 config_path = './Chromnitron-main/chromnitron/examples/local_config.yaml'
 config = load_yaml(config_path)
 loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
+binding_label_path = config['input_resource']['binding']
 
 ## Training  (similar to inference step)
 # if config['training_config']['training']['enable']:
@@ -255,15 +263,43 @@ model = model.to(device)
 celltype = 'HepG2'
 cap_1, cap_2 = 'CTCF', 'JUND'
 chr_sizes = get_chr_sizes(config, chrs)
-train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes)
-val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes)
+train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes, binding_label_path)
+val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes, binding_label_path)
+#Luz train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes)
+#Luz val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes)
 
 # pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
-run_training(config, model, train_dataloader, val_dataloader, num_epochs=3, lr=1e-4)
+run_training(config, model, train_dataloader, val_dataloader, num_epochs=10, lr=1e-5)
 
-include binary labels to dataloader!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-local_config.yaml "binding: /fs/home/jiluzhang/TF_grammar/Chromnitron/Chromnitron-main/chromnitron/examples/inputs/binding_CTCF.txt"
+
+def export_to_zarr(zarr_name, chr_sizes, data_dict, chunk_size=1000000):
+    import zarr
+    import numcodecs
+    root = zarr.group(store=zarr_name, overwrite=True) # init zarr group
+    zarr_compressor = numcodecs.Blosc(cname='zstd', clevel=3, shuffle=numcodecs.Blosc.SHUFFLE) # Setup compressor
+    for chr_name in chr_sizes.keys():
+        print('Processing and saving', chr_name)
+        chr_arr = data_dict[chr_name]
+        root.create_dataset(f'chrs/{chr_name}', data=chr_arr, chunks=chunk_size, compressor=zarr_compressor)
+
+
+## bigwig to dict
+import pyBigWig
+import pandas as pd
+
+data_dict = {}
+chrom_sizes = pd.read_table('/fs/home/jiluzhang/TF_grammar/Chromnitron/input_resources/DNA_sequence/hg38.chrom.sizes', header=None)
+with pyBigWig.open('/fs/home/jiluzhang/TF_grammar/PRINT/cfoot_atac_cfoot/pipeline/human_nakedDNA.bw', 'r') as f:
+    for chrom in ['chr'+str(i) for i in range(1, 23)]+['chrX']:
+        data_dict[chrom] = f.values(chrom, 0, chrom_sizes[chrom_sizes[0]==chrom][1].item(), numpy=True)
+        print(chrom)
+
+export_to_zarr('Luz', chrom_sizes.set_index(0)[1].to_dict(), data_dict, chunk_size=1000000)
+
+
+
+
 
 
 
