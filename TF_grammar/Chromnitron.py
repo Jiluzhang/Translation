@@ -121,53 +121,6 @@ def load_data(config, celltype, loci_info, cap, chr_sizes, binding_label_path):
     return dataloader
 
 
-# def run_inference(config, model, dataloader, celltype, cap, use_tqdm=True):
-#     pred_cache = []
-#     label_cache_dict = {'chr':[], 'start':[], 'end':[], 'region_id':[],
-#                         'celltype':celltype, 'cap':cap}
-
-#     # Use TF32
-#     torch.backends.cuda.matmul.allow_tf32 = True
-#     torch.backends.cudnn.allow_tf32 = True
-
-#     # Run inference
-#     with torch.no_grad():
-#         if use_tqdm:
-#             from tqdm import tqdm
-#             dataloader = tqdm(dataloader)
-#         for batch in dataloader:
-#             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-#             seq, input_features, esm_embeddings, loc_info = batch
-#             seq = seq.to(device)
-#             input_features = input_features.to(device)
-#             esm_embeddings = esm_embeddings.to(device)
-
-#             esm_embeddings = esm_embeddings.float().transpose(-1, -2)
-
-#             batch_size, mini_bs, seq_len, seq_dim = seq.shape
-#             seq = seq.view(batch_size*mini_bs, seq_len, seq_dim)
-#             input_features = input_features.view(batch_size*mini_bs, -1)
-#             seq = seq.transpose(1, 2).float()
-#             input_features = input_features.unsqueeze(2).transpose(1, 2).float()
-
-#             inputs = (seq, input_features)
-
-#             preds, confidence = model(inputs, esm_embeddings)
-#             preds = preds.detach().cpu().numpy()[:, 0, :]
-#             pred_cache.append(preds)
-#             label_cache_dict['start'].extend(loc_info[0].tolist())
-#             label_cache_dict['end'].extend(loc_info[1].tolist())
-#             label_cache_dict['chr'].extend(loc_info[2])
-#             label_cache_dict['region_id'].extend(loc_info[3])
-
-#     pred_cache = np.concatenate(pred_cache, axis=0)
-#     # Exponential transform
-#     pred_cache = np.exp(pred_cache) - 1
-#     label_df = pd.DataFrame(label_cache_dict)
-#     return pred_cache, label_df
-
-
-# def run_training(config, model, dataloader, celltype, cap, use_tqdm=True):
 def run_training(config, model, train_dataloader, val_dataloader=None, num_epochs=10, lr=1e-4):
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -265,17 +218,25 @@ cap_1, cap_2 = 'CTCF', 'JUND'
 chr_sizes = get_chr_sizes(config, chrs)
 train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes, binding_label_path)
 val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes, binding_label_path)
-#Luz train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes)
-#Luz val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes)
 
-# pred_cache, label_df = run_inference(config, model, dataloader, celltype, cap)
 run_training(config, model, train_dataloader, val_dataloader, num_epochs=10, lr=1e-5)
 
 
 
+## bigwig -> dict -> zarr
+import pyBigWig
+import pandas as pd
+import zarr
+import numcodecs
+
+data_dict = {}
+chrom_sizes = pd.read_table('/fs/home/jiluzhang/TF_grammar/Chromnitron/input_resources/DNA_sequence/hg38.chrom.sizes', header=None)
+with pyBigWig.open('/fs/home/jiluzhang/TF_grammar/scPrinter/atac-cfoot_2/seq2print/HepG2_ATAC-cFOOT_conv_rate.bw', 'r') as f:
+    for chrom in ['chr'+str(i) for i in range(1, 23)]+['chrX']:
+        data_dict[chrom] = f.values(chrom, 0, chrom_sizes[chrom_sizes[0]==chrom][1].item(), numpy=True)
+        print(chrom)
+
 def export_to_zarr(zarr_name, chr_sizes, data_dict, chunk_size=1000000):
-    import zarr
-    import numcodecs
     root = zarr.group(store=zarr_name, overwrite=True) # init zarr group
     zarr_compressor = numcodecs.Blosc(cname='zstd', clevel=3, shuffle=numcodecs.Blosc.SHUFFLE) # Setup compressor
     for chr_name in chr_sizes.keys():
@@ -283,34 +244,7 @@ def export_to_zarr(zarr_name, chr_sizes, data_dict, chunk_size=1000000):
         chr_arr = data_dict[chr_name]
         root.create_dataset(f'chrs/{chr_name}', data=chr_arr, chunks=chunk_size, compressor=zarr_compressor)
 
-
-## bigwig to dict
-import pyBigWig
-import pandas as pd
-
-data_dict = {}
-chrom_sizes = pd.read_table('/fs/home/jiluzhang/TF_grammar/Chromnitron/input_resources/DNA_sequence/hg38.chrom.sizes', header=None)
-with pyBigWig.open('/fs/home/jiluzhang/TF_grammar/PRINT/cfoot_atac_cfoot/pipeline/human_nakedDNA.bw', 'r') as f:
-    for chrom in ['chr'+str(i) for i in range(1, 23)]+['chrX']:
-        data_dict[chrom] = f.values(chrom, 0, chrom_sizes[chrom_sizes[0]==chrom][1].item(), numpy=True)
-        print(chrom)
-
 export_to_zarr('Luz', chrom_sizes.set_index(0)[1].to_dict(), data_dict, chunk_size=1000000)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
