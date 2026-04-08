@@ -199,9 +199,12 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
     torch.save(model, 'chromnitron.pth')
 
 
-config_path = './Chromnitron-main/chromnitron/examples/local_config.yaml'
+config_path = '/fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2/local_config.yaml'
 config = load_yaml(config_path)
 loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
+
+loci_info_train, chrs_train = read_region_bed(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['locus_list_path_train']))
+
 binding_label_path = config['input_resource']['binding']
 
 ## Training  (similar to inference step)
@@ -248,8 +251,16 @@ export_to_zarr('Luz', chrom_sizes.set_index(0)[1].to_dict(), data_dict, chunk_si
 
 
 
-
-
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/chip_rename/HepG2/CTCF.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2
+cut -f 1-3 CTCF_raw.bed | awk '{print $0 "\t" 1}' > CTCF_bind.bed
+bedtools shuffle -i CTCF_bind.bed -g hg38.chrom.sizes -noOverlapping -excl CTCF_bind.bed | awk '{print $1 "\t" $2 "\t" $3 "\t" 0}'> CTCF_not_bind.bed
+cat CTCF_bind.bed CTCF_not_bind.bed | shuf | sort -k1,1 -k2,2n > CTCF_bind_not_bind.bed   # 106200
+grep -w -E "chr1|chr2" -v CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
+grep -w -E "chr1|chr2" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_test.bed
+cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
+cut -f 1-3 CTCF_bind_not_bind_test.bed > binding_train.txt
+cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
+cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
 
 
