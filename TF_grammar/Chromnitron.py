@@ -41,6 +41,7 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
+from sklearn.metrics import precision_score
 
 sys.path.append('/fs/home/jiluzhang/TF_grammar/Chromnitron/Chromnitron-main/chromnitron')
 
@@ -131,11 +132,14 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
         model.train()
         epoch_loss = 0.0
         train_loader = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
-        
+
+        train_pred_lst = []
+        train_true_lst = []
         for batch_idx, batch in enumerate(train_loader):
             #Luz seq, input_features, esm_embeddings, loc_info = batch  # shape: seq[8, 1, 8192, 5], input_features[8, 1, 8192], esm_embeddings[8, 1, 4096, 2560], loc_info[5]
             seq, input_features, esm_embeddings, loc_info, binding_label = batch
             seq = seq.to(device)
+            input_features = torch.nan_to_num(input_features, nan=-1)  # avoid nan in G/C
             input_features = input_features.to(device)
             esm_embeddings = esm_embeddings.to(device)
             esm_embeddings = esm_embeddings.float().transpose(-1, -2)
@@ -162,13 +166,24 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
             
             epoch_loss += total_loss.item()
             train_loader.set_postfix_str(f"loss: {total_loss.item():.4f}")  # show loss in the tqdm
+
+            train_pred_lst += torch.flatten(preds).tolist()
+            train_true_lst += torch.flatten(y_true).tolist()
         
         scheduler.step()
         
         avg_loss = epoch_loss / len(train_dataloader)
         train_loss_history.append(avg_loss)
         print(f"Epoch {epoch+1} average training loss: {avg_loss:.4f}")
+
+        #train_pred_lst = [1 if i>0.5 else 0 for i in train_pred_lst]
+        #print(f"Training accuracy: {(np.array(train_pred_lst)==np.array(train_true_lst)).sum()/len(train_true_lst):.4f}")
+        train_pred_lst = train_pred_lst>=np.quantile(train_pred_lst, 0.7)
+        train_precision_score = precision_score(train_true_lst, train_pred_lst) 
+        print(f"Training precision: {train_precision_score:.4f}")
         
+        val_pred_lst = []
+        val_true_lst = []
         if val_dataloader is not None:
             model.eval()
             val_loss = 0.0
@@ -177,6 +192,7 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
                     seq, input_features, esm_embeddings, _, binding_label = val_batch
                     #Luz seq, input_features, esm_embeddings, _ = val_batch
                     seq = seq.to(device)
+                    input_features = torch.nan_to_num(input_features, nan=-1)  # avoid nan in G/C
                     input_features = input_features.to(device)
                     esm_embeddings = esm_embeddings.float().transpose(-1, -2).to(device)
                     
@@ -191,36 +207,69 @@ def run_training(config, model, train_dataloader, val_dataloader=None, num_epoch
                     y_true = binding_label.to(device) #Luz y_true = torch.randn(preds.shape).to(device)
                     y_true = y_true.view(batch_size*mini_bs, -1)
                     val_loss += criterion(preds, y_true).item()
+
+                    val_pred_lst += torch.flatten(preds).tolist()
+                    val_true_lst += torch.flatten(y_true).tolist()
             
-            print(f"Validating loss: {val_loss/len(val_dataloader):.4f}\n")
+            print(f"Validating loss: {val_loss/len(val_dataloader):.4f}")
+
+            # val_pred_lst = [1 if i>0.5 else 0 for i in val_pred_lst]
+            # print(f"Validating accuracy: {(np.array(val_pred_lst)==np.array(val_true_lst)).sum()/len(val_true_lst):.4f}")
+            val_pred_lst = val_pred_lst>=np.quantile(val_pred_lst, 0.7)
+            val_precision_score = precision_score(val_true_lst, val_pred_lst) 
+            print(f"Validating precision: {val_precision_score:.4f}\n")
     
     print("Training done!!!")
     # return model, train_loss_history
     torch.save(model, 'chromnitron.pth')
 
 
+# config_path = '/fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2/local_config.yaml'
+# config = load_yaml(config_path)
+# loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
+
+# loci_info_train, chrs_train = read_region_bed(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['locus_list_path_train']))
+
+# binding_label_path = config['input_resource']['binding']
+
+# ## Training  (similar to inference step)
+# # if config['training_config']['training']['enable']:
+
+# ## init_model
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# model = Chromnitron()
+# model = model.to(device)
+
+# ## load input
+# celltype = 'HepG2'
+# cap_1, cap_2 = 'CTCF', 'JUND'
+# chr_sizes = get_chr_sizes(config, chrs)
+# train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes, binding_label_path)
+# val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes, binding_label_path)
+
+# run_training(config, model, train_dataloader, val_dataloader, num_epochs=10, lr=1e-5)
+
+
+################## intra-CTCF ##################
 config_path = '/fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2/local_config.yaml'
 config = load_yaml(config_path)
-loci_info, chrs, celltype_list, cap_list = load_inputs(config)   # Load inputs
 
 loci_info_train, chrs_train = read_region_bed(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['locus_list_path_train']))
+loci_info_test,  chrs_test =  read_region_bed(os.path.join(config['inference_config']['input']['root'], config['inference_config']['input']['locus_list_path_test']))
+binding_label_path_train = config['input_resource']['binding_train']
+binding_label_path_test  = config['input_resource']['binding_test']
 
-binding_label_path = config['input_resource']['binding']
-
-## Training  (similar to inference step)
-# if config['training_config']['training']['enable']:
-
-## init_model
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:2")
 model = Chromnitron()
 model = model.to(device)
 
-## load input
 celltype = 'HepG2'
-cap_1, cap_2 = 'CTCF', 'JUND'
-chr_sizes = get_chr_sizes(config, chrs)
-train_dataloader = load_data(config, celltype, loci_info, cap_1, chr_sizes, binding_label_path)
-val_dataloader = load_data(config, celltype, loci_info, cap_2, chr_sizes, binding_label_path)
+cap = 'CTCF'
+chr_sizes_train = get_chr_sizes(config, chrs_train)
+chr_sizes_test  = get_chr_sizes(config, chrs_test)
+
+train_dataloader = load_data(config, celltype, loci_info_train, cap, chr_sizes_train, binding_label_path_train)
+val_dataloader   = load_data(config, celltype, loci_info_test, cap, chr_sizes_test, binding_label_path_test)
 
 run_training(config, model, train_dataloader, val_dataloader, num_epochs=10, lr=1e-5)
 
@@ -247,24 +296,34 @@ def export_to_zarr(zarr_name, chr_sizes, data_dict, chunk_size=1000000):
         chr_arr = data_dict[chr_name]
         root.create_dataset(f'chrs/{chr_name}', data=chr_arr, chunks=chunk_size, compressor=zarr_compressor)
 
-export_to_zarr('Luz', chrom_sizes.set_index(0)[1].to_dict(), data_dict, chunk_size=1000000)
+export_to_zarr('HepG2.zarr', chrom_sizes.set_index(0)[1].to_dict(), data_dict, chunk_size=1000000)
 
 
 
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/chip_rename/HepG2/CTCF.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2
+mv CTCF.bed CTCF_raw.bed
 cut -f 1-3 CTCF_raw.bed | awk '{print $0 "\t" 1}' > CTCF_bind.bed
 bedtools shuffle -i CTCF_bind.bed -g hg38.chrom.sizes -noOverlapping -excl CTCF_bind.bed | awk '{print $1 "\t" $2 "\t" $3 "\t" 0}'> CTCF_not_bind.bed
 cat CTCF_bind.bed CTCF_not_bind.bed | shuf | sort -k1,1 -k2,2n > CTCF_bind_not_bind.bed   # 106200
-grep -w -E "chr1|chr2" -v CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
-grep -w -E "chr1|chr2" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_test.bed
+grep -w -E "chr1" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
+grep -w -E "chr2" CTCF_bind_not_bind.bed | shuf -n 1000 > CTCF_bind_not_bind_test.bed
 cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
-cut -f 1-3 CTCF_bind_not_bind_test.bed > binding_train.txt
+cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
 cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
 cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
 
-
-
+# scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/chip_rename/HepG2/HNF4A.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2
+mv HNF4A.bed HNF4A_raw.bed
+cut -f 1-3 HNF4A_raw.bed | awk '{print $0 "\t" 1}' > HNF4A_bind.bed
+bedtools shuffle -i HNF4A_bind.bed -g hg38.chrom.sizes -noOverlapping -excl HNF4A_bind.bed | awk '{print $1 "\t" $2 "\t" $3 "\t" 0}'> HNF4A_not_bind.bed
+cat HNF4A_bind.bed HNF4A_not_bind.bed | shuf | sort -k1,1 -k2,2n > HNF4A_bind_not_bind.bed   # 106200
+grep -w -E "chr1" HNF4A_bind_not_bind.bed > HNF4A_bind_not_bind_train.bed
+grep -w -E "chr2" HNF4A_bind_not_bind.bed | shuf -n 1000 > HNF4A_bind_not_bind_test.bed
+cut -f 1-3 HNF4A_bind_not_bind_train.bed > locus_train.bed
+cut -f 1-3 HNF4A_bind_not_bind_test.bed > locus_test.bed
+cut -f 4 HNF4A_bind_not_bind_train.bed > binding_train.txt
+cut -f 4 HNF4A_bind_not_bind_test.bed > binding_test.txt
 
 
 
