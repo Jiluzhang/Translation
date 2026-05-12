@@ -325,6 +325,15 @@ cut -f 1-3 HNF4A_bind_not_bind_test.bed > locus_test.bed
 cut -f 4 HNF4A_bind_not_bind_train.bed > binding_train.txt
 cut -f 4 HNF4A_bind_not_bind_test.bed > binding_test.txt
 
+## chr1 & chr3 -> chr2 (1.5 min/epoch)
+## chr1 & chr3 & chr4 -> chr2 (2.0 min/epoch)
+
+grep -w -E "chr1|chr3|chr4|chr5" HNF4A_bind_not_bind.bed > HNF4A_bind_not_bind_train.bed
+#grep -w -E "chr2" HNF4A_bind_not_bind.bed | shuf -n 1000 > HNF4A_bind_not_bind_test.bed
+cut -f 1-3 HNF4A_bind_not_bind_train.bed > locus_train.bed
+#cut -f 1-3 HNF4A_bind_not_bind_test.bed > locus_test.bed
+cut -f 4 HNF4A_bind_not_bind_train.bed > binding_train.txt
+#cut -f 4 HNF4A_bind_not_bind_test.bed > binding_test.txt
 
 
 
