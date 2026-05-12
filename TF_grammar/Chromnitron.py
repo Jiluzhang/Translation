@@ -312,6 +312,20 @@ cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
 cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
 cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
+## chr1 & chr3 -> chr2 ( min/epoch)
+## chr1 & chr3 & chr4 -> chr2 (3.5 min/epoch)
+## chr1 & chr3 & chr4 & chr5 -> chr2 (6.5 min/epoch)
+## not chr2 -> chr2 (15 min/epoch)
+
+grep -w -E "chr1|chr3|chr4" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
+#grep -w -v "chr2" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
+#grep -w -E "chr2" CTCF_bind_not_bind.bed | shuf -n 1000 > CTCF_bind_not_bind_test.bed
+cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
+#cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
+cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
+#cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
+
+
 
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/chip_rename/HepG2/HNF4A.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2
 mv HNF4A.bed HNF4A_raw.bed
@@ -327,8 +341,10 @@ cut -f 4 HNF4A_bind_not_bind_test.bed > binding_test.txt
 
 ## chr1 & chr3 -> chr2 (1.5 min/epoch)
 ## chr1 & chr3 & chr4 -> chr2 (2.0 min/epoch)
+## chr1 & chr3 & chr4 & chr5 -> chr2 (2.5 min/epoch)
+## not chr2 -> chr2 (9 min/epoch)
 
-grep -w -E "chr1|chr3|chr4|chr5" HNF4A_bind_not_bind.bed > HNF4A_bind_not_bind_train.bed
+grep -w "chr2" -v HNF4A_bind_not_bind.bed > HNF4A_bind_not_bind_train.bed
 #grep -w -E "chr2" HNF4A_bind_not_bind.bed | shuf -n 1000 > HNF4A_bind_not_bind_test.bed
 cut -f 1-3 HNF4A_bind_not_bind_train.bed > locus_train.bed
 #cut -f 1-3 HNF4A_bind_not_bind_test.bed > locus_test.bed
