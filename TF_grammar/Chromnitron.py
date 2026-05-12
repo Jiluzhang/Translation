@@ -312,12 +312,12 @@ cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
 cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
 cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
-## chr1 & chr3 -> chr2 ( min/epoch)
+## chr1 & chr3 -> chr2 (2.5 min/epoch)
 ## chr1 & chr3 & chr4 -> chr2 (3.5 min/epoch)
 ## chr1 & chr3 & chr4 & chr5 -> chr2 (6.5 min/epoch)
 ## not chr2 -> chr2 (15 min/epoch)
 
-grep -w -E "chr1|chr3|chr4" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
+grep -w -E "chr1|chr3" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
 #grep -w -v "chr2" CTCF_bind_not_bind.bed > CTCF_bind_not_bind_train.bed
 #grep -w -E "chr2" CTCF_bind_not_bind.bed | shuf -n 1000 > CTCF_bind_not_bind_test.bed
 cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
