@@ -325,35 +325,36 @@ cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
 #cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
 ## HepG2 footprint regions
-scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/02.footprint_detect/de_novo/hint/modification/cfoot_fp4/chr22_test/*.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2/CTCF
-# HepG2_ATAC-cFOOT_TF_p0.9.bed   # 12675
-# HepG2_ATAC-cFOOT_TF_p0.95.bed  # 6204
-bedtools intersect -a HepG2_ATAC-cFOOT_TF_p0.9.bed -b CTCF_raw.bed -wa -wb -loj | awk '{if($7!=".") print($1 "\t" $2 "\t" $3 "\t" 1);else print($1 "\t" $2 "\t" $3 "\t" 0)}' | uniq > Footprint_CTCF_0.9.bed  # 12675
-awk '{if($4==1) print$0}' Footprint_CTCF_0.9.bed | wc -l   # 1502
-awk '{if($4!=1) print$0}' Footprint_CTCF_0.9.bed | wc -l   # 11173
-bedtools intersect -a HepG2_ATAC-cFOOT_TF_p0.95.bed -b CTCF_raw.bed -wa -wb -loj | awk '{if($7!=".") print($1 "\t" $2 "\t" $3 "\t" 1);else print($1 "\t" $2 "\t" $3 "\t" 0)}' | uniq > Footprint_CTCF_0.95.bed  # 6204
-awk '{if($4==1) print$0}' Footprint_CTCF_0.95.bed | wc -l   # 975
-awk '{if($4!=1) print$0}' Footprint_CTCF_0.95.bed | wc -l   # 5229
+scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/02.footprint_detect/de_novo/hint/modification/cfoot_fp4/HepG2_ATAC-cFOOT_TF_p0.9.bed \
+                                         /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2/CTCF/Footprint
+# HepG2_ATAC-cFOOT_TF_p0.9.bed   # 299200
+bedtools intersect -a HepG2_ATAC-cFOOT_TF_p0.9.bed -b ../CTCF_raw.bed -wa -wb -loj | awk '{if($7!=".") print($1 "\t" $2 "\t" $3 "\t" 1);else print($1 "\t" $2 "\t" $3 "\t" 0)}' | uniq > Footprint_CTCF_0.9.bed
+awk '{if($4==1) print$0}' Footprint_CTCF_0.9.bed | wc -l   # 39855
+awk '{if($4!=1) print$0}' Footprint_CTCF_0.9.bed | wc -l   # 259345
 
-head -n 5000 Footprint_CTCF_0.95.bed > CTCF_bind_not_bind_train_raw.bed
-tail -n 1204 Footprint_CTCF_0.95.bed > CTCF_bind_not_bind_test_raw.bed
-awk '{if($4==1) print$0}' CTCF_bind_not_bind_train_raw.bed | wc -l  # 794
-awk '{if($4==0) print$0}' CTCF_bind_not_bind_train_raw.bed | wc -l  # 4206
-awk '{if($4==1) print$0}' CTCF_bind_not_bind_test_raw.bed | wc -l   # 181
-awk '{if($4==0) print$0}' CTCF_bind_not_bind_test_raw.bed | wc -l   # 1023
+awk '{if($1=="chr1" && $4==1) print$0}' Footprint_CTCF_0.9.bed | wc -l  # 3481
+awk '{if($1=="chr1" && $4==0) print$0}' Footprint_CTCF_0.9.bed | wc -l  # 24518
 
-awk '{if($4==1) print$0}' CTCF_bind_not_bind_train_raw.bed | head -n 500 >> CTCF_bind_not_bind_train.bed
-awk '{if($4==0) print$0}' CTCF_bind_not_bind_train_raw.bed | head -n 500 >> CTCF_bind_not_bind_train.bed
-sort -k1,1 -k2,2n CTCF_bind_not_bind_train.bed > CTCF_bind_not_bind_train_sorted.bed
-awk '{if($4==1) print$0}' CTCF_bind_not_bind_test_raw.bed | head -n 100 >> CTCF_bind_not_bind_test.bed
-awk '{if($4==0) print$0}' CTCF_bind_not_bind_test_raw.bed | head -n 100 >> CTCF_bind_not_bind_test.bed
-sort -k1,1 -k2,2n CTCF_bind_not_bind_test.bed > CTCF_bind_not_bind_test_sorted.bed
+for i in `seq 7`;do
+    awk '{if($1=="chr1" && $4==1) print$0}' Footprint_CTCF_0.9.bed >> CTCF_bind_not_bind_train_raw.bed
+done
+awk '{if($1=="chr1" && $4==0) print$0}' Footprint_CTCF_0.9.bed >> CTCF_bind_not_bind_train_raw.bed 
+shuf CTCF_bind_not_bind_train_raw.bed > CTCF_bind_not_bind_train.bed
+rm CTCF_bind_not_bind_train_raw.bed  
 
-cut -f 1-3 CTCF_bind_not_bind_train_sorted.bed > locus_train.bed
-cut -f 1-3 CTCF_bind_not_bind_test_sorted.bed > locus_test.bed
-cut -f 4 CTCF_bind_not_bind_train_sorted.bed > binding_train.txt
-cut -f 4 CTCF_bind_not_bind_test_sorted.bed > binding_test.txt
+awk '{if($1=="chr2") print$0}' Footprint_CTCF_0.9.bed | shuf | head -n 1000 >> CTCF_bind_not_bind_test.bed  
 
+awk '{if($4==1) print$0}' CTCF_bind_not_bind_train.bed | wc -l  # 24367
+awk '{if($4==0) print$0}' CTCF_bind_not_bind_train.bed | wc -l  # 24518
+awk '{if($4==1) print$0}' CTCF_bind_not_bind_test.bed | wc -l   # 121
+awk '{if($4==0) print$0}' CTCF_bind_not_bind_test.bed | wc -l   # 879
+
+cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
+cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
+cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
+cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
+
+nohup python train.py > train_20260525.log &   # 2160003
 
 #####################################################################################
 #####################################################################################
