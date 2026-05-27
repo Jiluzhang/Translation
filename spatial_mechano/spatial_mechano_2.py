@@ -313,3 +313,71 @@ test_cell('VIC')
 test_cell('Epicardial')
 test_cell('BEC')
 test_cell('aFibro')
+
+
+## identify mechano-related genes
+# workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_3/Merfish
+# conda activate plotnine
+import scanpy as sc
+import pandas as pd
+from plotnine import *
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['pdf.fonttype'] = 42
+
+adata = sc.read_h5ad('overall_merfish_areas.h5ad')
+adata.obs['populations'].value_counts().head(10)
+# vCM-LV-Compact       8718
+# aCM-RA               5945
+# aCM-LA               5147
+# vCM-Proliferating    5074
+# vCM-LV-Trabecular    5035
+# vFibro               4817
+# VIC                  4555
+# BEC                  3996
+# vCM-RV-Compact       3567
+# aFibro               3181
+
+def plot_ct_mechano_genes(ct='vCM-LV-Compact'):
+    adata_ct = adata[(adata.obs['populations']==ct) & (adata.obs['areas']<1000)].copy()
+    adata_ct.obs['big_or_sma']= 'no'
+    adata_ct.obs.loc[adata_ct.obs['areas']<adata_ct.obs['areas'].quantile(0.2), 'big_or_sma'] = 'sma'
+    adata_ct.obs.loc[adata_ct.obs['areas']>adata_ct.obs['areas'].quantile(0.8), 'big_or_sma'] = 'big'
+    adata_ct = adata_ct[adata_ct.obs['big_or_sma']!='no'].copy()
+    sc.tl.rank_genes_groups(adata_ct, 'big_or_sma')
+    result = adata_ct.uns["rank_genes_groups"]
+    groups = result["names"].dtype.names
+    adata_ct_res = pd.DataFrame({group + '_' + key: result[key][group] for group in groups for key in ['names', 'pvals_adj', 'logfoldchanges']})
+
+    df = adata_ct_res.sort_values('sma_logfoldchanges', ascending=False)
+    df['idx'] = range(1, df.shape[0]+1)
+    p = ggplot(df, aes('idx', 'sma_logfoldchanges')) + geom_point(size=0.25, color='black') + coord_cartesian(ylim=(-1, 1)) +\
+        geom_text(data=df.head(10), mapping=aes(label='sma_names'), nudge_x=0.1, nudge_y=0.1, size=8, ha='left', color='red') +\
+        geom_text(data=df.tail(10), mapping=aes(label='sma_names'), nudge_x=0.1, nudge_y=0.1, size=8, ha='left', color='blue') + theme_bw()
+    p.save(filename='rank_mechano_genes_'+ct+'.pdf', dpi=600, width=5, height=5)
+    print(df.head(10)[['sma_names', 'sma_logfoldchanges']])
+    print(df.tail(10)[['sma_names', 'sma_logfoldchanges']])
+
+plot_ct_mechano_genes(ct='aCM-RA')
+plot_ct_mechano_genes(ct='aCM-LA')
+plot_ct_mechano_genes(ct='vFibro')
+plot_ct_mechano_genes(ct='aFibro')
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
