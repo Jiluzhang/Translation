@@ -365,17 +365,61 @@ plot_ct_mechano_genes(ct='vFibro')
 plot_ct_mechano_genes(ct='aFibro')
 
 
+#### 10x Genomics Atera
+## https://www.10xgenomics.com/datasets/atera-wta-ffpe-human-breast-cancer
+## Venus: /fs/home/sundongqing/Project/Single_cell/SpatialTranscriptomics/Analysis/Atera_Human_BRCA/Data
+import scanpy as sc
+import pandas as pd
+from plotnine import *
+import numpy as np
+import matplotlib.pyplot as plt
 
+plt.rcParams['pdf.fonttype'] = 42
 
+adata = sc.read_10x_h5('cell_feature_matrix.h5')  # 170057 × 18028
 
+## assign clusters
+clusters = pd.read_csv('analysis/clustering/gene_expression_graphclust/clusters.csv')  # 170045
+adata_clusters_raw = pd.DataFrame({'Barcode':adata.obs.index.values})
+adata_clusters = pd.merge(adata_clusters_raw, clusters, on='Barcode', how='left').fillna(0)
+adata_clusters['Cluster'] = adata_clusters['Cluster'].astype(int)
+adata.obs['clusters'] = adata_clusters['Cluster'].values
 
+## assign cell area
+cells = pd.read_csv('cells.csv.gz')  # 170057
+adata_cellarea_raw = pd.DataFrame({'cell_id':adata.obs.index.values})
+adata_cellarea = pd.merge(adata_cellarea_raw, cells, on='cell_id', how='left').fillna(0)
+adata.obs['cell_area'] = adata_cellarea['cell_area'].values
 
+sc.pp.filter_cells(adata, min_genes=200)     # 165301 × 18028
+sc.pp.filter_genes(adata, min_cells=10)      # 165301 × 18022
+sc.pp.normalize_total(adata, target_sum=1e4)
+sc.pp.log1p(adata)
 
+adata.write('res.h5ad')
 
+def plot_ct_mechano_genes(ct=1):
+    adata_ct = adata[(adata.obs['clusters']==ct) & (adata.obs['cell_area']<1000)].copy()
+    adata_ct.obs['big_or_sma']= 'no'
+    adata_ct.obs.loc[adata_ct.obs['cell_area']<adata_ct.obs['cell_area'].quantile(0.2), 'big_or_sma'] = 'sma'
+    adata_ct.obs.loc[adata_ct.obs['cell_area']>adata_ct.obs['cell_area'].quantile(0.8), 'big_or_sma'] = 'big'
+    adata_ct = adata_ct[adata_ct.obs['big_or_sma']!='no'].copy()
+    sc.tl.rank_genes_groups(adata_ct, 'big_or_sma')
+    result = adata_ct.uns["rank_genes_groups"]
+    groups = result["names"].dtype.names
+    adata_ct_res = pd.DataFrame({group + '_' + key: result[key][group] for group in groups for key in ['names', 'pvals_adj', 'logfoldchanges']})
 
+    df = adata_ct_res.sort_values('sma_logfoldchanges', ascending=False)
+    df['idx'] = range(1, df.shape[0]+1)
+    p = ggplot(df, aes('idx', 'sma_logfoldchanges')) + geom_point(size=0.25, color='black') + coord_cartesian(ylim=(-25, 25)) +\
+        geom_text(data=df.head(10), mapping=aes(label='sma_names'), nudge_x=0.1, nudge_y=0.1, size=8, ha='left', color='red') +\
+        geom_text(data=df.tail(10), mapping=aes(label='sma_names'), nudge_x=0.1, nudge_y=0.1, size=8, ha='left', color='blue') + theme_bw()
+    p.save(filename='rank_mechano_genes_'+str(ct)+'.pdf', dpi=600, width=5, height=5)
+    print(df.head(10)[['sma_names', 'sma_logfoldchanges']])
+    print(df.tail(10)[['sma_names', 'sma_logfoldchanges']])
 
-
-    
+plot_ct_mechano_genes(ct=1)
+plot_ct_mechano_genes(ct=2)
 
 
 
