@@ -419,7 +419,9 @@ def plot_ct_mechano_genes(ct=1):
     print(df.tail(10)[['sma_names', 'sma_logfoldchanges']])
 
 plot_ct_mechano_genes(ct=1)
-plot_ct_mechano_genes(ct=2)
+plot_ct_mechano_genes(ct=10)
+plot_ct_mechano_genes(ct=3)
+plot_ct_mechano_genes(ct=4)  # 1 is near 10; 3 is near 4 in the UMAP plot
 
 
 
