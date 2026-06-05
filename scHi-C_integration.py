@@ -64,6 +64,79 @@ infos = anndata.AnnData(X=infos.T, obs=obs, var=var)
 infos.write("/fs/home/jiluzhang/scHiC_integration/HiRES/scHiC.h5ad", compression="gzip")
 
 
+#### scRNA preprocessing
+## wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE223nnn/GSE223917/suppl/GSE223917%5FHiRES%5Femb%5Fmetadata%2Exlsx            # GSE223917_HiRES_emb_metadata.xlsx
+## wget -c https://ftp.ncbi.nlm.nih.gov/geo/series/GSE223nnn/GSE223917/suppl/GSE223917%5FHiRES%5Femb%2Erna%2Eumicount%2Etsv%2Egz  # GSE223917_HiRES_emb.rna.umicount.tsv
+## pip install openpyxl
+
+import pandas as pd
+import anndata
+
+scRNA_metadata = pd.read_excel('/fs/home/jiluzhang/scHiC_integration/HiRES/GSE223917_HiRES_emb_metadata.xlsx')   # 7469*24
+#           Cellname  Rawreads  DNAreads  RNAreads       y/x  Raw contacts  ...  Stage             Celltype   RMSD 20k  CDPS cluster  Sub_k_cluster  Cellcycle phase
+# 0      GasaE751001  0.788963  0.704156  0.073214  0.010131        293142  ...    E75         ExE ectoderm  22.312863             9              2                M
+# 1      GasaE751002  1.194513  1.117651  0.065995  0.028088        593838  ...    E75      neural ectoderm   0.891031            11              3           Late-S
+
+## set index
+target_scRNA_metadata = scRNA_metadata.copy()
+target_scRNA_metadata = target_scRNA_metadata.set_index('Cellname')
+target_scRNA_metadata.index.name = 'sample_name'
+
+## read gex data
+infos = pd.DataFrame()
+for chunk in pd.read_table('/fs/home/jiluzhang/scHiC_integration/HiRES/GSE223917_HiRES_emb.rna.umicount.tsv.gz', chunksize=10000):
+    infos = pd.concat([infos, chunk])
+
+infos = infos.set_index('gene')  # 50463*7469
+#                GasaE751001  GasaE751002  GasaE751003  GasaE751004  GasaE751005  ...  OrgeEX053380  OrgeEX053381  OrgeEX053382  OrgeEX053383  OrgeEX053384
+# gene                                                                            ...                                                                      
+# 0610005C13Rik          0.0          0.0          0.0          0.0          0.0  ...           0.0           0.0           0.0           0.0           0.0
+# 0610006L08Rik          0.0          0.0          0.0          0.0          0.0  ...           0.0           0.0           0.0           0.0           0.0
+
+infos = infos.T
+infos.index.name = 'sample_name'  # 7469*50463
+
+## write to h5ad
+infos = anndata.AnnData(X=infos)
+
+_target_scRNA_metadata = target_scRNA_metadata.copy()
+_target_scRNA_metadata = _target_scRNA_metadata.loc[infos.obs.index]
+infos.obs["cell_type"] = _target_scRNA_metadata['Celltype']
+infos.obs['domain'] = 'scRNA'
+
+infos.write("/fs/home/jiluzhang/scHiC_integration/HiRES/scRNA.h5ad", compression="gzip")
+
+
+
+
+
+
+
+#### BandNorm github: https://github.com/sshen82/BandNorm
+#### BandNorm tutorial: https://sshen82.github.io/BandNorm/articles/BandNorm-tutorial.html
+conda create -n BandNorm
+conda activate BandNorm
+
+conda install conda-forge::r-devtools
+conda install -c conda-forge r-rcpparmadillo r-rcppeigen r-harmony r-rtsne r-umap r-strawr
+conda install -c conda-forge mamba
+mamba install bioconda::bioconductor-genomicinteractions
+mamba install conda-forge::r-seurat
+
+devtools::install_github('sshen82/BandNorm', build_vignettes=FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
