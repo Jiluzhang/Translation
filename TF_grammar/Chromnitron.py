@@ -359,6 +359,8 @@ cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
 nohup python train.py > train_20260608_ws_10.log &     # 625621  GPU:3
 nohup python train_2.py > train_20260608_ws_20.log &   # 625621  GPU:2
+nohup python train.py > train_20260608_ws_30.log &     # 2092467
+nohup python train_2.py > train_20260608_ws_40.log &   # 2104512
 
 
 #####################################################################################
