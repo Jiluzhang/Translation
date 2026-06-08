@@ -356,14 +356,17 @@ cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
 
 nohup python train.py > train_20260525.log &   # 2160003
 
+# /fs/home/jiluzhang/TF_grammar/Chromnitron/Chromnitron-main/chromnitron/chromnitron_data/chromnitron_dataset.py
+# line 19: sample_size = 10
+
+
+
 #####################################################################################
 #####################################################################################
 #####################################################################################
 #####################################################################################
 #####################################################################################
 
-# /fs/home/jiluzhang/TF_grammar/Chromnitron/Chromnitron-main/chromnitron/chromnitron_data/chromnitron_dataset.py
-# line 19: sample_size = 10
 
 
 # scp -P 10022 u21509@logini.tongji.edu.cn:/share/home/u21509/workspace/wuang/04.tf_grammer/rawdata/chip_rename/HepG2/HNF4A.bed /fs/home/jiluzhang/TF_grammar/Chromnitron/HepG2
