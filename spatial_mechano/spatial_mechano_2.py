@@ -423,7 +423,73 @@ plot_ct_mechano_genes(ct=10)
 plot_ct_mechano_genes(ct=3)
 plot_ct_mechano_genes(ct=4)  # 1 is near 10; 3 is near 4 in the UMAP plot
 
+plot_ct_mechano_genes(ct=2)
+plot_ct_mechano_genes(ct=7)
 
 
+## Gene Expression Graph-based clustering
+# 1 near 10; 3 near 4; 2 near 7
+# cluster_1:BICDL2,MYO15B,LTO1,ATP6V1B1,C3orf52,SLC29A2,AP1G2,KIF12,NFKBIZ,TFCP2L1
+# cluster_2:MSMB,PKIB,TFF3,SERPINA1,NQO1,CHAD,BRMS1,EVA1B,TFF1,ALCAM
+# cluster_3:ADAM33,ABCA6,ABCA10,ABCA9,THBS2,FGF7,PLEKHH2,SPPX,CXCL12,C1S
+# cluster_4:SFRP4,C3,SRPX,OGN,MFAP4,MMP2,C1S,CXCL12,LUM,THBS2
+# cluster_5:BTNL9,VWF,PLVAP,SHANK3,ARHGEF15,HOXD9,CDH5,MMRN2,KDR,CD36
+# cluster_6:GABRP,PROM1,KRT15,CCL28,SCGB2A2,KIT,KRT17,SYNM,EHF,ELF5
+# cluster_7:MSMB,PKIB,GLRA3,TFF3,TFCP2L1,ALCAM,FKBP5,ANO1,CHAD,ABHD2
+# cluster_10:CHAD,GLRA3,TFCP2L1,PLAT,C3orf52,MSMB,AGR3,CA12,ATP6V1B1,ABHD2
+
+# cluster_1: NA
+# cluster_2: Epithelial cell
+# cluster_3: Fibroblast
+# cluster_4: Fibroblast
+# cluster_5: Epithelial cell
+# cluster_6: Progenitor cell
+# cluster_7: Epithelial cell
+# cluster_10: NA
 
 
+def out_ct_mechano_genes(ct=1):
+    adata_ct = adata[(adata.obs['clusters']==ct) & (adata.obs['cell_area']<1000)].copy()
+    adata_ct.obs['big_or_sma']= 'no'
+    adata_ct.obs.loc[adata_ct.obs['cell_area']<adata_ct.obs['cell_area'].quantile(0.2), 'big_or_sma'] = 'sma'
+    adata_ct.obs.loc[adata_ct.obs['cell_area']>adata_ct.obs['cell_area'].quantile(0.8), 'big_or_sma'] = 'big'
+    adata_ct = adata_ct[adata_ct.obs['big_or_sma']!='no'].copy()
+    sc.tl.rank_genes_groups(adata_ct, 'big_or_sma')
+    result = adata_ct.uns["rank_genes_groups"]
+    groups = result["names"].dtype.names
+    adata_ct_res = pd.DataFrame({group + '_' + key: result[key][group] for group in groups for key in ['names', 'pvals_adj', 'logfoldchanges']})
+    adata_ct_res.sort_values('sma_logfoldchanges', ascending=False).head(200)['sma_names'].to_csv('ct_'+str(ct)+'_sma_genes.txt', index=False, header=False)
+    adata_ct_res.sort_values('big_logfoldchanges', ascending=False).head(200)['big_names'].to_csv('ct_'+str(ct)+'_big_genes.txt', index=False, header=False)
+
+out_ct_mechano_genes(ct=2)
+out_ct_mechano_genes(ct=3)
+out_ct_mechano_genes(ct=4)
+out_ct_mechano_genes(ct=7)
+
+
+#### GO enrichment analysis for DEGs
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(ggplot2)
+
+plot_go <- function(ct='2_big'){
+    ct_genes <- read.table(paste0('ct_', ct, '_genes.txt'))[, 1]
+    ct_ego <- enrichGO(gene=ct_genes, OrgDb=org.Hs.eg.db, keyType='SYMBOL', ont='CC',
+                       pAdjustMethod='BH', qvalueCutoff=0.1, readable=TRUE)
+    if (substr(ct, 3, nchar(ct))=='big'){
+        p <- barplot(ct_ego, showCategory=10) + scale_fill_gradient(low='#2166AC', high='#DCEAF4')  # lightblue -> darkblue
+    }else{
+        p <- barplot(ct_ego, showCategory=10) + scale_fill_gradient(low='#B2182B', high='#FDD0D0')  # lightred -> darkred
+    }
+    ggsave(filename=paste0('ct_', ct, '_genes_go.pdf'), p)
+    write.csv(as.data.frame(ct_ego), file=paste0('ct_', ct, '_ego.csv'))
+}
+
+plot_go(ct='2_big')
+plot_go(ct='2_sma')
+plot_go(ct='3_big')
+plot_go(ct='3_sma')
+plot_go(ct='4_big')
+plot_go(ct='4_sma')
+plot_go(ct='7_big')
+plot_go(ct='7_sma')
