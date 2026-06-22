@@ -365,6 +365,26 @@ nohup python train.py > train_20260608_ws_50.log &     # 3980818
 nohup python train_2.py > train_20260608_ws_75.log &   # 3983493
 
 
+awk '{if($1=="chr1" && $4==1) print$0}' Footprint_CTCF_0.9.bed | head -n 500 >> CTCF_bind_not_bind_train_raw.bed
+awk '{if($1=="chr1" && $4==0) print$0}' Footprint_CTCF_0.9.bed | head -n 500 >> CTCF_bind_not_bind_train_raw.bed 
+shuf CTCF_bind_not_bind_train_raw.bed > CTCF_bind_not_bind_train.bed
+rm CTCF_bind_not_bind_train_raw.bed  
+
+awk '{if($1=="chr2") print$0}' Footprint_CTCF_0.9.bed | shuf | head -n 1000 >> CTCF_bind_not_bind_test.bed  
+
+cut -f 1-3 CTCF_bind_not_bind_train.bed > locus_train.bed
+cut -f 1-3 CTCF_bind_not_bind_test.bed > locus_test.bed
+cut -f 4 CTCF_bind_not_bind_train.bed > binding_train.txt
+cut -f 4 CTCF_bind_not_bind_test.bed > binding_test.txt
+
+
+
+
+# chromnitron_blocks.py (input_channels=484 -> 32)  line 132
+# chromnitron_models.py (hidden=384 -> 32)          line 6
+
+nohup python train.py > train_20260622.log &   # 2947908
+ 
 #####################################################################################
 #####################################################################################
 #####################################################################################
