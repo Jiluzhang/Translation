@@ -495,7 +495,7 @@ plot_go(ct='7_big')
 plot_go(ct='7_sma')
 
 
-
+## Xenium 5k dataset: https://zhuanlan.zhihu.com/p/2002760058803601966
 ## plot cell boundaries from parquet file
 import pandas as pd
 import matplotlib.pyplot as plt
