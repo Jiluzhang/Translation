@@ -493,3 +493,63 @@ plot_go(ct='4_big')
 plot_go(ct='4_sma')
 plot_go(ct='7_big')
 plot_go(ct='7_sma')
+
+
+
+## plot cell boundaries from parquet file
+import pandas as pd
+import matplotlib.pyplot as plt
+from shapely.geometry import Polygon
+from matplotlib.patches import Polygon as MplPolygon
+
+# --- 假设你已经通过之前的方法得到了一个包含多边形的 Series ---
+boundaries = pd.read_parquet('cell_boundaries.parquet')
+polygons = boundaries.groupby('cell_id').apply(
+    lambda g: Polygon(g[['vertex_x', 'vertex_y']].values)
+)
+
+# --- 绘制到图片 ---
+fig, ax = plt.subplots(figsize=(10, 10))
+
+for cell_id, poly in polygons.items():
+    # 如果多边形有外环和内环(孔洞)，需要分开处理
+    # 画外环
+    x, y = poly.exterior.xy
+    ax.fill(x, y, alpha=0.5, edgecolor='black', linewidth=0.3)
+    # 如果有内环（孔洞），用白色填充挖空
+    for interior in poly.interiors:
+        xi, yi = interior.xy
+        ax.fill(xi, yi, color='white', edgecolor='black', linewidth=0.3)
+
+ax.set_aspect('equal')  # 关键：保证 x/y 轴比例一致，细胞不变形
+ax.invert_yaxis()       # 图像坐标系通常 y 轴朝下，按需开启
+plt.savefig('cell_boundaries.pdf', dpi=600, bbox_inches='tight')
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
