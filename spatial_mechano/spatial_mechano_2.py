@@ -495,7 +495,15 @@ plot_go(ct='7_big')
 plot_go(ct='7_sma')
 
 
-## Xenium 5k dataset: https://zhuanlan.zhihu.com/p/2002760058803601966
+## Xenium 5k dataset: https://www.10xgenomics.com/cn/datasets?sort=publishedAt+DESC&tag%5BplatformName%5D=Xenium
+## Xenium 5k paper: https://zhuanlan.zhihu.com/p/2002760058803601966
+
+## Fresh Frozen Human Ovarian Adenocarcinoma with 5K Human Pan Tissue and Pathways Panel
+# wget -c https://s3-us-west-2.amazonaws.com/10x.files/samples/xenium/3.0.0/Xenium_Prime_Human_Ovary_FF/Xenium_Prime_Human_Ovary_FF_outs.zip  # 134 GB
+
+## Fresh Frozen Mouse Brain Hemisphere with 5K Mouse Pan Tissue and Pathways Panel
+# wget -c https://cf.10xgenomics.com/samples/xenium/3.0.0/Xenium_Prime_Mouse_Brain_Coronal_FF/Xenium_Prime_Mouse_Brain_Coronal_FF_outs.zip  # 13.3 GB
+
 ## plot cell boundaries from parquet file
 import pandas as pd
 import matplotlib.pyplot as plt
