@@ -504,35 +504,33 @@ plot_go(ct='7_sma')
 ## Fresh Frozen Mouse Brain Hemisphere with 5K Mouse Pan Tissue and Pathways Panel
 # wget -c https://cf.10xgenomics.com/samples/xenium/3.0.0/Xenium_Prime_Mouse_Brain_Coronal_FF/Xenium_Prime_Mouse_Brain_Coronal_FF_outs.zip  # 13.3 GB
 
+# morphology_focus_0000.ome.tif: DAPI image
+# morphology_focus_0001.ome.tif: boundary (ATP1A1/E-Cadherin/CD45) image
+# morphology_focus_0002.ome.tif: interior - RNA (18S) image
+# morphology_focus_0003.ome.tif: interior - protein (alphaSMA/Vimentin) image
+
 ## plot cell boundaries from parquet file
 import pandas as pd
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
-from matplotlib.patches import Polygon as MplPolygon
 
-# --- 假设你已经通过之前的方法得到了一个包含多边形的 Series ---
 boundaries = pd.read_parquet('cell_boundaries.parquet')
-polygons = boundaries.groupby('cell_id').apply(
-    lambda g: Polygon(g[['vertex_x', 'vertex_y']].values)
-)
+polygons = boundaries.groupby('cell_id').apply(lambda g: Polygon(g[['vertex_x', 'vertex_y']].values))
 
-# --- 绘制到图片 ---
 fig, ax = plt.subplots(figsize=(10, 10))
 
 for cell_id, poly in polygons.items():
-    # 如果多边形有外环和内环(孔洞)，需要分开处理
-    # 画外环
+    ## outer ring
     x, y = poly.exterior.xy
     ax.fill(x, y, alpha=0.5, edgecolor='black', linewidth=0.3)
-    # 如果有内环（孔洞），用白色填充挖空
+    ## inner ring
     for interior in poly.interiors:
         xi, yi = interior.xy
         ax.fill(xi, yi, color='white', edgecolor='black', linewidth=0.3)
 
-ax.set_aspect('equal')  # 关键：保证 x/y 轴比例一致，细胞不变形
-ax.invert_yaxis()       # 图像坐标系通常 y 轴朝下，按需开启
+ax.set_aspect('equal')
+ax.invert_yaxis()
 plt.savefig('cell_boundaries.pdf', dpi=600, bbox_inches='tight')
-plt.show()
 
 
 
