@@ -533,13 +533,48 @@ ax.invert_yaxis()
 plt.savefig('cell_boundaries.pdf', dpi=600, bbox_inches='tight')
 
 
+#### atac -> rna (gene activity)
+#### workdir: /fs/home/jiluzhang/spatial_mechano/pipeline_3/scMultiome
+import scanpy as sc
+import snapatac2 as snap
+import pandas as pd
+
+## add info to obs
+atac_raw = sc.read_h5ad('Donors_atac.h5ad')
+atac_raw.obs['barcode'] = atac_raw.obs.index
+atac_raw.write('Donors_atac_snap.h5ad')
+
+## extract uns['reference_sequences'] from pbmc dataset
+fragment_file = snap.datasets.pbmc500()
+data = snap.pp.import_data(fragment_file, genome=snap.genome.hg38, file="pbmc.h5ad", sorted_by_barcode=False)
+# data = snap.read('pbmc.h5ad')
+
+## calculate gene activity
+atac = snap.read('Donors_atac_snap.h5ad')
+atac.uns['reference_sequences'] = data.uns['reference_sequences']
+gene_matrix = snap.pp.make_gene_matrix(atac, snap.genome.hg38, use_x=True)
+
+## output gex file
+df = pd.DataFrame(gene_matrix.X.toarray().T)
+df.index = gene_matrix.var.index.values
+df.index.name = 'GENES'
+df.columns = gene_matrix.obs.index.values
+
+ma = pd.read_table('scrna_ct.tsv') 
+df.loc[:, ma['Cell IDs'].values].to_csv('scrna_gex_from_atac.tsv', sep='\t')  # select cells with annotations
 
 
-
-
-
-
-
+# scATAC cells: 10,727  &  st cells: 72,963
+cytospace --single-cell \
+          --scRNA-path ./scMultiome/scrna_gex_from_atac.tsv \
+          --cell-type-path ./scMultiome/scrna_ct_aligned.tsv \
+          --st-path ./Merfish/st_gex.tsv \
+          --coordinates-path ./Merfish/st_pos.tsv \
+          --st-cell-type-path ./Merfish/st_ct_aligned.tsv \
+          --output-folder cytospace_results_crc_from_atac \
+          --solver-method lap_CSPR \
+          --number-of-selected-sub-spots 10000 \
+          --number-of-processors 8   # ~20 min
 
 
 
