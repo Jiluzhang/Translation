@@ -564,7 +564,7 @@ ma = pd.read_table('scrna_ct.tsv')
 df.loc[:, ma['Cell IDs'].values].to_csv('scrna_gex_from_atac.tsv', sep='\t')  # select cells with annotations
 
 
-# scATAC cells: 10,727  &  st cells: 72,963
+#### scATAC cells: 10,727  &  st cells: 72,963
 cytospace --single-cell \
           --scRNA-path ./scMultiome/scrna_gex_from_atac.tsv \
           --cell-type-path ./scMultiome/scrna_ct_aligned.tsv \
@@ -576,21 +576,18 @@ cytospace --single-cell \
           --number-of-selected-sub-spots 10000 \
           --number-of-processors 8   # ~20 min
 
+#### compare scRNA_to_spatial and scATAC_to_spatial
+import pandas as pd
 
+rna_to_st = pd.read_csv('cytospace_results_crc/assigned_locations.csv')
+rna = rna_to_st[['SpotID', 'OriginalCID', 'CellType']]
+rna.columns = ['SpotID', 'rna_OriginalCID', 'rna_CellType']
 
+atac_to_st = pd.read_csv('cytospace_results_crc_from_atac/assigned_locations.csv')
+atac = atac_to_st[['SpotID', 'OriginalCID', 'CellType']]
+atac.columns = ['SpotID', 'atac_OriginalCID', 'atac_CellType']
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+rna_atac = pd.merge(rna, atac, on='SpotID')                         # 72962
+(rna_atac['rna_OriginalCID']==rna_atac['atac_OriginalCID']).sum()   # 130
+(rna_atac['rna_CellType']==rna_atac['atac_CellType']).sum()         # 72962
+# 130/72962=0.001781749403799238
